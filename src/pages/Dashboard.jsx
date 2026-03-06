@@ -626,29 +626,46 @@ export default function Dashboard() {
                   label={{ value: g.name, position: 'top', fill: '#b8960a', fontSize: 9 }} />
               ))}
               {/* Income event start/end boundaries */}
-              {allIncomeEvents.flatMap((e, i) => {
-                const lines = [];
-                const startMonth = e.startDate?.slice(0, 7);
-                const endMonth   = e.endDate?.slice(0, 7);
-                const txt = (e.label || 'Event').length > 12 ? (e.label || 'Event').slice(0, 11) + '…' : (e.label || 'Event');
-                if (startMonth) lines.push(
-                  <ReferenceLine key={`evs-${i}`} x={startMonth}
-                    stroke="#FF9F0A" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3"
-                    label={({ viewBox }) => {
-                      const { x, y } = viewBox;
-                      return <text x={x + 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="start">⚑ {txt}</text>;
-                    }} />
-                );
-                if (endMonth) lines.push(
-                  <ReferenceLine key={`eve-${i}`} x={endMonth}
-                    stroke="#FF9F0A" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 4"
-                    label={({ viewBox }) => {
-                      const { x, y } = viewBox;
-                      return <text x={x - 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="end">{txt} ends</text>;
-                    }} />
-                );
-                return lines;
-              })}
+              {(() => {
+                const startCount = {}; const endCount = {};
+                allIncomeEvents.forEach(e => {
+                  const s = e.startDate?.slice(0, 7); const en = e.endDate?.slice(0, 7);
+                  if (s)  startCount[s]  = (startCount[s]  || 0) + 1;
+                  if (en) endCount[en]   = (endCount[en]   || 0) + 1;
+                });
+                const startSeen = {}; const endSeen = {};
+                return allIncomeEvents.flatMap((e, i) => {
+                  const lines = [];
+                  const startMonth = e.startDate?.slice(0, 7);
+                  const endMonth   = e.endDate?.slice(0, 7);
+                  const txt = (e.label || 'Event').length > 12 ? (e.label || 'Event').slice(0, 11) + '…' : (e.label || 'Event');
+                  if (startMonth) {
+                    const slot = startSeen[startMonth] || 0;
+                    startSeen[startMonth] = slot + 1;
+                    lines.push(
+                      <ReferenceLine key={`evs-${i}`} x={startMonth}
+                        stroke="#FF9F0A" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3"
+                        label={({ viewBox }) => {
+                          const { x, y } = viewBox;
+                          return <text x={x + 4} y={y + 12 + slot * 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="start">⚑ {txt}</text>;
+                        }} />
+                    );
+                  }
+                  if (endMonth) {
+                    const slot = endSeen[endMonth] || 0;
+                    endSeen[endMonth] = slot + 1;
+                    lines.push(
+                      <ReferenceLine key={`eve-${i}`} x={endMonth}
+                        stroke="#FF9F0A" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 4"
+                        label={({ viewBox }) => {
+                          const { x, y } = viewBox;
+                          return <text x={x - 4} y={y + 12 + slot * 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="end">{txt} ends</text>;
+                        }} />
+                    );
+                  }
+                  return lines;
+                });
+              })()}
               <Area type="monotone" dataKey="balance"
                 stroke="#0071E3" strokeWidth={2} fill="url(#balGrad)"
                 dot={false} activeDot={{ r: 4, fill: '#0071E3', strokeWidth: 0 }} />

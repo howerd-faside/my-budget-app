@@ -25,6 +25,8 @@ export const EXPENSE_GROUPS = [
     cats: ['Subscriptions', 'Entertainment', 'Clothing', 'Holidays & Travel', 'Personal Care', 'Hobbies'] },
   { id: 'finance',   label: 'Finance',      icon: '💳', color: '#8B5CF6',
     cats: ['Personal Loan', 'Hire Purchase', 'Bank Fees', 'Credit Card Interest'] },
+  { id: 'personal',  label: 'Personal',     icon: '💳', color: '#30d158',
+    cats: ['Spending Money'] },
   { id: 'other',     label: 'Other',        icon: '📦', color: '#707090',
     cats: ['Other'] },
 ];

@@ -22,6 +22,13 @@ const defaults = {
   accounts:        DEFAULT_ACCOUNTS,
   transfers:       [],   // { id, date, fromId, toId, amount, note }
   assetIncomes:    [],   // { id, name, type, amount, frequency, notes }
+  // ── Property Management ─────────────────────────────────────────────────
+  properties:         [],   // { id, name, type, address, ... }
+  propertyTasks:      [],   // { id, propertyId, title, ... }
+  propertyMaintenance:[],   // { id, propertyId, date, title, ... }
+  propertyProjects:   [],   // { id, propertyId, title, status, ... }
+  propertyAssets:     [],   // { id, propertyId, name, type, ... }
+  selectedPropertyId: null, // currently viewed property
 };
 
 function migrate(saved) {
@@ -36,10 +43,16 @@ function migrate(saved) {
       i === 0 ? { ...a, balance: saved.settings.currentBalance } : a
     );
   }
-  if (!saved.transfers)    saved.transfers    = [];
-  if (!saved.assetIncomes) saved.assetIncomes = [];
-  if (!saved.goals)        saved.goals        = [];
-  if (!saved.wishlist)     saved.wishlist     = [];
+  if (!saved.transfers)          saved.transfers          = [];
+  if (!saved.assetIncomes)       saved.assetIncomes       = [];
+  if (!saved.goals)              saved.goals              = [];
+  if (!saved.wishlist)           saved.wishlist           = [];
+  if (!saved.properties)         saved.properties         = [];
+  if (!saved.propertyTasks)      saved.propertyTasks      = [];
+  if (!saved.propertyMaintenance)saved.propertyMaintenance= [];
+  if (!saved.propertyProjects)   saved.propertyProjects   = [];
+  if (!saved.propertyAssets)     saved.propertyAssets     = [];
+  if (!('selectedPropertyId' in saved)) saved.selectedPropertyId = null;
   // Ensure incomeEvents + employmentHistory on each person
   if (saved.people) {
     saved.people = saved.people.map(p => ({
@@ -47,6 +60,12 @@ function migrate(saved) {
       incomeEvents:       p.incomeEvents       || [],
       employmentHistory:  p.employmentHistory  || [],
     }));
+  }
+  // Backfill startDate on expenses that don't have one
+  if (saved.expenses) {
+    saved.expenses = saved.expenses.map(e =>
+      e.startDate ? e : { ...e, startDate: '2025-11-10' }
+    );
   }
   return saved;
 }
@@ -189,7 +208,13 @@ export function getPersonIncomeAt(person, date) {
   if (activeRoles.length > 0)
     return { grossAnnual: +activeRoles[0].grossAnnual, eventLabel: null, employer: activeRoles[0].employer || null };
 
-  // 3. Fallback — base grossAnnual (covers dates before any recorded history)
+  // 3. Fallback — if employment history exists but date is before any role started, income = 0
+  const allRoles = person.employmentHistory || [];
+  if (allRoles.length > 0) {
+    const dateStr       = d.toISOString().slice(0, 10);
+    const earliestStart = allRoles.reduce((min, r) => r.startDate && r.startDate < min ? r.startDate : min, '9999-99-99');
+    if (dateStr < earliestStart) return { grossAnnual: 0, eventLabel: null, employer: null };
+  }
   return { grossAnnual: person.grossAnnual, eventLabel: null, employer: null };
 }
 
@@ -218,6 +243,24 @@ export function calcFortnightlyAssetIncome(assetIncomes) {
 
 export function calcFortnightlyExpenses(expenses) {
   return (expenses || []).reduce((sum, e) => {
+    const a = e.amount || 0;
+    if (e.frequency === 'fortnightly') return sum + a;
+    if (e.frequency === 'weekly')      return sum + a * 2;
+    if (e.frequency === 'monthly')     return sum + (a * 12) / 26;
+    if (e.frequency === 'annual')      return sum + a / 26;
+    if (e.frequency === 'quarterly')   return sum + (a * 4) / 26;
+    return sum;
+  }, 0);
+}
+
+/**
+ * Date-aware version — skips expenses that haven't started yet at the given date.
+ */
+export function calcFortnightlyExpensesAt(expenses, date) {
+  const dateStr = typeof date === 'string' ? date : date.toISOString().slice(0, 10);
+  return (expenses || []).reduce((sum, e) => {
+    if (e.startDate && e.startDate > dateStr) return sum; // not yet started
+    if (e.endDate   && e.endDate   < dateStr) return sum; // already ended
     const a = e.amount || 0;
     if (e.frequency === 'fortnightly') return sum + a;
     if (e.frequency === 'weekly')      return sum + a * 2;

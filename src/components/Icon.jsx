@@ -24,6 +24,15 @@ const PATHS = {
   'arrow-down': 'M8 3v10M3.5 8.5L8 13l4.5-4.5',
   wallet:    'M2 5a1 1 0 011-1h11a1 1 0 011 1v7a1 1 0 01-1 1H3a1 1 0 01-1-1V5zM11 9a1 1 0 100-2 1 1 0 000 2z',
   mortgage:  'M2 14V8.5L8 3l6 5.5V14M5 14v-5h6v5',
+  building:  'M2 14V5l6-3 6 3v9M5 14V9h6v5M8 6v2',
+  tool:      'M11.5 2.5l-2 2 1 1-5 5-1-1-2 2 2.5 2.5 2-2-1-1 5-5 1 1 2-2L11.5 2.5zM5 11l-3 3',
+  clipboard: 'M5 2h6v2H5V2zM3 3h2v1h6V3h2a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1V4a1 1 0 011-1zM5 7h6M5 10h4',
+  layers:    'M8 2L2 5.5l6 3.5 6-3.5L8 2zM2 9l6 3.5L14 9M2 12.5l6 3.5 6-3.5',
+  tag:       'M2 2h6l6 6-6 6-6-6V2zM5 5.5a0.5 0.5 0 110-1 0.5 0.5 0 010 1z',
+  alertcir:  'M8 2a6 6 0 100 12A6 6 0 008 2zM8 5v4M8 10.5v.5',
+  wrench:    'M12.5 2.5c.5 1.5 0 3-1 4L5 13a1.41 1.41 0 01-2-2l6.5-6.5c1-1 2.5-1.5 4-1z',
+  filter:    'M2 3h12M4 8h8M6 13h4',
+  sortaz:    'M3 5h6M3 8h4M3 11h2M12 2v10M9.5 9.5l2.5 2.5 2.5-2.5',
 };
 
 export default function Icon({ name, size = 14, strokeWidth = 1.5 }) {

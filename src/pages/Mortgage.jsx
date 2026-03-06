@@ -291,10 +291,6 @@ export default function Mortgage() {
   if (loanExpenses.length === 0) {
     return (
       <div className="page-content">
-        <div className="page-header">
-          <div>
-          </div>
-        </div>
         <div className="empty-state">
           <div className="es-icon">🏠</div>
           <div className="es-text">No loans set up yet — add a loan expense with facilities in the Expenses tab</div>
@@ -305,14 +301,6 @@ export default function Mortgage() {
 
   return (
     <div className="page-content">
-      <div className="page-header">
-        <div>
-        </div>
-        <span className="text3" style={{ fontSize: 12, alignSelf: 'center' }}>
-          {loanExpenses.length} loan{loanExpenses.length !== 1 ? 's' : ''} · {allFacilities.length} facilit{allFacilities.length !== 1 ? 'ies' : 'y'}
-        </span>
-      </div>
-
       {/* ── Current Position ─────────────────────────────────────────────── */}
       <div className="dash-section">
         <div className="section-header">

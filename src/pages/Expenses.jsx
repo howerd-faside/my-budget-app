@@ -7,6 +7,7 @@ import Icon from '../components/Icon';
 const FREQUENCIES   = ['weekly', 'fortnightly', 'monthly', 'quarterly', 'annual'];
 const PAYMENT_TYPES = ['Direct Debit', 'Credit Card', 'Bank Transfer', 'Auto-Pay', 'Cash'];
 const DD_DAYS       = Array.from({ length: 28 }, (_, i) => i + 1);
+const TODAY_STR     = new Date().toISOString().slice(0, 10);
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -17,6 +18,8 @@ const EMPTY = {
   paymentMethod: 'Direct Debit', ddDay: '',
   lender: '', facilities: [],
   notes: '', history: [],
+  startDate: '', endDate: '',
+  forPerson: '',
 };
 
 const EMPTY_FACILITY = {
@@ -62,7 +65,7 @@ function normalizeLegacyExpense(e) {
   if (e.type === 'fixed' || e.type === 'variable') {
     return { ...e, subtype: e.type, type: 'standard' };
   }
-  return { ...e, subtype: e.subtype ?? 'fixed', type: e.type ?? 'standard', facilities: e.facilities ?? [] };
+  return { ...e, subtype: e.subtype ?? 'fixed', type: e.type ?? 'standard', facilities: e.facilities ?? [], forPerson: e.forPerson ?? '' };
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -72,16 +75,29 @@ export default function Expenses() {
   const [form, setForm]                   = useState(EMPTY);
   const [expandedRows, setExpandedRows]   = useState(new Set());
   const [filterGroup, setFilterGroup]     = useState('All');
+  const [archiveOpen, setArchiveOpen]     = useState(false);
 
   const expenses = useMemo(() => state.expenses.map(normalizeLegacyExpense), [state.expenses]);
-  const totalFn  = calcFortnightlyExpenses(expenses);
 
-  // Per-category fortnightly totals
+  // Split active vs archived based on endDate
+  const activeExpenses = useMemo(
+    () => expenses.filter(e => !e.endDate || e.endDate >= TODAY_STR),
+    [expenses]
+  );
+  const archivedExpenses = useMemo(
+    () => [...expenses.filter(e => e.endDate && e.endDate < TODAY_STR)]
+           .sort((a, b) => b.endDate.localeCompare(a.endDate)),
+    [expenses]
+  );
+
+  const totalFn  = calcFortnightlyExpenses(activeExpenses);
+
+  // Per-category fortnightly totals (active only)
   const catTotals = useMemo(() => {
     const t = {};
-    expenses.forEach(e => { t[e.category] = (t[e.category] || 0) + toFn(e); });
+    activeExpenses.forEach(e => { t[e.category] = (t[e.category] || 0) + toFn(e); });
     return t;
-  }, [expenses]);
+  }, [activeExpenses]);
 
   // Per-group totals (legacy/unknown categories bucketed into 'other')
   const groupTotals = useMemo(() => {
@@ -95,26 +111,25 @@ export default function Expenses() {
     return t;
   }, [catTotals]);
 
-  // Filtered expenses by group
+  // Filtered expenses by group (active only)
   const filtered = useMemo(() => {
-    if (filterGroup === 'All') return expenses;
+    if (filterGroup === 'All') return activeExpenses;
     const g = EXPENSE_GROUPS.find(g => g.id === filterGroup);
-    if (!g) return expenses;
-    return expenses.filter(e => g.cats.includes(e.category));
-  }, [expenses, filterGroup]);
+    if (!g) return activeExpenses;
+    return activeExpenses.filter(e => g.cats.includes(e.category));
+  }, [activeExpenses, filterGroup]);
 
-  // Expenses organised by group for grouped rendering
+  // Expenses organised by group for grouped rendering (active only)
   const groupedFiltered = useMemo(() => {
     if (filterGroup !== 'All') return null; // flat list when filtered
     return EXPENSE_GROUPS.map(g => ({
       ...g,
-      items: expenses.filter(e => g.cats.includes(e.category)),
+      items: activeExpenses.filter(e => g.cats.includes(e.category)),
     })).filter(g => g.items.length > 0);
-  }, [expenses, filterGroup]);
+  }, [activeExpenses, filterGroup]);
 
   // ── Row expand ─────────────────────────────────────────────────────────
   const toggleRow = (id, e) => {
-    // Don't expand when clicking action buttons
     if (e.target.closest('button')) return;
     setExpandedRows(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
@@ -161,31 +176,49 @@ export default function Expenses() {
   const previewFn = form.type === 'loan' ? facilitiesTotalFn(form.facilities) : toFn(form);
 
   // ── Render helpers ──────────────────────────────────────────────────────
-  const renderExpenseRow = (e) => {
-    const isLoan    = e.type === 'loan';
-    const isOpen    = expandedRows.has(e.id);
-    const fn        = toFn(e);
-    const catColor  = getCatColor(e.category);
+  const renderExpenseRow = (e, opts = {}) => {
+    const isLoan     = e.type === 'loan';
+    const isSpending = e.category === 'Spending Money';
+    const isOpen     = expandedRows.has(e.id);
+    const fn         = toFn(e);
+    const catColor   = isSpending ? '#30d158' : getCatColor(e.category);
+    const isArchived = opts.archived ?? false;
 
     return (
-      <div key={e.id} className={`expense-row ${isLoan ? 'loan-row' : ''} ${isOpen ? 'expanded' : ''}`}
+      <div key={e.id} className={`expense-row ${isLoan ? 'loan-row' : ''} ${isOpen ? 'expanded' : ''} ${isArchived ? 'archived-row' : ''}`}
         onClick={ev => toggleRow(e.id, ev)}>
         <div className="exp-cat-bar" style={{ background: catColor }} />
         <div className="exp-main">
           <div className="exp-top">
             <div className="exp-info">
               <span className="exp-name">
+                {isSpending && e.forPerson && (
+                  <span className="spending-avatar">{e.forPerson[0]?.toUpperCase()}</span>
+                )}
                 {e.name}
                 {isLoan && <span className="loan-badge">LOAN</span>}
+                {isArchived && <span className="loan-badge" style={{ background: 'var(--text3)' }}>ENDED</span>}
               </span>
               <span className="exp-tags">
-                <span className="tag">{e.category}</span>
-                {isLoan && e.lender && <span className="tag teal">{e.lender}</span>}
-                {isLoan && <span className="tag">{(e.facilities || []).length} split{(e.facilities || []).length !== 1 ? 's' : ''}</span>}
-                {!isLoan && <span className="tag">{e.frequency}</span>}
-                {!isLoan && e.paymentMethod && <span className="tag">{e.paymentMethod}</span>}
-                {!isLoan && e.ddDay && <span className="tag teal">DD day {e.ddDay}</span>}
-                {!isLoan && (e.subtype === 'variable' || e.type === 'variable') && <span className="tag amber">variable</span>}
+                {isSpending ? (
+                  <>
+                    {e.forPerson && <span className="tag green">{e.forPerson}</span>}
+                    <span className="tag green">Spending Money</span>
+                    <span className="tag">{e.frequency}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="tag">{e.category}</span>
+                    {isLoan && e.lender && <span className="tag teal">{e.lender}</span>}
+                    {isLoan && <span className="tag">{(e.facilities || []).length} split{(e.facilities || []).length !== 1 ? 's' : ''}</span>}
+                    {!isLoan && <span className="tag">{e.frequency}</span>}
+                    {!isLoan && e.paymentMethod && <span className="tag">{e.paymentMethod}</span>}
+                    {!isLoan && e.ddDay && <span className="tag teal">DD day {e.ddDay}</span>}
+                    {!isLoan && (e.subtype === 'variable' || e.type === 'variable') && <span className="tag amber">variable</span>}
+                  </>
+                )}
+                {e.startDate && <span className="tag">from {e.startDate.slice(0, 7)}</span>}
+                {e.endDate && <span className="tag">until {e.endDate.slice(0, 7)}</span>}
               </span>
             </div>
             <div className="exp-right">
@@ -219,7 +252,7 @@ export default function Expenses() {
               {/* Standard expense details */}
               {!isLoan && (
                 <div className="exp-detail-grid">
-                  {e.paymentMethod && (
+                  {e.paymentMethod && !isSpending && (
                     <div className="edg-item">
                       <span className="edg-label">Payment</span>
                       <span className="edg-val">{e.paymentMethod}{e.ddDay ? ` — day ${e.ddDay}` : ''}</span>
@@ -253,7 +286,7 @@ export default function Expenses() {
                               {f.balance ? `$${Number(f.balance).toLocaleString('en-NZ')} ` : ''}
                               {f.rate ? `@ ${f.rate}% p.a.` : ''}
                               {f.rateType === 'fixed' && f.fixedTermExpiry ? ` · fixed to ${f.fixedTermExpiry}` : ''}
-                              {status === 'expired' ? ' · ⚠ expired' : status === 'soon' ? ' · ⚠ expiring soon' : ''}
+                              {status === 'expired' ? ' · expired' : status === 'soon' ? ' · expiring soon' : ''}
                               {` · ${f.repaymentType}`}
                             </span>
                           </div>
@@ -299,7 +332,7 @@ export default function Expenses() {
 
   return (
     <div className="page-content">
-      {expenses.length > 0 && (
+      {activeExpenses.length > 0 && (
         <div className="dash-section">
           <div className="section-header">
             <h3>Spending Breakdown</h3>
@@ -358,7 +391,7 @@ export default function Expenses() {
       )}
 
       {/* Group filter tabs */}
-      {expenses.length > 0 && (
+      {activeExpenses.length > 0 && (
         <div className="filter-tabs">
           <button className={`filter-tab ${filterGroup === 'All' ? 'active' : ''}`}
             onClick={() => setFilterGroup('All')}>All</button>
@@ -389,14 +422,14 @@ export default function Expenses() {
                 </span>
               </div>
               <div className="egc-items">
-                {g.items.map(renderExpenseRow)}
+                {g.items.map(e => renderExpenseRow(e))}
               </div>
             </div>
           ))}
         </div>
       ) : (
         <div className="expense-list">
-          {filtered.map(renderExpenseRow)}
+          {filtered.map(e => renderExpenseRow(e))}
         </div>
       )}
 
@@ -405,6 +438,37 @@ export default function Expenses() {
           <div className="es-icon">💸</div>
           <div className="es-text">No expenses yet — add bills, loans and regular costs</div>
           <button className="btn-primary" onClick={openNew}>Add your first expense</button>
+        </div>
+      )}
+
+      {/* ── ARCHIVED EXPENSES ── */}
+      {archivedExpenses.length > 0 && (
+        <div className="dash-section" style={{ marginTop: 16 }}>
+          <div className="section-header"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setArchiveOpen(o => !o)}>
+            <h3 style={{ color: 'var(--text3)', fontWeight: 500 }}>
+              Archived Expenses
+              <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 6 }}>· {archivedExpenses.length}</span>
+            </h3>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: archiveOpen ? 'rotate(180deg)' : '', transition: 'transform 0.2s', color: 'var(--text3)' }}>
+              <path d="M4 6l4 4 4-4"/>
+            </svg>
+          </div>
+          {archiveOpen && (
+            <div className="expense-list" style={{ opacity: 0.75 }}>
+              {archivedExpenses.map(e => renderExpenseRow(e, { archived: true }))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Add Expense button when empty ── */}
+      {expenses.length > 0 && activeExpenses.length === 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button className="btn-ghost small" onClick={openNew}>+ Add Expense</button>
         </div>
       )}
 
@@ -420,18 +484,65 @@ export default function Expenses() {
 
               {/* Expense type selector */}
               <div className="exp-type-sel">
-                <button className={`ets-btn ${form.type !== 'loan' ? 'active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, type: 'standard' }))}>
+                <button className={`ets-btn ${form.type === 'standard' ? 'active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, type: 'standard', category: f.category === 'Spending Money' ? 'Groceries' : f.category }))}>
                   Regular Expense
                 </button>
+                <button className={`ets-btn ${form.category === 'Spending Money' ? 'active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, type: 'standard', category: 'Spending Money', frequency: 'fortnightly', subtype: 'fixed', paymentMethod: 'Bank Transfer' }))}>
+                  Spending Money
+                </button>
                 <button className={`ets-btn ${form.type === 'loan' ? 'active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, type: 'loan', category: f.category === 'Groceries' ? 'Mortgage' : f.category }))}>
+                  onClick={() => setForm(f => ({ ...f, type: 'loan', category: f.category === 'Groceries' || f.category === 'Spending Money' ? 'Mortgage' : f.category }))}>
                   Loan / Mortgage
                 </button>
               </div>
 
+              {/* ── SPENDING MONEY ── */}
+              {form.category === 'Spending Money' && form.type !== 'loan' && (
+                <div className="form-grid">
+                  <div className="form-group full">
+                    <label>Label</label>
+                    <input className="input" placeholder="e.g. Billy's Spending Money" value={form.name}
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>For Person</label>
+                    <input className="input" placeholder="e.g. Billy" value={form.forPerson}
+                      onChange={e => setForm(f => ({ ...f, forPerson: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Amount ($)</label>
+                    <input className="input mono" type="number" step="0.01" placeholder="0.00" value={form.amount}
+                      onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Frequency</label>
+                    <select className="input" value={form.frequency}
+                      onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))}>
+                      {FREQUENCIES.map(fr => <option key={fr}>{fr}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Start Date <span className="text3" style={{ fontWeight: 400 }}>(optional)</span></label>
+                    <input className="input" type="date" value={form.startDate || ''}
+                      onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>End Date <span className="text3" style={{ fontWeight: 400 }}>(optional)</span></label>
+                    <input className="input" type="date" value={form.endDate || ''}
+                      onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
+                  </div>
+                  <div className="form-group full">
+                    <label>Notes</label>
+                    <input className="input" placeholder="Optional details" value={form.notes}
+                      onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+                  </div>
+                </div>
+              )}
+
               {/* ── STANDARD EXPENSE ── */}
-              {form.type !== 'loan' && (
+              {form.type !== 'loan' && form.category !== 'Spending Money' && (
                 <div className="form-grid">
                   <div className="form-group full">
                     <label>Expense Name</label>
@@ -442,7 +553,7 @@ export default function Expenses() {
                     <label>Category</label>
                     <select className="input" value={form.category}
                       onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                      {EXPENSE_GROUPS.map(g => (
+                      {EXPENSE_GROUPS.filter(g => g.id !== 'personal').map(g => (
                         <optgroup key={g.id} label={`${g.icon} ${g.label}`}>
                           {g.cats.map(c => <option key={c}>{c}</option>)}
                         </optgroup>
@@ -488,6 +599,16 @@ export default function Expenses() {
                       </select>
                     </div>
                   )}
+                  <div className="form-group">
+                    <label>Start Date <span className="text3" style={{ fontWeight: 400 }}>(optional)</span></label>
+                    <input className="input" type="date" value={form.startDate || ''}
+                      onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>End Date <span className="text3" style={{ fontWeight: 400 }}>(optional)</span></label>
+                    <input className="input" type="date" value={form.endDate || ''}
+                      onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
+                  </div>
                   <div className="form-group full">
                     <label>Notes</label>
                     <input className="input" placeholder="Optional details" value={form.notes}
@@ -518,6 +639,16 @@ export default function Expenses() {
                       <label>Lender</label>
                       <input className="input" placeholder="e.g. ANZ, ASB, Kiwibank" value={form.lender}
                         onChange={e => setForm(f => ({ ...f, lender: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Start Date <span className="text3" style={{ fontWeight: 400 }}>(optional)</span></label>
+                      <input className="input" type="date" value={form.startDate || ''}
+                        onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label>End Date <span className="text3" style={{ fontWeight: 400 }}>(optional)</span></label>
+                      <input className="input" type="date" value={form.endDate || ''}
+                        onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
                     </div>
                     <div className="form-group full">
                       <label>Notes</label>

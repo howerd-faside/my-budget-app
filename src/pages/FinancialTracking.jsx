@@ -1,21 +1,26 @@
 import { useState, useMemo } from 'react';
-import { useApp, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance, buildSavingsTrajectory } from '../store';
+import { useApp, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance, buildSavingsTrajectory } from '../store';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
 
-const EXPENSE_CATS = ADHOC_EXPENSE_CATS;
-const INCOME_CATS  = ['Bonus', 'Commission', 'Tax Refund', 'Side Income', 'Gift Received', 'Other Income'];
+const EXPENSE_CATS  = ADHOC_EXPENSE_CATS;
+const INCOME_CATS   = ['Bonus', 'Commission', 'Tax Refund', 'Side Income', 'Gift Received', 'Other Income'];
+const YEAR_WINDOW   = 7;
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
 export default function FinancialTracking() {
   const { state, updateFortnight: updFn } = useApp();
-  const [year, setYear]       = useState(new Date().getFullYear());
+  const thisYear = new Date().getFullYear();
+  const [year,         setYear]         = useState(thisYear);
+  const [windowStart,  setWindowStart]  = useState(thisYear);
+  const [yearAnimKey,  setYearAnimKey]  = useState(0);
+  const [yearSlideDir, setYearSlideDir] = useState(0);
   const [txModal, setTxModal] = useState(null);
-  const [txType, setTxType]   = useState('expense');  // 'expense' | 'income'
+  const [txType, setTxType]   = useState('expense');
   const [txForm, setTxForm]   = useState({ description: '', amount: '', category: 'Other', note: '' });
 
   const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
@@ -35,31 +40,40 @@ export default function FinancialTracking() {
   const yd = state.fortnightlyData[year] || { fortnights: {} };
 
   const fortnights = useMemo(() => {
-    const now = new Date();
+    const now        = new Date();
+    const thisYear   = now.getFullYear();
+    const isPast     = year < thisYear;
+
     const rows = Array.from({ length: 26 }, (_, i) => {
       const { start, end } = getFortnight(year, i);
-      const ftData = (yd.fortnights || {})[i] || { adhocTransactions: [] };
-      const adhoc  = (ftData.adhocTransactions || []).reduce((s, t) => s + (t.amount || 0), 0);
-      const midDate = new Date((start.getTime() + end.getTime()) / 2);
-      const fnIncomeAt = calcFortnightlyIncomeAt(state.people, midDate);
-      const actual = fnIncomeAt + fnAssetIncome - fnExpenses + adhoc;
-      return { i, start, end, adhoc, actual, fnIncomeAt, ftData, balance: 0 };
+      const ftData         = (yd.fortnights || {})[i] || { adhocTransactions: [] };
+      const adhoc          = (ftData.adhocTransactions || []).reduce((s, t) => s + (t.amount || 0), 0);
+      const midDate        = new Date((start.getTime() + end.getTime()) / 2);
+      // Date-aware income (events) and expenses (startDate) per fortnight
+      const fnIncomeAt     = calcFortnightlyIncomeAt(state.people, midDate);
+      const fnExpensesAt   = calcFortnightlyExpensesAt(state.expenses, midDate);
+      const actual         = fnIncomeAt + fnAssetIncome - fnExpensesAt + adhoc;
+      return { i, start, end, adhoc, actual, fnIncomeAt, fnExpensesAt, ftData, balance: 0 };
     });
 
-    // Anchor the current fortnight to today's real balance
-    const curIdx = year === now.getFullYear()
+    const curIdx = year === thisYear
       ? rows.findIndex(f => now >= f.start && now <= f.end)
       : -1;
 
     if (curIdx >= 0) {
+      // Current year: anchor to today's real balance, project out in both directions
       rows[curIdx].balance = startBal;
       for (let i = curIdx + 1; i < 26; i++)
         rows[i].balance = rows[i - 1].balance + rows[i].actual;
       for (let i = curIdx - 1; i >= 0; i--)
         rows[i].balance = rows[i + 1].balance - rows[i + 1].actual;
+    } else if (isPast) {
+      // Past years: start at 0 (relative baseline), accumulate date-aware income/expenses
+      rows[0].balance = rows[0].actual;
+      for (let i = 1; i < 26; i++)
+        rows[i].balance = rows[i - 1].balance + rows[i].actual;
     } else {
-      // Find the closing balance of the last trajectory fortnight before this year starts,
-      // so balances carry forward correctly from year to year.
+      // Future year: carry forward from trajectory projection
       const firstStart = rows[0].start.toISOString().slice(0, 10);
       let openBal = startBal;
       for (const p of trajectory) {
@@ -72,37 +86,65 @@ export default function FinancialTracking() {
     }
 
     return rows;
-  }, [year, yd, fnExpenses, startBal, state.people, trajectory]);
+  }, [year, yd, state.expenses, fnAssetIncome, startBal, state.people, trajectory]);
 
   const today        = new Date();
+  const isPastYear   = year < thisYear;
   const currentFnIdx = fortnights.findIndex(f => today >= f.start && today <= f.end);
   const yearAdhoc    = fortnights.reduce((s, f) => s + f.adhoc, 0);
   const yearTotal    = fortnights.reduce((s, f) => s + f.actual, 0);
   const closingBal   = fortnights[25]?.balance ?? 0;
-  const balDelta     = closingBal - startBal;
-  const years        = [2025, 2026, 2027, 2028, 2029, 2030];
+  // Past years: balance starts at 0 (not today's balance), so delta is just the adhoc sum
+  const balDelta     = isPastYear ? yearAdhoc : closingBal - startBal;
+  const windowYears  = Array.from({ length: YEAR_WINDOW }, (_, i) => windowStart + i);
+  const selectedIdx  = windowYears.indexOf(year);
+  const yearAnimClass = yearSlideDir > 0 ? 'anim-slide-right' : yearSlideDir < 0 ? 'anim-slide-left' : '';
 
-  // Sparkline data — clamp past negative balances to 0; add eventBalance for amber overlay
+  const changeYear = (newYear) => {
+    if (newYear === year) return;
+    setYearSlideDir(newYear > year ? 1 : -1);
+    setYearAnimKey(k => k + 1);
+    setYear(newYear);
+  };
+
+  const shiftWindow = (dir) => setWindowStart(s => s + dir);
+
+  // Year-representative income/expenses: use first fortnight of the year
+  const fnIncomeForYear   = fortnights[0]?.fnIncomeAt   ?? fnIncomeNow;
+  const fnExpensesForYear = fortnights[0]?.fnExpensesAt ?? fnExpenses;
+  const fnNetForYear      = fnIncomeForYear + fnAssetIncome - fnExpensesForYear;
+  const incomeEventInYear = Math.abs(fnIncomeForYear - fnIncome) > 0.5;
+
+  // Sparkline data — clamp past fortnights to 0 (backward projection can go negative)
   const sparkData = fortnights.map(f => {
-    const isPast = f.end < today;
-    const bal = isPast ? Math.max(0, Math.round(f.balance)) : Math.round(f.balance);
+    const isBefore = f.end < today;
+    const raw = Math.round(f.balance);
+    const bal = isBefore ? Math.max(0, raw) : raw;
     const inEvent = Math.abs(f.fnIncomeAt - fnIncome) > 0.5;
     return { n: f.i + 1, b: bal, adhoc: f.adhoc, eventBalance: inEvent ? bal : null };
   });
 
   // Income event periods (shaded areas) + employment role-start lines
   const incomeMarkers = useMemo(() => {
+
     const areas = [];  // { x1, x2, label, color }  — income event periods
     const lines = [];  // { n,  label, color }        — role-change start lines
+
+    const yearStartStr = `${year}-01-01`;
+    const yearEndStr   = `${year}-12-31`;
 
     for (const person of state.people) {
       for (const e of (person.incomeEvents || [])) {
         if (!e.startDate) continue;
+        // Skip events that don't overlap this year at all
+        if (e.startDate > yearEndStr) continue;
+        if (e.endDate && e.endDate < yearStartStr) continue;
+
         const startD = new Date(e.startDate);
-        // Find first active fortnight (startDate <= midDate) — clamp to start of year if earlier
+        // Find first active fortnight; clamp to fn1 if event started before this year
         const x1fn = fortnights.findIndex(f => startD <= f.end);
         const x1 = x1fn >= 0 ? x1fn + 1 : 1;
-        // Find last active fortnight (endDate > midDate) — clamp to end of year if later
+        // Find last active fortnight; clamp to fn26 if event extends beyond this year
         let x2 = 26;
         if (e.endDate) {
           const endD = new Date(e.endDate);
@@ -153,21 +195,38 @@ export default function FinancialTracking() {
   };
 
   const cats = txType === 'income' ? INCOME_CATS : EXPENSE_CATS;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const hasActiveIncomeEvents = state.people.some(p =>
-    (p.incomeEvents || []).some(e => e.startDate <= todayStr && (!e.endDate || e.endDate >= todayStr))
-  );
 
   return (
     <div className="page-content">
-      <div className="page-header">
-        <div className="year-selector">
-          {years.map(y => (
-            <button key={y} className={`year-btn ${year === y ? 'active' : ''}`} onClick={() => setYear(y)}>{y}</button>
+      <div className="year-bar">
+        <button className="year-nav-btn" onClick={() => shiftWindow(-1)}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 3L5 8l5 5"/>
+          </svg>
+        </button>
+        <div className="year-pills">
+          {selectedIdx >= 0 && (
+            <div
+              className="year-pill-indicator"
+              style={{ transform: `translateX(${selectedIdx * 100}%)` }}
+            />
+          )}
+          {windowYears.map(y => (
+            <button
+              key={y}
+              className={`year-pill ${year === y ? 'active' : ''}`}
+              onClick={() => changeYear(y)}
+            >{y}</button>
           ))}
         </div>
+        <button className="year-nav-btn" onClick={() => shiftWindow(1)}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 3l5 5-5 5"/>
+          </svg>
+        </button>
       </div>
 
+      <div key={yearAnimKey} className={`year-content ${yearAnimClass}`}>
       {/* Overview section */}
       <div className="dash-section">
         <div className="section-header">
@@ -183,8 +242,8 @@ export default function FinancialTracking() {
         </div>
         <div className="fns-item">
           <span>Net /fn</span>
-          <span className={`mono ${fnNet >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(fnNet)}</span>
-          {incomeEventActiveNow && (
+          <span className={`mono ${fnNetForYear >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(fnNetForYear)}</span>
+          {incomeEventInYear && (
             <span className="text3" style={{ fontSize: 10 }}>base {fmtMoneyRound(fnNetBase)}</span>
           )}
         </div>
@@ -198,13 +257,15 @@ export default function FinancialTracking() {
           <span>Net Saved {year}</span>
           <span className={`mono ${yearTotal >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(yearTotal)}</span>
         </div>
-        <div className="fns-item">
-          <span>Projected Dec {year}</span>
-          <span className="mono teal">{fmtMoneyRound(closingBal)}</span>
-          <span className={`trend-indicator ${balDelta >= 0 ? 'up' : 'down'}`}>
-            {balDelta >= 0 ? '▲' : '▼'} {fmtMoneyRound(Math.abs(balDelta))}
-          </span>
-        </div>
+        {!isPastYear && (
+          <div className="fns-item">
+            <span>Projected Dec {year}</span>
+            <span className="mono teal">{fmtMoneyRound(closingBal)}</span>
+            <span className={`trend-indicator ${balDelta >= 0 ? 'up' : 'down'}`}>
+              {balDelta >= 0 ? '▲' : '▼'} {fmtMoneyRound(Math.abs(balDelta))}
+            </span>
+          </div>
+        )}
       </div>
 
       {fnIncome === 0 && (
@@ -212,9 +273,9 @@ export default function FinancialTracking() {
           No income set — add income profiles in the <strong>Income</strong> tab first.
         </div>
       )}
-      {hasActiveIncomeEvents && (
+      {incomeEventInYear && (
         <div className="info-banner" style={{ marginBottom: 16 }}>
-          Income events are active — some fortnights show adjusted net income.
+          Income events active in {year} — some fortnights show adjusted net income.
         </div>
       )}
 
@@ -230,9 +291,11 @@ export default function FinancialTracking() {
               </span>
             )}
           </div>
-          <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: balDelta >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-            {balDelta >= 0 ? '+' : ''}{Math.round(balDelta / 1000).toFixed(1)}k by Dec
-          </span>
+          {!isPastYear && (
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: balDelta >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+              {balDelta >= 0 ? '+' : ''}{Math.round(balDelta / 1000).toFixed(1)}k by Dec
+            </span>
+          )}
         </div>
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={sparkData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
@@ -273,26 +336,36 @@ export default function FinancialTracking() {
                 label={{ value: 'Today', position: 'insideTopRight', fill: 'rgba(0,113,227,0.6)', fontSize: 9 }} />
             )}
             {/* Income event start/end boundary lines */}
-            {incomeMarkers.areas.flatMap((a, i) => {
-              const txt = a.label.length > 12 ? a.label.slice(0, 11) + '…' : a.label;
-              const lines = [
-                <ReferenceLine key={`evs-${i}`} x={a.x1}
-                  stroke="#FF9F0A" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3"
-                  label={({ viewBox }) => {
-                    const { x, y } = viewBox;
-                    return <text x={x + 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="start">⚑ {txt}</text>;
-                  }} />,
-              ];
-              if (a.x2 < 26) lines.push(
-                <ReferenceLine key={`eve-${i}`} x={a.x2 + 1}
-                  stroke="#FF9F0A" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 4"
-                  label={({ viewBox }) => {
-                    const { x, y } = viewBox;
-                    return <text x={x - 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="end">{txt} ends</text>;
-                  }} />
-              );
-              return lines;
-            })}
+            {(() => {
+              const startSeen = {}; const endSeen = {};
+              return incomeMarkers.areas.flatMap((a, i) => {
+                const txt = a.label.length > 12 ? a.label.slice(0, 11) + '…' : a.label;
+                const startSlot = startSeen[a.x1] || 0;
+                startSeen[a.x1] = startSlot + 1;
+                const lines = [
+                  <ReferenceLine key={`evs-${i}`} x={a.x1}
+                    stroke="#FF9F0A" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3"
+                    label={({ viewBox }) => {
+                      const { x, y } = viewBox;
+                      return <text x={x + 4} y={y + 12 + startSlot * 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="start">⚑ {txt}</text>;
+                    }} />,
+                ];
+                if (a.x2 < 26) {
+                  const endKey = a.x2 + 1;
+                  const endSlot = endSeen[endKey] || 0;
+                  endSeen[endKey] = endSlot + 1;
+                  lines.push(
+                    <ReferenceLine key={`eve-${i}`} x={endKey}
+                      stroke="#FF9F0A" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 4"
+                      label={({ viewBox }) => {
+                        const { x, y } = viewBox;
+                        return <text x={x - 4} y={y + 12 + endSlot * 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="end">{txt} ends</text>;
+                      }} />
+                  );
+                }
+                return lines;
+              });
+            })()}
             {/* Employment role-start lines — thin blue verticals */}
             {incomeMarkers.lines.map((m, i) => (
               <ReferenceLine
@@ -342,25 +415,29 @@ export default function FinancialTracking() {
         </ResponsiveContainer>
       </div>
 
-      {/* Income events list — same as Dashboard trajectory */}
-      {state.people.some(p => (p.incomeEvents || []).length > 0) && (() => {
+      {/* Income events list — filtered to events active within the selected year */}
+      {(() => {
+        const yearStart = `${year}-01-01`;
+        const yearEnd   = `${year}-12-31`;
         const events = state.people.flatMap(p =>
-          (p.incomeEvents || []).filter(e => e.startDate).map(e => ({ ...e, personName: p.name }))
+          (p.incomeEvents || [])
+            .filter(e => e.startDate && e.startDate <= yearEnd && (!e.endDate || e.endDate >= yearStart))
+            .map(e => ({ ...e, personName: p.name }))
         );
         if (!events.length) return null;
         return (
           <div className="traj-events">
             {events.map(e => {
-              const isActive = new Date(e.startDate) <= now && (!e.endDate || new Date(e.endDate) > now);
+              const inYearNow = new Date(e.startDate) <= now && (!e.endDate || new Date(e.endDate) > now);
               return (
-                <div key={e.id} className={`traj-event-row ${isActive ? 'active' : ''}`}>
-                  <span className="traj-event-dot" style={{ background: isActive ? '#FF9F0A' : 'var(--text3)' }} />
+                <div key={e.id} className={`traj-event-row ${inYearNow ? 'active' : ''}`}>
+                  <span className="traj-event-dot" style={{ background: inYearNow ? '#FF9F0A' : 'var(--text3)' }} />
                   <span className="traj-event-label">{e.label || 'Income event'}</span>
                   <span className="traj-event-person text3">{e.personName}</span>
                   <span className="traj-event-dates text3 mono">
                     {e.startDate?.slice(0, 7)}{e.endDate ? ` → ${e.endDate.slice(0, 7)}` : ' → ongoing'}
                   </span>
-                  {isActive && <span className="fn-badge event-badge" style={{ marginLeft: 'auto' }}>Active</span>}
+                  {inYearNow && <span className="fn-badge event-badge" style={{ marginLeft: 'auto' }}>Active now</span>}
                 </div>
               );
             })}
@@ -444,6 +521,7 @@ export default function FinancialTracking() {
         })}
       </div>
       </div>{/* end pay-periods dash-section */}
+      </div>{/* end year-content */}
 
       {/* Add transaction modal */}
       {txModal !== null && (
