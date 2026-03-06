@@ -4,7 +4,7 @@ import {
   CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import {
-  useApp, totalBalance, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, buildSavingsTrajectory,
+  useApp, totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpenses, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
 } from '../store';
 import { fmtMoneyRound, calcNetPay } from '../utils/tax';
 import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../utils/mortgage';
@@ -18,14 +18,24 @@ function uid() { return Math.random().toString(36).slice(2, 9); }
 const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
 const VIEW_LIMITS = { '1y': 26, '2y': 52, '3y': 78, '5y': 130 };
 
-const TrajTooltip = ({ active, payload, label, goals }) => {
+const TrajTooltip = ({ active, payload, label, goals, people }) => {
   if (!active || !payload?.length) return null;
   const bal = payload[0]?.value;
   const hit = goals.filter(g => g._hitDate === label);
+  // Detect active income events at this month
+  const monthDate = label ? new Date(label + '-15') : null;
+  const activeEvents = monthDate ? (people || []).flatMap(p =>
+    (p.incomeEvents || [])
+      .filter(e => e.startDate && new Date(e.startDate) <= monthDate && (!e.endDate || new Date(e.endDate) > monthDate))
+      .map(e => ({ ...e, personName: p.name }))
+  ) : [];
   return (
     <div className="chart-tt">
       <div className="tt-date">{label}</div>
       <div className="tt-bal">${Math.round(bal).toLocaleString('en-NZ')}</div>
+      {activeEvents.map(e => (
+        <div key={e.id} style={{ color: '#FF9F0A', fontSize: 10, marginTop: 2, fontWeight: 600 }}>⚑ {e.label} · {e.personName}</div>
+      ))}
       {hit.map(g => <div key={g.id} className="tt-goal">🎯 {g.name}</div>)}
     </div>
   );
@@ -167,12 +177,20 @@ function TransferModal({ accounts, onClose, onTransfer }) {
 
 // ── Income Card (per person) ─────────────────────────────────────────────────
 function IncomeCard({ person }) {
-  const pay = person.pay || calcNetPay(person);
+  // person._effectivePay = pay computed from today's active event/role
+  // person._eventLabel   = active income event label (null if none)
+  // person._employer     = current employer from employment history (null if none)
+  // person._basePay      = pay at base grossAnnual (for comparison)
+  const pay     = person._effectivePay || person.pay || calcNetPay(person);
+  const basePay = person._basePay || pay;
+  const eventActive = !!person._eventLabel;
+
   const secFn = useMemo(() =>
     (person.secondaryIncomes || []).reduce((s, si) => {
       if (si.frequency === 'fortnightly') return s + (+si.amount || 0);
       if (si.frequency === 'weekly')      return s + (+si.amount || 0) * 2;
       if (si.frequency === 'monthly')     return s + ((+si.amount || 0) * 12) / 26;
+      if (si.frequency === 'quarterly')   return s + ((+si.amount || 0) * 4) / 26;
       if (si.frequency === 'annual')      return s + (+si.amount || 0) / 26;
       return s;
     }, 0), [person.secondaryIncomes]);
@@ -180,7 +198,12 @@ function IncomeCard({ person }) {
   return (
     <div className="income-card">
       <div className="ic-header">
-        <span className="ic-name">{person.name || 'Unnamed'}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span className="ic-name">{person.name || 'Unnamed'}</span>
+          {person._employer && (
+            <div className="ic-employer-line">{person._employer}</div>
+          )}
+        </div>
         <div className="ic-tags">
           <span className="tag">{person.taxCode}</span>
           {person.kiwiSaverRate > 0 && <span className="tag teal">KS {person.kiwiSaverRate}%</span>}
@@ -194,7 +217,7 @@ function IncomeCard({ person }) {
         </div>
         <div className="ic-stat">
           <span className="ic-stat-label">Net /fn</span>
-          <span className="mono ic-stat-val green">{fmtMoneyRound(pay.netFortnightly)}</span>
+          <span className={`mono ic-stat-val ${eventActive ? 'amber' : 'green'}`}>{fmtMoneyRound(pay.netFortnightly)}</span>
         </div>
         <div className="ic-stat">
           <span className="ic-stat-label">Annual Gross</span>
@@ -202,7 +225,7 @@ function IncomeCard({ person }) {
         </div>
         <div className="ic-stat">
           <span className="ic-stat-label">Annual Net</span>
-          <span className="mono ic-stat-val green">{fmtMoneyRound(pay.netAnnual)}</span>
+          <span className={`mono ic-stat-val ${eventActive ? 'amber' : 'green'}`}>{fmtMoneyRound(pay.netAnnual)}</span>
         </div>
       </div>
 
@@ -222,10 +245,20 @@ function IncomeCard({ person }) {
           <span className="ic-ded green">+ Secondary income {fmtMoneyRound(secFn)}/fn</span>
           <span className="ic-total-row">
             <span className="text3" style={{ fontSize: 10 }}>TOTAL /fn</span>
-            <span className="mono green" style={{ fontSize: 15, fontWeight: 700 }}>
+            <span className={`mono ${eventActive ? 'amber' : 'green'}`} style={{ fontSize: 15, fontWeight: 700 }}>
               {fmtMoneyRound(pay.netFortnightly + secFn)}
             </span>
           </span>
+        </div>
+      )}
+
+      {/* Active income event banner — bottom of card */}
+      {eventActive && (
+        <div className="ic-event-banner">
+          <span className="ic-event-icon">⚑</span>
+          <span className="ic-event-name">{person._eventLabel}</span>
+          <span className="mono ic-event-net">{fmtMoneyRound(pay.netFortnightly)}/fn</span>
+          <span className="ic-event-base text3">base {fmtMoneyRound(basePay.netFortnightly)}/fn</span>
         </div>
       )}
     </div>
@@ -250,19 +283,32 @@ export default function Dashboard() {
 
   const accounts      = state.accounts || [];
   const netWorth      = totalBalance(accounts);
-  const fnIncome      = calcFortnightlyIncome(state.people);
+  const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
   const fnAssetIncome = calcFortnightlyAssetIncome(state.assetIncomes || []);
   const fnExpenses    = calcFortnightlyExpenses(state.expenses);
-  const fnNet         = fnIncome + fnAssetIncome - fnExpenses;
-  const fnTotal       = fnIncome + fnAssetIncome;
-  const savingsRate   = fnTotal > 0 ? Math.round(fnNet / fnTotal * 100) : 0;
+
+  // Event-aware income for today
+  const now            = new Date();
+  const fnIncomeNow    = calcFortnightlyIncomeAt(state.people, now);
+  const fnNet          = fnIncomeNow + fnAssetIncome - fnExpenses;
+  const fnTotal        = fnIncomeNow + fnAssetIncome;
+  const savingsRate    = fnTotal > 0 ? Math.round(fnNet / fnTotal * 100) : 0;
+  const incomeEventActiveNow = Math.abs(fnIncomeNow - fnIncome) > 0.5;
 
   // ── Income ────────────────────────────────────────────────────────────────
-  const incomeRows = useMemo(() => state.people.map(p => ({ ...p, pay: calcNetPay(p) })), [state.people]);
-  const totalGrossAnnual = incomeRows.reduce((s, p) => s + (p.grossAnnual || 0), 0);
-  const totalNetAnnual   = fnIncome * 26;
+  const incomeRows = useMemo(() => {
+    const d = new Date();
+    return state.people.map(p => {
+      const { grossAnnual: effectiveGross, eventLabel, employer } = getPersonIncomeAt(p, d);
+      const effectivePay = calcNetPay({ ...p, grossAnnual: effectiveGross });
+      const basePay      = calcNetPay(p);
+      return { ...p, _effectivePay: effectivePay, _basePay: basePay, _eventLabel: eventLabel, _employer: employer };
+    });
+  }, [state.people]);
+  const totalGrossAnnual = incomeRows.reduce((s, p) => s + (p._effectivePay?.grossAnnual || p.grossAnnual || 0), 0);
+  const totalNetAnnual   = fnIncomeNow * 26;
   const avgTaxRate       = totalGrossAnnual > 0
-    ? incomeRows.reduce((s, p) => s + p.pay.taxAnnual, 0) / totalGrossAnnual * 100
+    ? incomeRows.reduce((s, p) => s + (p._effectivePay?.taxAnnual || 0), 0) / totalGrossAnnual * 100
     : 0;
 
   // ── Expenses ──────────────────────────────────────────────────────────────
@@ -288,16 +334,35 @@ export default function Dashboard() {
   }, [trajectory, todayStr]);
   const todayLabel = trajectory[todayIdx]?.date.slice(0, 7);
 
+  const allIncomeEvents = useMemo(() =>
+    state.people.flatMap(p => (p.incomeEvents || []).filter(e => e.startDate)),
+    [state.people]);
+
   const chartData = useMemo(() => {
     const limit  = VIEW_LIMITS[viewRange] ?? 78;
     const start  = Math.max(0, todayIdx - 2);
     const sliced = trajectory.slice(start, start + limit + 3);
     const step   = viewRange === '1y' ? 1 : 2;
-    return sliced.filter((_, i) => i % step === 0).map(p => ({
-      date:    p.date.slice(0, 7),
-      balance: Math.round(p.balance),
-    }));
-  }, [trajectory, viewRange, todayIdx]);
+    const eventBoundaryMonths = new Set(
+      allIncomeEvents.flatMap(e => [e.startDate?.slice(0, 7), e.endDate?.slice(0, 7)].filter(Boolean))
+    );
+    const seen   = new Set();
+    const result = [];
+    for (let i = 0; i < sliced.length; i++) {
+      const p     = sliced[i];
+      const month = p.date.slice(0, 7);
+      if (seen.has(month)) continue;
+      if (i % step !== 0 && !eventBoundaryMonths.has(month)) continue;
+      seen.add(month);
+      const d           = new Date(p.date);
+      const activeEvent = allIncomeEvents.find(e =>
+        new Date(e.startDate) <= d && (!e.endDate || new Date(e.endDate) > d)
+      );
+      const bal = Math.max(0, Math.round(p.balance));
+      result.push({ date: month, balance: bal, eventBalance: activeEvent ? bal : null });
+    }
+    return result;
+  }, [trajectory, viewRange, todayIdx, allIncomeEvents]);
 
   const goalsWithDates = useMemo(() => {
     return (state.goals || []).map(g => {
@@ -447,7 +512,10 @@ export default function Dashboard() {
           <div className="fn-summary">
             <div className="fns-item">
               <span>Employment /fn</span>
-              <span className="mono green">{fmtMoneyRound(fnIncome)}</span>
+              <span className={`mono ${incomeEventActiveNow ? 'amber' : 'green'}`}>{fmtMoneyRound(fnIncomeNow)}</span>
+              {incomeEventActiveNow && (
+                <span className="text3" style={{ fontSize: 10 }}>base {fmtMoneyRound(fnIncome)}</span>
+              )}
             </div>
             {fnAssetIncome > 0 && (
               <div className="fns-item">
@@ -461,7 +529,7 @@ export default function Dashboard() {
             </div>
             <div className="fns-item">
               <span>Annual Net</span>
-              <span className="mono green">{fmtMoneyRound(totalNetAnnual)}</span>
+              <span className={`mono ${incomeEventActiveNow ? 'amber' : 'green'}`}>{fmtMoneyRound(totalNetAnnual)}</span>
             </div>
             <div className="fns-item">
               <span>Avg Tax Rate</span>
@@ -511,7 +579,15 @@ export default function Dashboard() {
 
         <div className="chart-card-inline">
           <div className="chart-header">
-            <span className="chart-title">Projected Balance</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="chart-title">Projected Balance</span>
+              {allIncomeEvents.length > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#FF9F0A', fontWeight: 600 }}>
+                  <span style={{ width: 18, height: 2, background: '#FF9F0A', borderRadius: 1, display: 'inline-block', opacity: 0.7 }} />
+                  income event
+                </span>
+              )}
+            </div>
             <div className="range-tabs">
               {Object.keys(VIEW_LIMITS).map(r => (
                 <button key={r} className={`range-tab ${viewRange === r ? 'active' : ''}`}
@@ -526,6 +602,10 @@ export default function Dashboard() {
                   <stop offset="5%"  stopColor="#0071E3" stopOpacity={0.12} />
                   <stop offset="95%" stopColor="#0071E3" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="eventGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#FF9F0A" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#FF9F0A" stopOpacity={0.03} />
+                </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
               <XAxis dataKey="date"
@@ -534,8 +614,9 @@ export default function Dashboard() {
               <YAxis
                 tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
                 tick={{ fill: '#86868B', fontSize: 10 }}
-                tickLine={false} axisLine={false} width={52} />
-              <Tooltip content={<TrajTooltip goals={goalsWithDates} />} />
+                tickLine={false} axisLine={false} width={52}
+                domain={[0, 'auto']} />
+              <Tooltip content={<TrajTooltip goals={goalsWithDates} people={state.people} />} />
               {todayLabel && (
                 <ReferenceLine x={todayLabel} stroke="rgba(0,113,227,0.4)" strokeDasharray="4 4"
                   label={{ value: 'Today', position: 'insideTopRight', fill: 'rgba(0,113,227,0.6)', fontSize: 9 }} />
@@ -544,12 +625,70 @@ export default function Dashboard() {
                 <ReferenceLine key={g.id} x={g._hitDate} stroke="#ffd60a" strokeDasharray="4 4"
                   label={{ value: g.name, position: 'top', fill: '#b8960a', fontSize: 9 }} />
               ))}
+              {/* Income event start/end boundaries */}
+              {allIncomeEvents.flatMap((e, i) => {
+                const lines = [];
+                const startMonth = e.startDate?.slice(0, 7);
+                const endMonth   = e.endDate?.slice(0, 7);
+                const txt = (e.label || 'Event').length > 12 ? (e.label || 'Event').slice(0, 11) + '…' : (e.label || 'Event');
+                if (startMonth) lines.push(
+                  <ReferenceLine key={`evs-${i}`} x={startMonth}
+                    stroke="#FF9F0A" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3"
+                    label={({ viewBox }) => {
+                      const { x, y } = viewBox;
+                      return <text x={x + 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="start">⚑ {txt}</text>;
+                    }} />
+                );
+                if (endMonth) lines.push(
+                  <ReferenceLine key={`eve-${i}`} x={endMonth}
+                    stroke="#FF9F0A" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 4"
+                    label={({ viewBox }) => {
+                      const { x, y } = viewBox;
+                      return <text x={x - 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="end">{txt} ends</text>;
+                    }} />
+                );
+                return lines;
+              })}
               <Area type="monotone" dataKey="balance"
                 stroke="#0071E3" strokeWidth={2} fill="url(#balGrad)"
                 dot={false} activeDot={{ r: 4, fill: '#0071E3', strokeWidth: 0 }} />
+              {/* Income event overlay — amber area over event periods */}
+              {allIncomeEvents.length > 0 && (
+                <Area type="monotone" dataKey="eventBalance"
+                  stroke="#FF9F0A" strokeWidth={2} strokeOpacity={0.7}
+                  fill="url(#eventGrad)"
+                  dot={false} activeDot={false}
+                  connectNulls={false} isAnimationActive={false} />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Income events affecting this trajectory */}
+        {state.people.some(p => (p.incomeEvents || []).length > 0) && (() => {
+          const events = state.people.flatMap(p =>
+            (p.incomeEvents || []).filter(e => e.startDate).map(e => ({ ...e, personName: p.name }))
+          );
+          if (!events.length) return null;
+          return (
+            <div className="traj-events">
+              {events.map(e => {
+                const isActive = new Date(e.startDate) <= now && (!e.endDate || new Date(e.endDate) > now);
+                return (
+                  <div key={e.id} className={`traj-event-row ${isActive ? 'active' : ''}`}>
+                    <span className="traj-event-dot" style={{ background: isActive ? '#FF9F0A' : 'var(--text3)' }} />
+                    <span className="traj-event-label">{e.label || 'Income event'}</span>
+                    <span className="traj-event-person text3">{e.personName}</span>
+                    <span className="traj-event-dates text3 mono">
+                      {e.startDate?.slice(0, 7)}{e.endDate ? ` → ${e.endDate.slice(0, 7)}` : ' → ongoing'}
+                    </span>
+                    {isActive && <span className="fn-badge event-badge" style={{ marginLeft: 'auto' }}>Active</span>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {goalsWithDates.length > 0 && (
           <>

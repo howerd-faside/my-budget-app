@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { useApp, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance } from '../store';
+import { useApp, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance, buildSavingsTrajectory } from '../store';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
-import { ResponsiveContainer, LineChart, Line, ReferenceLine, Tooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
 
 const EXPENSE_CATS = ADHOC_EXPENSE_CATS;
 const INCOME_CATS  = ['Bonus', 'Commission', 'Tax Refund', 'Side Income', 'Gift Received', 'Other Income'];
@@ -18,12 +18,19 @@ export default function FinancialTracking() {
   const [txType, setTxType]   = useState('expense');  // 'expense' | 'income'
   const [txForm, setTxForm]   = useState({ description: '', amount: '', category: 'Other', note: '' });
 
-  const fnIncome      = calcFortnightlyIncome(state.people);
+  const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
   const fnAssetIncome = calcFortnightlyAssetIncome(state.assetIncomes || []);
   const fnExpenses    = calcFortnightlyExpenses(state.expenses);
-  const fnNet         = fnIncome + fnAssetIncome - fnExpenses;
 
-  const startBal = totalBalance(state.accounts);
+  // Event-aware income for right now (used by summary tile + incomeEventActive flag)
+  const now           = new Date();
+  const fnIncomeNow   = calcFortnightlyIncomeAt(state.people, now);
+  const fnNet         = fnIncomeNow + fnAssetIncome - fnExpenses;   // today's effective net
+  const fnNetBase     = fnIncome + fnAssetIncome - fnExpenses;      // base (no events)
+  const incomeEventActiveNow = Math.abs(fnIncomeNow - fnIncome) > 0.5;
+
+  const startBal   = totalBalance(state.accounts);
+  const trajectory = useMemo(() => buildSavingsTrajectory(state), [state]);
 
   const yd = state.fortnightlyData[year] || { fortnights: {} };
 
@@ -33,7 +40,6 @@ export default function FinancialTracking() {
       const { start, end } = getFortnight(year, i);
       const ftData = (yd.fortnights || {})[i] || { adhocTransactions: [] };
       const adhoc  = (ftData.adhocTransactions || []).reduce((s, t) => s + (t.amount || 0), 0);
-      // Date-aware income for this specific fortnight
       const midDate = new Date((start.getTime() + end.getTime()) / 2);
       const fnIncomeAt = calcFortnightlyIncomeAt(state.people, midDate);
       const actual = fnIncomeAt + fnAssetIncome - fnExpenses + adhoc;
@@ -52,12 +58,21 @@ export default function FinancialTracking() {
       for (let i = curIdx - 1; i >= 0; i--)
         rows[i].balance = rows[i + 1].balance - rows[i + 1].actual;
     } else {
-      let running = startBal;
-      for (let i = 0; i < 26; i++) { running += rows[i].actual; rows[i].balance = running; }
+      // Find the closing balance of the last trajectory fortnight before this year starts,
+      // so balances carry forward correctly from year to year.
+      const firstStart = rows[0].start.toISOString().slice(0, 10);
+      let openBal = startBal;
+      for (const p of trajectory) {
+        if (p.date < firstStart) openBal = Math.round(p.balance);
+        else break;
+      }
+      rows[0].balance = openBal + rows[0].actual;
+      for (let i = 1; i < 26; i++)
+        rows[i].balance = rows[i - 1].balance + rows[i].actual;
     }
 
     return rows;
-  }, [year, yd, fnExpenses, startBal, state.people]);
+  }, [year, yd, fnExpenses, startBal, state.people, trajectory]);
 
   const today        = new Date();
   const currentFnIdx = fortnights.findIndex(f => today >= f.start && today <= f.end);
@@ -67,8 +82,47 @@ export default function FinancialTracking() {
   const balDelta     = closingBal - startBal;
   const years        = [2025, 2026, 2027, 2028, 2029, 2030];
 
-  // Sparkline data
-  const sparkData = fortnights.map(f => ({ n: f.i + 1, b: Math.round(f.balance) }));
+  // Sparkline data — clamp past negative balances to 0; add eventBalance for amber overlay
+  const sparkData = fortnights.map(f => {
+    const isPast = f.end < today;
+    const bal = isPast ? Math.max(0, Math.round(f.balance)) : Math.round(f.balance);
+    const inEvent = Math.abs(f.fnIncomeAt - fnIncome) > 0.5;
+    return { n: f.i + 1, b: bal, adhoc: f.adhoc, eventBalance: inEvent ? bal : null };
+  });
+
+  // Income event periods (shaded areas) + employment role-start lines
+  const incomeMarkers = useMemo(() => {
+    const areas = [];  // { x1, x2, label, color }  — income event periods
+    const lines = [];  // { n,  label, color }        — role-change start lines
+
+    for (const person of state.people) {
+      for (const e of (person.incomeEvents || [])) {
+        if (!e.startDate) continue;
+        const startD = new Date(e.startDate);
+        // Find first active fortnight (startDate <= midDate) — clamp to start of year if earlier
+        const x1fn = fortnights.findIndex(f => startD <= f.end);
+        const x1 = x1fn >= 0 ? x1fn + 1 : 1;
+        // Find last active fortnight (endDate > midDate) — clamp to end of year if later
+        let x2 = 26;
+        if (e.endDate) {
+          const endD = new Date(e.endDate);
+          const x2fn = fortnights.findLastIndex(f => endD > f.start);
+          x2 = x2fn >= 0 ? x2fn + 1 : 0;
+        }
+        if (x2 >= x1) areas.push({ x1, x2, label: e.label || 'Income event', color: '#FF9F0A' });
+      }
+      for (const r of (person.employmentHistory || [])) {
+        if (!r.startDate) continue;
+        const d = new Date(r.startDate);
+        const fnIdx = fortnights.findIndex(f => d >= f.start && d <= f.end);
+        if (fnIdx >= 0) lines.push({ n: fnIdx + 1, label: r.employer || 'New role', color: '#0071E3' });
+      }
+    }
+    // Deduplicate lines
+    const seen = new Set();
+    const dedupedLines = lines.filter(m => { const k = `${m.n}-${m.label}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    return { areas, lines: dedupedLines };
+  }, [state.people, fortnights]);
 
   const openTxModal = (fnIdx) => {
     setTxForm({ description: '', amount: '', category: 'Other', note: '' });
@@ -128,8 +182,11 @@ export default function FinancialTracking() {
           <span className="mono teal">{fmtMoneyRound(startBal)}</span>
         </div>
         <div className="fns-item">
-          <span>Base Net /fn</span>
+          <span>Net /fn</span>
           <span className={`mono ${fnNet >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(fnNet)}</span>
+          {incomeEventActiveNow && (
+            <span className="text3" style={{ fontSize: 10 }}>base {fmtMoneyRound(fnNetBase)}</span>
+          )}
         </div>
         <div className="fns-item">
           <span>Ad-hoc {year}</span>
@@ -161,32 +218,156 @@ export default function FinancialTracking() {
         </div>
       )}
 
-      {/* Balance sparkline */}
-      <div className="fn-sparkline">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 6px 6px', marginBottom: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Balance Trend</span>
-          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: balDelta >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+      {/* Balance Trend chart */}
+      <div className="chart-card-inline">
+        <div className="chart-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="chart-title">Balance Trend</span>
+            {incomeMarkers.areas.length > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#FF9F0A', fontWeight: 600 }}>
+                <span style={{ width: 18, height: 2, background: '#FF9F0A', borderRadius: 1, display: 'inline-block', opacity: 0.7 }} />
+                income event
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: balDelta >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
             {balDelta >= 0 ? '+' : ''}{Math.round(balDelta / 1000).toFixed(1)}k by Dec
           </span>
         </div>
-        <ResponsiveContainer width="100%" height={72}>
-          <LineChart data={sparkData} margin={{ top: 6, right: 2, bottom: 2, left: 2 }}>
-            <Line
+        <ResponsiveContainer width="100%" height={280}>
+          <AreaChart data={sparkData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="trkBalGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#0071E3" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="#0071E3" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="eventGradTrk" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#FF9F0A" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#FF9F0A" stopOpacity={0.03} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+            <XAxis dataKey="n" tick={{ fontSize: 10, fill: '#86868B' }} tickLine={false} axisLine={false} interval={3} tickFormatter={(v) => `#${v}`} />
+            <YAxis tick={{ fontSize: 10, fill: '#86868B' }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} domain={[0, 'auto']} />
+            <Area
               type="monotone" dataKey="b"
-              stroke={balDelta >= 0 ? '#34C759' : '#FF3B30'}
-              strokeWidth={2} dot={false} isAnimationActive={false}
+              stroke="#0071E3" strokeWidth={2} isAnimationActive={false}
+              fill="url(#trkBalGrad)"
+              dot={(props) => {
+                const { cx, cy, payload } = props;
+                if (!payload.adhoc) return <g key={`dot-${payload.n}`} />;
+                const c = payload.adhoc > 0 ? '#34C759' : '#FF3B30';
+                return <circle key={`dot-${payload.n}`} cx={cx} cy={cy} r={4} fill={c} stroke="white" strokeWidth={1.5} />;
+              }}
+              activeDot={{ r: 4, fill: '#0071E3', strokeWidth: 0 }}
+            />
+            <Area
+              type="monotone" dataKey="eventBalance"
+              stroke="#FF9F0A" strokeWidth={2} strokeOpacity={0.7}
+              fill="url(#eventGradTrk)"
+              dot={false} activeDot={false}
+              connectNulls={false} isAnimationActive={false}
             />
             {currentFnIdx >= 0 && (
-              <ReferenceLine x={currentFnIdx + 1} stroke="rgba(0,113,227,0.4)" strokeDasharray="4 2" />
+              <ReferenceLine x={currentFnIdx + 1} stroke="rgba(0,113,227,0.4)" strokeDasharray="4 4"
+                label={{ value: 'Today', position: 'insideTopRight', fill: 'rgba(0,113,227,0.6)', fontSize: 9 }} />
             )}
+            {/* Income event start/end boundary lines */}
+            {incomeMarkers.areas.flatMap((a, i) => {
+              const txt = a.label.length > 12 ? a.label.slice(0, 11) + '…' : a.label;
+              const lines = [
+                <ReferenceLine key={`evs-${i}`} x={a.x1}
+                  stroke="#FF9F0A" strokeWidth={1.5} strokeOpacity={0.7} strokeDasharray="4 3"
+                  label={({ viewBox }) => {
+                    const { x, y } = viewBox;
+                    return <text x={x + 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="start">⚑ {txt}</text>;
+                  }} />,
+              ];
+              if (a.x2 < 26) lines.push(
+                <ReferenceLine key={`eve-${i}`} x={a.x2 + 1}
+                  stroke="#FF9F0A" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 4"
+                  label={({ viewBox }) => {
+                    const { x, y } = viewBox;
+                    return <text x={x - 4} y={y + 12} fill="#FF9F0A" fontSize={9} fontWeight={700} textAnchor="end">{txt} ends</text>;
+                  }} />
+              );
+              return lines;
+            })}
+            {/* Employment role-start lines — thin blue verticals */}
+            {incomeMarkers.lines.map((m, i) => (
+              <ReferenceLine
+                key={`il-${i}`}
+                x={m.n}
+                stroke={m.color} strokeWidth={1} strokeOpacity={0.3} strokeDasharray="3 2"
+                label={({ viewBox }) => {
+                  const { x, y } = viewBox;
+                  const txt = m.label.length > 14 ? m.label.slice(0, 13) + '…' : m.label;
+                  return <text x={Math.max(x + 4, 4)} y={y + 14} fill={m.color} fontSize={8.5} fontWeight={600} fillOpacity={0.65}>{txt}</text>;
+                }}
+              />
+            ))}
             <Tooltip
-              formatter={(v) => [`$${Math.round(v).toLocaleString('en-NZ')}`, 'Balance']}
-              labelFormatter={(l) => `Fortnight #${l}`}
-              contentStyle={{ background: 'rgba(255,255,255,0.97)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, fontSize: 11 }}
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const { b, adhoc } = payload[0].payload;
+                const ft = fortnights[label - 1];
+                const ftIncomeChanged = ft && Math.abs(ft.fnIncomeAt - fnIncome) > 0.5;
+                const activeAreas = incomeMarkers.areas.filter(a => label >= a.x1 && label <= a.x2);
+                const activeLine  = incomeMarkers.lines.find(m => m.n === label);
+                return (
+                  <div className="chart-tt">
+                    <div className="tt-date">Fortnight #{label}</div>
+                    <div className="tt-bal">${Math.round(b).toLocaleString('en-NZ')}</div>
+                    {ftIncomeChanged && (
+                      <div style={{ fontFamily: 'var(--mono)', color: '#FF9F0A', marginTop: 4, fontSize: 10 }}>
+                        ⚑ income {fmtMoneyRound(ft.fnIncomeAt)} /fn
+                      </div>
+                    )}
+                    {adhoc !== 0 && (
+                      <div style={{ fontFamily: 'var(--mono)', color: adhoc > 0 ? 'var(--green)' : 'var(--red)', marginTop: 4, fontSize: 11 }}>
+                        {adhoc > 0 ? '+' : '−'}${Math.abs(Math.round(adhoc)).toLocaleString('en-NZ')} ad-hoc
+                      </div>
+                    )}
+                    {activeAreas.map((a, i) => (
+                      <div key={i} style={{ color: a.color, marginTop: 4, fontSize: 10, fontWeight: 600 }}>⚑ {a.label}</div>
+                    ))}
+                    {activeLine && (
+                      <div style={{ color: activeLine.color, marginTop: 4, fontSize: 10, fontWeight: 600 }}>→ {activeLine.label}</div>
+                    )}
+                  </div>
+                );
+              }}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Income events list — same as Dashboard trajectory */}
+      {state.people.some(p => (p.incomeEvents || []).length > 0) && (() => {
+        const events = state.people.flatMap(p =>
+          (p.incomeEvents || []).filter(e => e.startDate).map(e => ({ ...e, personName: p.name }))
+        );
+        if (!events.length) return null;
+        return (
+          <div className="traj-events">
+            {events.map(e => {
+              const isActive = new Date(e.startDate) <= now && (!e.endDate || new Date(e.endDate) > now);
+              return (
+                <div key={e.id} className={`traj-event-row ${isActive ? 'active' : ''}`}>
+                  <span className="traj-event-dot" style={{ background: isActive ? '#FF9F0A' : 'var(--text3)' }} />
+                  <span className="traj-event-label">{e.label || 'Income event'}</span>
+                  <span className="traj-event-person text3">{e.personName}</span>
+                  <span className="traj-event-dates text3 mono">
+                    {e.startDate?.slice(0, 7)}{e.endDate ? ` → ${e.endDate.slice(0, 7)}` : ' → ongoing'}
+                  </span>
+                  {isActive && <span className="fn-badge event-badge" style={{ marginLeft: 'auto' }}>Active</span>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       </div>{/* end overview dash-section */}
 
       {/* Fortnight list */}
@@ -215,18 +396,22 @@ export default function FinancialTracking() {
                 <div className="fn-left">
                   <div className="fn-num">#{f.i + 1}</div>
                   <div className="fn-dates">
-                    <span className="fn-label">{label}</span>
-                    {isCurrent && <span className="fn-badge current-badge">Now</span>}
-                    {incomeChanged && <span className="fn-badge event-badge">⚑ income event</span>}
-                    {txs.length > 0 && <span className="fn-badge tx-badge">{txs.length} extra</span>}
+                    <div className="fn-dates-primary">
+                      <span className="fn-label">{label}</span>
+                      {isCurrent && <span className="fn-badge current-badge">Now</span>}
+                      {txs.length > 0 && <span className="fn-badge tx-badge">{txs.length} extra</span>}
+                    </div>
+                    {incomeChanged && (
+                      <div className="fn-event-note">⚑ {fmtMoneyRound(f.fnIncomeAt)} /fn</div>
+                    )}
                   </div>
                 </div>
                 <div className="fn-right">
                   {f.adhoc !== 0 && (
                     <span className={`fn-adhoc ${f.adhoc >= 0 ? 'green' : 'red'}`}>{fmtMoney(f.adhoc)}</span>
                   )}
-                  <span className={`fn-net ${f.actual >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(f.actual)}</span>
-                  <span className="fn-balance">{fmtMoneyRound(f.balance)}</span>
+                  <span className={`fn-net ${(isPast && f.balance < 0) ? '' : f.actual >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(isPast && f.balance < 0 ? 0 : f.actual)}</span>
+                  <span className="fn-balance">{fmtMoneyRound(isPast ? Math.max(0, f.balance) : f.balance)}</span>
                   <button
                     className="fn-add-btn"
                     onClick={() => openTxModal(f.i)}

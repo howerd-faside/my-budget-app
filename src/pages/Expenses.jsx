@@ -511,7 +511,7 @@ export default function Expenses() {
                         onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                         <option value="Mortgage">Mortgage</option>
                         <option value="Vehicle Loan">Vehicle Loan</option>
-                        <option value="Other">Personal Loan</option>
+                        <option value="Personal Loan">Personal Loan</option>
                       </select>
                     </div>
                     <div className="form-group">

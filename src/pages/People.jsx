@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { useApp, calcFortnightlyIncome, calcFortnightlyAssetIncome, getPersonIncomeAt } from '../store';
+import { useApp, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyAssetIncome, getPersonIncomeAt } from '../store';
 import { calcNetPay, TAX_CODES, KIWISAVER_RATES, PAY_FREQUENCIES, fmtMoneyRound, fmtMoney } from '../utils/tax';
 import Icon from '../components/Icon';
 
 const EMPTY_PERSON = {
   name: '', grossAnnual: '', taxCode: 'M', kiwiSaverRate: 3,
-  payFrequency: 'fortnightly', secondaryIncomes: [], incomeEvents: [],
+  payFrequency: 'fortnightly', secondaryIncomes: [], incomeEvents: [], employmentHistory: [],
 };
 
 const EMPTY_SECONDARY = { id: '', name: '', amount: '', frequency: 'monthly' };
 const EMPTY_EVENT = { id: '', label: '', startDate: '', endDate: '', grossAnnual: '' };
+const EMPTY_ROLE  = { id: '', employer: '', role: '', startDate: '', endDate: '', grossAnnual: '' };
 
 const EMPTY_ASSET = { id: '', name: '', type: 'rental', amount: '', frequency: 'monthly', notes: '' };
 
@@ -41,7 +42,10 @@ export default function People() {
   const [openCards, setOpenCards] = useState(new Set());
 
   const openNew = () => { setForm({ ...EMPTY_PERSON, id: uid() }); setEditing('new'); };
-  const openEdit = (p) => { setForm({ ...p, incomeEvents: p.incomeEvents || [] }); setEditing(p.id); };
+  const openEdit = (p) => {
+    setForm({ ...p, incomeEvents: p.incomeEvents || [], employmentHistory: p.employmentHistory || [] });
+    setEditing(p.id);
+  };
   const close = () => { setEditing(null); setForm(EMPTY_PERSON); };
 
   const toggleCard = (id) => {
@@ -53,8 +57,11 @@ export default function People() {
   };
 
   const save = () => {
-    const pay = calcNetPay({ grossAnnual: +form.grossAnnual, kiwiSaverRate: form.kiwiSaverRate });
-    const person = { ...form, grossAnnual: +form.grossAnnual, netFortnightly: pay.netFortnightly };
+    // If an open-ended role exists, sync grossAnnual from it so cards/summaries stay accurate
+    const currentRole = (form.employmentHistory || []).find(r => !r.endDate);
+    const grossAnnual = currentRole ? +currentRole.grossAnnual : +form.grossAnnual;
+    const pay = calcNetPay({ ...form, grossAnnual });
+    const person = { ...form, grossAnnual, netFortnightly: pay.netFortnightly };
     if (editing === 'new') {
       set('people', [...state.people, person]);
     } else {
@@ -97,6 +104,16 @@ export default function People() {
     setForm(f => ({ ...f, incomeEvents: (f.incomeEvents || []).filter(e => e.id !== id) }));
   };
 
+  const addRole = () => {
+    setForm(f => ({ ...f, employmentHistory: [...(f.employmentHistory || []), { ...EMPTY_ROLE, id: uid() }] }));
+  };
+  const updateRole = (id, field, val) => {
+    setForm(f => ({ ...f, employmentHistory: (f.employmentHistory || []).map(r => r.id === id ? { ...r, [field]: val } : r) }));
+  };
+  const removeRole = (id) => {
+    setForm(f => ({ ...f, employmentHistory: (f.employmentHistory || []).filter(r => r.id !== id) }));
+  };
+
   // ── Asset Income state ─────────────────────────────────────────────────────
   const [editingAsset, setEditingAsset] = useState(null);
   const [assetForm, setAssetForm]       = useState(EMPTY_ASSET);
@@ -120,9 +137,12 @@ export default function People() {
       set('assetIncomes', (state.assetIncomes || []).filter(a => a.id !== id));
   };
 
-  const totalFortnightly = calcFortnightlyIncome(state.people);
-  const totalAssetFn     = calcFortnightlyAssetIncome(state.assetIncomes || []);
   const today = new Date();
+  const totalFortnightly = calcFortnightlyIncomeAt(state.people, today);
+  const totalAssetFn     = calcFortnightlyAssetIncome(state.assetIncomes || []);
+  // Effective gross for the modal — current open-ended role takes precedence over the bare field
+  const formCurrentRole  = (form.employmentHistory || []).find(r => !r.endDate) || null;
+  const formEffectiveGross = formCurrentRole ? +formCurrentRole.grossAnnual : +form.grossAnnual;
 
   return (
     <div className="page-content">
@@ -163,6 +183,9 @@ export default function People() {
           const activeEvent = getPersonIncomeAt(p, today);
           const hasEvent = !!activeEvent.eventLabel;
           const eventPay = hasEvent ? calcNetPay({ ...p, grossAnnual: activeEvent.grossAnnual }) : null;
+          // Current role = open-ended, else most-recent closed role
+          const sortedRoles = [...(p.employmentHistory || [])].sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+          const currentRole = sortedRoles.find(r => !r.endDate) || null;
 
           return (
             <div key={p.id} className="person-card">
@@ -170,6 +193,12 @@ export default function People() {
                 <div className="person-avatar">{p.name?.[0]?.toUpperCase() || '?'}</div>
                 <div className="person-info">
                   <div className="person-name">{p.name || 'Unnamed'}</div>
+                  {currentRole && (
+                    <div className="person-employer">
+                      {currentRole.employer}{currentRole.role ? ` · ${currentRole.role}` : ''}
+                      {currentRole.startDate && <span className="emp-since"> · since {currentRole.startDate}</span>}
+                    </div>
+                  )}
                   <div className="person-meta">{p.taxCode} · KS {p.kiwiSaverRate > 0 ? `${p.kiwiSaverRate}%` : 'not enrolled'} · {p.payFrequency}</div>
                 </div>
                 <div className="person-actions">
@@ -177,15 +206,6 @@ export default function People() {
                   <button className="btn-icon danger" onClick={() => remove(p.id)} title="Remove"><Icon name="trash" /></button>
                 </div>
               </div>
-
-              {/* Active income event banner */}
-              {hasEvent && (
-                <div className="income-event-banner">
-                  <span className="iev-dot" />
-                  <span className="iev-label">{activeEvent.eventLabel}</span>
-                  <span className="iev-amount">{fmtMoneyRound(eventPay.netFortnightly)}/fn</span>
-                </div>
-              )}
 
               <div className="person-hero">
                 <div className="ph-stat primary">
@@ -210,7 +230,19 @@ export default function People() {
                 {(p.incomeEvents || []).length > 0 && (
                   <span className="dpill amber">⚑ {(p.incomeEvents || []).length} event{(p.incomeEvents || []).length > 1 ? 's' : ''}</span>
                 )}
+                {(p.employmentHistory || []).length > 0 && (
+                  <span className="dpill teal">{(p.employmentHistory || []).length} role{(p.employmentHistory || []).length > 1 ? 's' : ''}</span>
+                )}
               </div>
+
+              {/* Active income event banner */}
+              {hasEvent && (
+                <div className="income-event-banner">
+                  <span className="iev-dot" />
+                  <span className="iev-label">{activeEvent.eventLabel}</span>
+                  <span className="iev-amount">{fmtMoneyRound(eventPay.netFortnightly)}/fn</span>
+                </div>
+              )}
 
               <button className="breakdown-toggle" onClick={() => toggleCard(p.id)}>
                 <span className="bt-icon">{isOpen ? '▲' : '▼'}</span>
@@ -253,6 +285,25 @@ export default function People() {
                           <div key={e.id} className={`tb-row ${isActive ? 'amber' : ''}`}>
                             <span>⚑ {e.label} {e.startDate ? `(from ${e.startDate})` : ''}</span>
                             <span>{fmtMoneyRound(epay.netFortnightly)}/fn</span>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                  {(p.employmentHistory || []).length > 0 && (
+                    <>
+                      <div className="tb-divider" />
+                      <div className="tb-section-label">Employment History</div>
+                      {[...(p.employmentHistory || [])].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).map(r => {
+                        const rpay = calcNetPay({ ...p, grossAnnual: +r.grossAnnual });
+                        const isCurrent = !r.endDate;
+                        return (
+                          <div key={r.id} className={`tb-row ${isCurrent ? 'teal' : ''}`}>
+                            <span>
+                              {r.employer || 'Unknown'}{r.role ? ` · ${r.role}` : ''}
+                              <span className="tb-date-range"> {r.startDate}–{r.endDate || 'present'}</span>
+                            </span>
+                            <span>{fmtMoneyRound(rpay.netFortnightly)}/fn</span>
                           </div>
                         );
                       })}
@@ -351,8 +402,23 @@ export default function People() {
                 </div>
                 <div className="form-group">
                   <label>Gross Annual Income ($)</label>
-                  <input className="input mono" type="number" placeholder="0" value={form.grossAnnual}
-                    onChange={e => setForm(f => ({ ...f, grossAnnual: e.target.value }))} />
+                  {formCurrentRole ? (
+                    <>
+                      <input
+                        className="input mono"
+                        type="text"
+                        readOnly
+                        value={fmtMoneyRound(+formCurrentRole.grossAnnual || 0)}
+                        style={{ opacity: 0.55, cursor: 'default', background: 'var(--bg)' }}
+                      />
+                      <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: -2 }}>
+                        From {formCurrentRole.employer || 'current role'} below
+                      </span>
+                    </>
+                  ) : (
+                    <input className="input mono" type="number" placeholder="0" value={form.grossAnnual}
+                      onChange={e => setForm(f => ({ ...f, grossAnnual: e.target.value }))} />
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Tax Code</label>
@@ -377,9 +443,9 @@ export default function People() {
                 </div>
               </div>
 
-              {/* Live preview */}
-              {form.grossAnnual > 0 && (() => {
-                const pay = calcNetPay({ grossAnnual: +form.grossAnnual, kiwiSaverRate: form.kiwiSaverRate });
+              {/* Live preview — always reflects effective salary (role or base field) */}
+              {formEffectiveGross > 0 && (() => {
+                const pay = calcNetPay({ ...form, grossAnnual: formEffectiveGross });
                 return (
                   <div className="calc-preview">
                     <span>Net Fortnightly: <strong className="teal">{fmtMoneyRound(pay.netFortnightly)}</strong></span>
@@ -388,25 +454,58 @@ export default function People() {
                 );
               })()}
 
-              {/* Secondary incomes */}
-              <div className="secondary-header">
-                <span className="form-section-label">Secondary Incomes</span>
-                <button className="btn-ghost small" onClick={addSecondary}>+ Add</button>
+              {/* Employment History — defines primary income per date range */}
+              <div className="secondary-header" style={{ marginTop: 16 }}>
+                <span className="form-section-label">Employment History</span>
+                <button className="btn-ghost small" onClick={addRole}>+ Add Role</button>
               </div>
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+                Track roles over time. Leave end date blank for your current job. Each fortnight uses the salary from whichever role was active then.
+              </p>
 
-              {(form.secondaryIncomes || []).map(s => (
-                <div key={s.id} className="secondary-row">
-                  <input className="input" placeholder="Name (e.g. Freelance)" value={s.name}
-                    onChange={e => updateSecondary(s.id, 'name', e.target.value)} />
-                  <input className="input mono" type="number" placeholder="Net amount" value={s.amount}
-                    onChange={e => updateSecondary(s.id, 'amount', +e.target.value)} />
-                  <select className="input" value={s.frequency}
-                    onChange={e => updateSecondary(s.id, 'frequency', e.target.value)}>
-                    {PAY_FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
-                  </select>
-                  <button className="btn-icon danger small" onClick={() => removeSecondary(s.id)}><Icon name="close" size={12} /></button>
-                </div>
-              ))}
+              {(form.employmentHistory || []).length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic', marginBottom: 8 }}>
+                  No roles added — all fortnights use the Gross Annual field above.
+                </p>
+              )}
+
+              {[...(form.employmentHistory || [])].sort((a, b) => new Date(b.startDate || 0) - new Date(a.startDate || 0)).map(r => {
+                const previewPay = r.grossAnnual > 0 ? calcNetPay({ ...form, grossAnnual: +r.grossAnnual }) : null;
+                const isCurrent = !r.endDate;
+                return (
+                  <div key={r.id} className="income-event-row">
+                    <div className="ier-main">
+                      <input className="input" placeholder="Employer" value={r.employer}
+                        onChange={v => updateRole(r.id, 'employer', v.target.value)} style={{ flex: 2 }} />
+                      <input className="input" placeholder="Role (optional)" value={r.role}
+                        onChange={v => updateRole(r.id, 'role', v.target.value)} style={{ flex: 2 }} />
+                      <input className="input mono" type="number" placeholder="Gross /yr" value={r.grossAnnual}
+                        onChange={v => updateRole(r.id, 'grossAnnual', v.target.value)} style={{ flex: 1 }} />
+                      <button className="btn-icon danger small" onClick={() => removeRole(r.id)}><Icon name="close" size={12} /></button>
+                    </div>
+                    <div className="ier-dates">
+                      <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                        <label style={{ fontSize: 10, color: 'var(--text3)' }}>Start Date</label>
+                        <input className="input" type="date" value={r.startDate}
+                          onChange={v => updateRole(r.id, 'startDate', v.target.value)} />
+                      </div>
+                      <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                        <label style={{ fontSize: 10, color: 'var(--text3)' }}>
+                          End Date {isCurrent && <span className="fn-badge current-badge" style={{ fontSize: 9, marginLeft: 4 }}>current</span>}
+                        </label>
+                        <input className="input" type="date" value={r.endDate}
+                          onChange={v => updateRole(r.id, 'endDate', v.target.value)} />
+                      </div>
+                      {previewPay && (
+                        <div className="ier-preview">
+                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>Net /fn</span>
+                          <span className={`mono ${isCurrent ? 'teal' : ''}`} style={{ fontSize: 14 }}>{fmtMoneyRound(previewPay.netFortnightly)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* Income Events */}
               <div className="secondary-header" style={{ marginTop: 16 }}>
@@ -414,7 +513,7 @@ export default function People() {
                 <button className="btn-ghost small" onClick={addEvent}>+ Add Event</button>
               </div>
               <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
-                Use events for planned income changes (e.g. maternity leave, pay rise). Past fortnights are unaffected.
+                Use events for planned income changes within a role (e.g. maternity leave, pay rise). These override employment history for their period.
               </p>
 
               {(form.incomeEvents || []).map(e => {
@@ -449,11 +548,34 @@ export default function People() {
                   </div>
                 );
               })}
+
+              {/* Secondary Incomes — always additive on top of primary employment income */}
+              <div className="secondary-header" style={{ marginTop: 16 }}>
+                <span className="form-section-label">Secondary Incomes</span>
+                <button className="btn-ghost small" onClick={addSecondary}>+ Add</button>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+                Net amounts added on top (e.g. freelance, rental cash, side work).
+              </p>
+
+              {(form.secondaryIncomes || []).map(s => (
+                <div key={s.id} className="secondary-row">
+                  <input className="input" placeholder="Name (e.g. Freelance)" value={s.name}
+                    onChange={e => updateSecondary(s.id, 'name', e.target.value)} />
+                  <input className="input mono" type="number" placeholder="Net amount" value={s.amount}
+                    onChange={e => updateSecondary(s.id, 'amount', +e.target.value)} />
+                  <select className="input" value={s.frequency}
+                    onChange={e => updateSecondary(s.id, 'frequency', e.target.value)}>
+                    {PAY_FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                  <button className="btn-icon danger small" onClick={() => removeSecondary(s.id)}><Icon name="close" size={12} /></button>
+                </div>
+              ))}
             </div>
 
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={!form.name || !form.grossAnnual}>Save</button>
+              <button className="btn-primary" onClick={save} disabled={!form.name || !formEffectiveGross}>Save</button>
             </div>
           </div>
         </div>

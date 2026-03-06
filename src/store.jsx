@@ -40,11 +40,13 @@ function migrate(saved) {
   if (!saved.assetIncomes) saved.assetIncomes = [];
   if (!saved.goals)        saved.goals        = [];
   if (!saved.wishlist)     saved.wishlist     = [];
-  // Ensure incomeEvents on each person
+  // Ensure incomeEvents + employmentHistory on each person
   if (saved.people) {
-    saved.people = saved.people.map(p =>
-      p.incomeEvents ? p : { ...p, incomeEvents: [] }
-    );
+    saved.people = saved.people.map(p => ({
+      ...p,
+      incomeEvents:       p.incomeEvents       || [],
+      employmentHistory:  p.employmentHistory  || [],
+    }));
   }
   return saved;
 }
@@ -161,17 +163,34 @@ export function calcFortnightlyIncome(people) {
 }
 
 /**
- * Returns the applicable grossAnnual for a person at a given date,
- * considering any income events defined on the person.
+ * Returns the applicable grossAnnual for a person at a given date.
+ * Priority: income events > employment history > person.grossAnnual fallback.
  */
 export function getPersonIncomeAt(person, date) {
   const d = typeof date === 'string' ? new Date(date) : date;
-  const active = (person.incomeEvents || [])
-    .filter(e => new Date(e.startDate) <= d && (!e.endDate || new Date(e.endDate) > d))
+
+  // 1. Income events — explicit overrides (maternity leave, one-off pay change)
+  const activeEvents = (person.incomeEvents || [])
+    .filter(e => e.startDate && new Date(e.startDate) <= d && (!e.endDate || new Date(e.endDate) > d))
     .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-  return active.length > 0
-    ? { grossAnnual: active[0].grossAnnual, eventLabel: active[0].label }
-    : { grossAnnual: person.grossAnnual, eventLabel: null };
+  if (activeEvents.length > 0) {
+    // Still resolve employer from employment history even during an event
+    const activeRoles = (person.employmentHistory || [])
+      .filter(r => r.startDate && new Date(r.startDate) <= d && (!r.endDate || new Date(r.endDate) > d))
+      .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+    const employer = activeRoles.length > 0 ? (activeRoles[0].employer || null) : null;
+    return { grossAnnual: +activeEvents[0].grossAnnual, eventLabel: activeEvents[0].label, employer };
+  }
+
+  // 2. Employment history — which role was active at this date
+  const activeRoles = (person.employmentHistory || [])
+    .filter(r => r.startDate && new Date(r.startDate) <= d && (!r.endDate || new Date(r.endDate) > d))
+    .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+  if (activeRoles.length > 0)
+    return { grossAnnual: +activeRoles[0].grossAnnual, eventLabel: null, employer: activeRoles[0].employer || null };
+
+  // 3. Fallback — base grossAnnual (covers dates before any recorded history)
+  return { grossAnnual: person.grossAnnual, eventLabel: null, employer: null };
 }
 
 /**
