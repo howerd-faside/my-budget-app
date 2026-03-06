@@ -289,14 +289,13 @@ export function getFortnight(year, idx) {
 
 export function buildSavingsTrajectory(state) {
   const { people, expenses, fortnightlyData, accounts, assetIncomes } = state;
-  const fnExpenses    = calcFortnightlyExpenses(expenses);
   const fnAssetIncome = calcFortnightlyAssetIncome(assetIncomes);
 
   const allYears = [2025, 2026, 2027, 2028, 2029, 2030];
   const now = new Date();
 
   // Build all rows with per-fortnight net (balance filled in next)
-  // Income is date-aware: income events affect individual fortnights
+  // Both income and expenses are date-aware per fortnight
   const rows = [];
   for (const year of allYears) {
     const yd = fortnightlyData[year] || { fortnights: {} };
@@ -305,8 +304,9 @@ export function buildSavingsTrajectory(state) {
       const adhoc = (ft.adhocTransactions || []).reduce((s, t) => s + (t.amount || 0), 0);
       const { start, end } = getFortnight(year, i);
       const midDate = new Date((start.getTime() + end.getTime()) / 2);
-      const fnIncomeAt = calcFortnightlyIncomeAt(people, midDate) + fnAssetIncome;
-      rows.push({ date: start.toISOString().slice(0, 10), actual: fnIncomeAt - fnExpenses + adhoc, balance: 0, year, idx: i, start, end });
+      const fnIncomeAt   = calcFortnightlyIncomeAt(people, midDate) + fnAssetIncome;
+      const fnExpensesAt = calcFortnightlyExpensesAt(expenses, midDate);
+      rows.push({ date: start.toISOString().slice(0, 10), actual: fnIncomeAt - fnExpensesAt + adhoc, balance: 0, year, idx: i, start, end });
     }
   }
 

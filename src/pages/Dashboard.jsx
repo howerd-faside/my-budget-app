@@ -4,7 +4,7 @@ import {
   CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import {
-  useApp, totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpenses, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
+  useApp, totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
 } from '../store';
 import { fmtMoneyRound, calcNetPay } from '../utils/tax';
 import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../utils/mortgage';
@@ -285,7 +285,7 @@ export default function Dashboard() {
   const netWorth      = totalBalance(accounts);
   const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
   const fnAssetIncome = calcFortnightlyAssetIncome(state.assetIncomes || []);
-  const fnExpenses    = calcFortnightlyExpenses(state.expenses);
+  const fnExpenses    = calcFortnightlyExpensesAt(state.expenses, now);
 
   // Event-aware income for today
   const now            = new Date();
