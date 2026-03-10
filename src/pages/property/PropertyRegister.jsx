@@ -5,53 +5,6 @@ import Icon from '../../components/Icon';
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function fmtMoney(n) { return n ? `$${Number(n).toLocaleString('en-NZ')}` : null; }
 
-async function lookupPropertyData(address) {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  if (!apiKey) throw new Error('No API key — add VITE_OPENAI_API_KEY to your .env file.');
-
-  const prompt = `Search for NZ property information for this address: "${address}"
-
-Search sources like homes.co.nz, QV, local council rates records, LINZ, or any NZ property data source.
-
-Return ONLY a valid JSON object (no markdown, no extra text) with any fields you can find, using null for unknown values:
-{
-  "landArea": number or null,
-  "floorArea": number or null,
-  "bedrooms": number or null,
-  "bathrooms": number or null,
-  "yearBuilt": string or null,
-  "constructionType": string or null,
-  "roofType": string or null,
-  "cladding": string or null,
-  "valuation": {
-    "rv": number or null,
-    "landValue": number or null,
-    "improvementsValue": number or null,
-    "valuationDate": string or null,
-    "estimatedValue": number or null
-  },
-  "notes": string or null
-}`;
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: 'gpt-4o-search-preview', messages: [{ role: 'user', content: prompt }] }),
-  });
-
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `API error ${resp.status}`);
-  }
-
-  const data = await resp.json();
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error('No response from OpenAI.');
-  const jsonMatch = text.trim().match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('Could not parse property data from response.');
-  return JSON.parse(jsonMatch[0]);
-}
-
 const PROPERTY_TYPES     = ['Primary Home', 'Rental', 'Bach/Holiday', 'Investment', 'Land/Section', 'Other'];
 const CONSTRUCTION_TYPES = ['', 'Timber Frame', 'Brick and Tile', 'Concrete Block', 'Steel Frame', 'Other'];
 const ROOF_TYPES         = ['', 'Iron/Colorsteel', 'Tile', 'Concrete Tile', 'Membrane', 'Shingle', 'Other'];
@@ -80,7 +33,7 @@ const TYPE_COLOR = {
 };
 
 // ── PropDetail ────────────────────────────────────────────────────────────────
-function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, onAddArea, onDeleteArea, onLookup, lookupState, onDismissLookup, onApplyLookup }) {
+function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, onAddArea, onDeleteArea }) {
   const [areaForm,    setAreaForm]    = useState(EMPTY_AREA);
   const [addingArea,  setAddingArea]  = useState(false);
 
@@ -125,11 +78,6 @@ function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, o
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            {prop.address && (
-              <button className="btn-ghost small" onClick={() => onLookup(prop.address)}>
-                {lookupState?.loading ? 'Searching…' : 'Web Lookup'}
-              </button>
-            )}
             <button className="btn-ghost small" onClick={onEdit}>
               <Icon name="pencil" size={12} /> Edit
             </button>
@@ -146,77 +94,6 @@ function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, o
           <div className="fns-item"><span>Maintenance</span><div className="fns-val-row"><span className={`mono ${maintenanceCount > 0 ? '' : 'text3'}`}>{maintenanceCount}</span></div></div>
         </div>
       </div>
-
-      {/* ── Lookup result panel ──────────────────────────────────────────── */}
-      {lookupState?.result && (
-        <div className="dash-section" style={{ border: '1px solid var(--teal)', padding: '16px 20px' }}>
-          <div className="section-header" style={{ marginBottom: 12 }}>
-            <h3 style={{ color: 'var(--teal)' }}>Web Lookup Results</h3>
-            <button className="btn-ghost small" onClick={onDismissLookup}>Dismiss</button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Property details */}
-            {[
-              ['Floor Area',    lookupState.result.floorArea    ? `${lookupState.result.floorArea} m²`   : null],
-              ['Land Area',     lookupState.result.landArea     ? `${lookupState.result.landArea} m²`    : null],
-              ['Bedrooms',      lookupState.result.bedrooms     ? String(lookupState.result.bedrooms)    : null],
-              ['Bathrooms',     lookupState.result.bathrooms    ? String(lookupState.result.bathrooms)   : null],
-              ['Year Built',    lookupState.result.yearBuilt],
-              ['Construction',  lookupState.result.constructionType],
-              ['Roof',          lookupState.result.roofType],
-              ['Cladding',      lookupState.result.cladding],
-            ].filter(([, v]) => v).length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 20px' }}>
-                {[
-                  ['Floor Area',   lookupState.result.floorArea    ? `${lookupState.result.floorArea} m²`  : null],
-                  ['Land Area',    lookupState.result.landArea     ? `${lookupState.result.landArea} m²`   : null],
-                  ['Bedrooms',     lookupState.result.bedrooms     ? String(lookupState.result.bedrooms)   : null],
-                  ['Bathrooms',    lookupState.result.bathrooms    ? String(lookupState.result.bathrooms)  : null],
-                  ['Year Built',   lookupState.result.yearBuilt],
-                  ['Construction', lookupState.result.constructionType],
-                  ['Roof',         lookupState.result.roofType],
-                  ['Cladding',     lookupState.result.cladding],
-                ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k} className="pn-item"><span>{k}</span><span className="mono">{v}</span></div>
-                ))}
-              </div>
-            )}
-            {/* Valuation */}
-            {lookupState.result.valuation && (
-              <div style={{ borderTop: '1px solid var(--sep)', paddingTop: 10 }}>
-                <div className="form-section-label" style={{ marginBottom: 6 }}>Valuation</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 20px' }}>
-                  {[
-                    ['RV / CV',      fmtMoney(lookupState.result.valuation.rv)],
-                    ['Land Value',   fmtMoney(lookupState.result.valuation.landValue)],
-                    ['Improvements', fmtMoney(lookupState.result.valuation.improvementsValue)],
-                    ['Estimate',     fmtMoney(lookupState.result.valuation.estimatedValue)],
-                    ['Valued',       lookupState.result.valuation.valuationDate],
-                  ].filter(([, v]) => v).map(([k, v]) => (
-                    <div key={k} className="pn-item"><span>{k}</span><span className="mono">{v}</span></div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {lookupState.result.notes && (
-              <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>{lookupState.result.notes}</div>
-            )}
-            <div style={{ display: 'flex', gap: 8, paddingTop: 4, borderTop: '1px solid var(--sep)' }}>
-              <button className="btn-primary small" onClick={() => onApplyLookup(lookupState.result)}>Apply &amp; Save</button>
-              <button className="btn-ghost small" onClick={onDismissLookup}>Dismiss</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {lookupState?.error && (
-        <div className="dash-section" style={{ padding: '12px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 13, color: 'var(--red)', flex: 1 }}>{lookupState.error}</span>
-            <button className="btn-ghost small" onClick={onDismissLookup}>Dismiss</button>
-          </div>
-        </div>
-      )}
 
       {/* ── Valuation (stored) ───────────────────────────────────────────── */}
       {val && (
@@ -339,7 +216,6 @@ export default function PropertyRegister() {
   const [editingId,    setEditingId]    = useState(null);
   const [modalTab,     setModalTab]     = useState('profile');
   const [areaForm,     setAreaForm]     = useState(EMPTY_AREA);
-  const [lookupState,  setLookupState]  = useState({ loading: false, result: null, error: null });
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
@@ -349,14 +225,12 @@ export default function PropertyRegister() {
   const openNew = () => {
     setForm({ ...EMPTY_PROP, id: uid(), areas: [] });
     setEditingId('new'); setModalTab('profile');
-    setLookupState({ loading: false, result: null, error: null });
     setShowModal(true);
   };
 
   const openEdit = (prop) => {
     setForm({ ...EMPTY_PROP, ...prop, insulation: { ...EMPTY_PROP.insulation, ...prop.insulation }, areas: prop.areas || [] });
     setEditingId(prop.id); setModalTab('profile');
-    setLookupState({ loading: false, result: null, error: null });
     setShowModal(true);
   };
 
@@ -377,52 +251,6 @@ export default function PropertyRegister() {
     if (!confirm('Delete this property? Associated tasks, maintenance, projects, and assets will remain in the store.')) return;
     set('properties', properties.filter(p => p.id !== id));
     if (selectedPropertyId === id) set('selectedPropertyId', properties.find(p => p.id !== id)?.id || null);
-  };
-
-  const runLookup = async (address) => {
-    if (!address?.trim()) return;
-    setLookupState({ loading: true, result: null, error: null });
-    try {
-      const result = await lookupPropertyData(address);
-      setLookupState({ loading: false, result, error: null });
-    } catch (e) {
-      setLookupState({ loading: false, result: null, error: e.message });
-    }
-  };
-
-  // Apply lookup result to currently selected property AND save it to store
-  const applyLookup = (result) => {
-    if (!selProp) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const updates = { valuation: result.valuation ? { ...result.valuation, fetchedAt: today } : selProp.valuation };
-    if (result.landArea)         updates.landArea         = String(result.landArea);
-    if (result.floorArea)        updates.floorArea        = String(result.floorArea);
-    if (result.bedrooms)         updates.bedrooms         = String(result.bedrooms);
-    if (result.bathrooms)        updates.bathrooms        = String(result.bathrooms);
-    if (result.yearBuilt)        updates.yearBuilt        = result.yearBuilt;
-    if (result.constructionType) updates.constructionType = result.constructionType;
-    if (result.roofType)         updates.roofType         = result.roofType;
-    if (result.cladding)         updates.cladding         = result.cladding;
-    if (result.notes && !selProp.notes) updates.notes     = result.notes;
-    set('properties', properties.map(p => p.id === selProp.id ? { ...p, ...updates } : p));
-    setLookupState({ loading: false, result: null, error: null });
-  };
-
-  // Apply lookup into the modal form (when triggered from within modal)
-  const applyLookupToForm = (result) => {
-    const updates = {};
-    if (result.landArea)         updates.landArea         = String(result.landArea);
-    if (result.floorArea)        updates.floorArea        = String(result.floorArea);
-    if (result.bedrooms)         updates.bedrooms         = String(result.bedrooms);
-    if (result.bathrooms)        updates.bathrooms        = String(result.bathrooms);
-    if (result.yearBuilt)        updates.yearBuilt        = result.yearBuilt;
-    if (result.constructionType) updates.constructionType = result.constructionType;
-    if (result.roofType)         updates.roofType         = result.roofType;
-    if (result.cladding)         updates.cladding         = result.cladding;
-    if (result.notes)            updates.notes            = result.notes;
-    if (result.valuation)        updates.valuation        = { ...result.valuation, fetchedAt: new Date().toISOString().slice(0, 10) };
-    setForm(f => ({ ...f, ...updates }));
-    setLookupState({ loading: false, result: null, error: null });
   };
 
   const addAreaToSelected = (area) => {
@@ -528,10 +356,6 @@ export default function PropertyRegister() {
               onEdit={() => openEdit(selProp)}
               onAddArea={addAreaToSelected}
               onDeleteArea={deleteAreaFromSelected}
-              onLookup={runLookup}
-              lookupState={lookupState}
-              onDismissLookup={() => setLookupState({ loading: false, result: null, error: null })}
-              onApplyLookup={applyLookup}
             />
           ) : (
             <div className="dash-section">
@@ -571,67 +395,8 @@ export default function PropertyRegister() {
                   </div>
                   <div className="form-group full">
                     <label>Address</label>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <input className="input" placeholder="Street address" value={form.address} onChange={e => setField('address', e.target.value)} style={{ flex: 1 }} />
-                      <button
-                        className="btn-ghost small"
-                        onClick={() => runLookup(form.address)}
-                        disabled={!form.address?.trim() || lookupState.loading}
-                        style={{ flexShrink: 0 }}
-                      >
-                        {lookupState.loading ? 'Searching…' : 'Web Lookup'}
-                      </button>
-                    </div>
+                    <input className="input" placeholder="Street address" value={form.address} onChange={e => setField('address', e.target.value)} />
                   </div>
-
-                  {/* Lookup result inside modal */}
-                  {(lookupState.result || lookupState.error) && (
-                    <div className="form-group full">
-                      <div style={{ background: 'var(--card2)', borderRadius: 'var(--radius)', padding: '12px 14px' }}>
-                        {lookupState.error && (
-                          <div style={{ fontSize: 12, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ flex: 1 }}>{lookupState.error}</span>
-                            <button className="btn-ghost small" onClick={() => setLookupState({ loading: false, result: null, error: null })}>Dismiss</button>
-                          </div>
-                        )}
-                        {lookupState.result && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>Property data found</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12 }}>
-                              {[
-                                ['Floor Area',   lookupState.result.floorArea   ? `${lookupState.result.floorArea} m²`  : null],
-                                ['Land Area',    lookupState.result.landArea    ? `${lookupState.result.landArea} m²`   : null],
-                                ['Bedrooms',     lookupState.result.bedrooms    ? String(lookupState.result.bedrooms)   : null],
-                                ['Bathrooms',    lookupState.result.bathrooms   ? String(lookupState.result.bathrooms)  : null],
-                                ['Year Built',   lookupState.result.yearBuilt],
-                                ['Construction', lookupState.result.constructionType],
-                                ['RV / CV',      fmtMoney(lookupState.result.valuation?.rv)],
-                                ['Estimate',     fmtMoney(lookupState.result.valuation?.estimatedValue)],
-                              ].filter(([, v]) => v).map(([k, v]) => (
-                                <div key={k} style={{ display: 'flex', gap: 6 }}>
-                                  <span style={{ color: 'var(--text3)', minWidth: 80 }}>{k}</span>
-                                  <span style={{ fontWeight: 500 }}>{v}</span>
-                                </div>
-                              ))}
-                            </div>
-                            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                              <button className="btn-primary small" onClick={() => applyLookupToForm(lookupState.result)}>Apply to form</button>
-                              <button className="btn-ghost small" onClick={() => setLookupState({ loading: false, result: null, error: null })}>Dismiss</button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {lookupState.loading && (
-                    <div className="form-group full">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text3)', padding: '8px 0' }}>
-                        <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', border: '2px solid var(--teal)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-                        Searching NZ property data…
-                      </div>
-                    </div>
-                  )}
 
                   <div className="form-group">
                     <label>Bedrooms</label>

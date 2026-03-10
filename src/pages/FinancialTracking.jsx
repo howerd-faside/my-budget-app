@@ -113,7 +113,13 @@ export default function FinancialTracking() {
   const fnIncomeForYear   = fortnights[0]?.fnIncomeAt   ?? fnIncomeNow;
   const fnExpensesForYear = fortnights[0]?.fnExpensesAt ?? fnExpenses;
   const fnNetForYear      = fnIncomeForYear + fnAssetIncome - fnExpensesForYear;
-  const incomeEventInYear = Math.abs(fnIncomeForYear - fnIncome) > 0.5;
+  const incomeEventInYear = state.people.some(p =>
+    (p.incomeEvents || []).some(e =>
+      e.startDate &&
+      e.startDate.slice(0, 4) <= String(year) &&
+      (!e.endDate || e.endDate.slice(0, 4) >= String(year))
+    )
+  );
 
   // Sparkline data — clamp past fortnights to 0 (backward projection can go negative)
   const sparkData = fortnights.map(f => {

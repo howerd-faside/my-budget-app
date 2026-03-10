@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vite build)"
+      "Bash(npx vite build)",
+      "Bash(npm run build)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Billy\\.claude\\projects\\c--Users-Billy-my-budget-app\\memory"
     ]
   }
 }

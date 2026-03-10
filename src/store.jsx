@@ -294,8 +294,7 @@ export function buildSavingsTrajectory(state) {
   const allYears = [2025, 2026, 2027, 2028, 2029, 2030];
   const now = new Date();
 
-  // Build all rows with per-fortnight net (balance filled in next)
-  // Both income and expenses are date-aware per fortnight
+  // Build fortnightly rows (keeps sync with FinancialTracking chart)
   const rows = [];
   for (const year of allYears) {
     const yd = fortnightlyData[year] || { fortnights: {} };
@@ -310,11 +309,9 @@ export function buildSavingsTrajectory(state) {
     }
   }
 
-  // Anchor today's fortnight to the real account balance so past and future
-  // fortnights are projected relative to what the user actually has right now.
+  // Anchor today's fortnight to the real account balance.
   let anchorIdx = rows.findIndex(r => now >= r.start && now <= r.end);
   if (anchorIdx < 0) {
-    // Outside all fortnights (gap between years): use nearest future fortnight
     anchorIdx = rows.findIndex(r => r.start > now);
     if (anchorIdx < 0) anchorIdx = rows.length - 1;
   }

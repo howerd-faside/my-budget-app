@@ -16,7 +16,7 @@ const RATE_COLORS = { fixed: '#FF9F0A', floating: '#34C759', revolving: '#AF52DE
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
 const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
-const VIEW_LIMITS = { '1y': 26, '2y': 52, '3y': 78, '5y': 130 };
+const VIEW_LIMITS = { '1y': 13, '2y': 26, '3y': 39, '5y': 65 };
 
 const TrajTooltip = ({ active, payload, label, goals, people }) => {
   if (!active || !payload?.length) return null;
@@ -285,10 +285,9 @@ export default function Dashboard() {
   const netWorth      = totalBalance(accounts);
   const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
   const fnAssetIncome = calcFortnightlyAssetIncome(state.assetIncomes || []);
-  const fnExpenses    = calcFortnightlyExpensesAt(state.expenses, now);
-
   // Event-aware income for today
   const now            = new Date();
+  const fnExpenses    = calcFortnightlyExpensesAt(state.expenses, now);
   const fnIncomeNow    = calcFortnightlyIncomeAt(state.people, now);
   const fnNet          = fnIncomeNow + fnAssetIncome - fnExpenses;
   const fnTotal        = fnIncomeNow + fnAssetIncome;
@@ -339,30 +338,43 @@ export default function Dashboard() {
     [state.people]);
 
   const chartData = useMemo(() => {
-    const limit  = VIEW_LIMITS[viewRange] ?? 78;
+    const limit  = VIEW_LIMITS[viewRange] ?? 36;
     const start  = Math.max(0, todayIdx - 2);
-    const sliced = trajectory.slice(start, start + limit + 3);
-    const step   = viewRange === '1y' ? 1 : 2;
-    const eventBoundaryMonths = new Set(
-      allIncomeEvents.flatMap(e => [e.startDate?.slice(0, 7), e.endDate?.slice(0, 7)].filter(Boolean))
-    );
-    const seen   = new Set();
-    const result = [];
-    for (let i = 0; i < sliced.length; i++) {
-      const p     = sliced[i];
+    const sliced = trajectory.slice(start, start + limit * 3); // enough fortnights to cover limit months
+
+    // Group fortnights by YYYY-MM, then pick the median fortnight per month.
+    // Using the median avoids the Jan-3-fortnights step imbalance without losing fortnightly accuracy.
+    const byMonth = new Map();
+    for (const p of sliced) {
       const month = p.date.slice(0, 7);
-      if (seen.has(month)) continue;
-      if (i % step !== 0 && !eventBoundaryMonths.has(month)) continue;
-      seen.add(month);
-      const d           = new Date(p.date);
+      if (!byMonth.has(month)) byMonth.set(month, []);
+      byMonth.get(month).push(p);
+    }
+
+    const result = [];
+    for (const [month, fns] of byMonth) {
+      if (result.length >= limit) break;
+      const mid = fns[Math.floor(fns.length / 2)];
+      const d   = new Date(mid.date);
       const activeEvent = allIncomeEvents.find(e =>
         new Date(e.startDate) <= d && (!e.endDate || new Date(e.endDate) > d)
       );
-      const bal = Math.max(0, Math.round(p.balance));
+      const bal = Math.max(0, Math.round(mid.balance));
       result.push({ date: month, balance: bal, eventBalance: activeEvent ? bal : null });
     }
     return result;
   }, [trajectory, viewRange, todayIdx, allIncomeEvents]);
+
+  const quarterlyTicks = useMemo(() =>
+    chartData
+      .filter(d => ['01', '04', '07', '10'].includes(d.date.slice(5, 7)))
+      .map(d => d.date),
+    [chartData]);
+
+  const fmtQuarter = (dateStr) => {
+    const [y, m] = dateStr.split('-').map(Number);
+    return `Q${Math.ceil(m / 3)} ${y}`;
+  };
 
   const goalsWithDates = useMemo(() => {
     return (state.goals || []).map(g => {
@@ -379,7 +391,7 @@ export default function Dashboard() {
   }, [state.goals, trajectory]);
 
   const currentBal    = trajectory[todayIdx]?.balance ?? netWorth;
-  const endIdx        = Math.min(trajectory.length - 1, todayIdx + (VIEW_LIMITS[viewRange] ?? 78));
+  const endIdx        = Math.min(trajectory.length - 1, todayIdx + (VIEW_LIMITS[viewRange] ?? 36));
   const projectedBal  = trajectory[endIdx]?.balance ?? 0;
   const projectedYear = trajectory[endIdx]?.date.slice(0, 4) ?? '2030';
 
@@ -609,6 +621,8 @@ export default function Dashboard() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
               <XAxis dataKey="date"
+                ticks={quarterlyTicks}
+                tickFormatter={fmtQuarter}
                 tick={{ fill: '#86868B', fontSize: 10 }}
                 tickLine={false} axisLine={false} />
               <YAxis
