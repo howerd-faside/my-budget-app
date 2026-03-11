@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
 import { AppProvider, useApp, totalBalance } from './store';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
 import Dashboard from './pages/Dashboard';
 import People from './pages/People';
 import Expenses from './pages/Expenses';
@@ -18,6 +20,7 @@ import InvestmentContributions from './pages/investments/InvestmentContributions
 import InvestmentDividends from './pages/investments/InvestmentDividends';
 import InvestmentPerformance from './pages/investments/InvestmentPerformance';
 import InvestmentTaxSummary from './pages/investments/InvestmentTaxSummary';
+import { getPortfolioDependents, cascadeDeletePortfolio, portfolioDeleteMessage } from './utils/cascade';
 import Icon from './components/Icon';
 import fasideLogo from './assets/faside-logo.png';
 import './App.css';
@@ -63,7 +66,7 @@ const ACCOUNT_COLORS = { main: '#0071E3', emergency: '#FF9F0A', travel: '#AF52DE
 // ── Portfolio switcher ─────────────────────────────────────────────────────
 
 function PortfolioBar() {
-  const { state, set } = useApp();
+  const { state, set, cascadeDelete } = useApp();
   const portfolios = state.investmentPortfolios || [];
   const selectedId = state.selectedPortfolioId;
 
@@ -103,13 +106,11 @@ function PortfolioBar() {
   };
 
   const deletePortfolio = (id) => {
-    if (!window.confirm('Delete this portfolio and all its holdings, contributions, and dividends?')) return;
-    const remaining = portfolios.filter(p => p.id !== id);
-    set('investmentPortfolios', remaining);
-    set('investments',             (state.investments             || []).filter(h => h.portfolioId !== id));
-    set('investmentContributions', (state.investmentContributions || []).filter(c => c.portfolioId !== id));
-    set('investmentDividends',     (state.investmentDividends     || []).filter(d => d.portfolioId !== id));
-    set('selectedPortfolioId', remaining.length > 0 ? remaining[remaining.length - 1].id : null);
+    const portfolio = portfolios.find(p => p.id === id);
+    if (!portfolio) return;
+    const deps = getPortfolioDependents(state, id);
+    if (!window.confirm(portfolioDeleteMessage(portfolio.name, deps))) return;
+    cascadeDelete(cascadeDeletePortfolio(state, id));
   };
 
   if (portfolios.length === 0 && !creating) {
@@ -346,7 +347,9 @@ function Shell() {
         <main className="main-content">
           <div className="content-wrap">
             <div key={animKey} className={`page-anim ${animClass}`}>
-              {section === 'home' ? <div className="home-blank" /> : renderPage()}
+              <ErrorBoundary key={tab} label={currentTabs.find(t => t.id === tab)?.label}>
+                {section === 'home' ? <div className="home-blank" /> : renderPage()}
+              </ErrorBoundary>
             </div>
           </div>
         </main>
@@ -359,7 +362,11 @@ function Shell() {
 export default function App() {
   return (
     <AppProvider>
-      <Shell />
+      <ToastProvider>
+        <ErrorBoundary label="Application">
+          <Shell />
+        </ErrorBoundary>
+      </ToastProvider>
     </AppProvider>
   );
 }

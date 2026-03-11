@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useApp, buildSavingsTrajectory, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, totalBalance } from '../store';
 import { fmtMoneyRound } from '../utils/tax';
+import { affordabilityStatus, affordabilityDate, findGoalHit } from '../utils/finance/savings';
+import { createWishlistItem } from '../models/WishlistItem';
 import Icon from '../components/Icon';
+import { validate, wishlistItemSchema } from '../utils/validation';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-const EMPTY = { name: '', estimatedCost: '', notes: '', purchased: false };
+const EMPTY = createWishlistItem();
 
 const STATUS_META = {
   now:     { label: 'Can Buy Now',  color: 'var(--green)',  bg: 'var(--green-dim)' },
@@ -16,37 +19,6 @@ const STATUS_META = {
   unknown: { label: 'No cost set',  color: 'var(--text3)',  bg: 'var(--card2)' },
 };
 
-function affordabilityStatus(cost, currentBalance, trajectory) {
-  if (!cost || cost <= 0) return 'unknown';
-  if (currentBalance >= cost) return 'now';
-  const hit = trajectory.find(p => p.balance >= cost);
-  if (!hit) return 'beyond';
-  const now     = new Date();
-  const hitDate = new Date(hit.date);
-  const months  = (hitDate.getFullYear() - now.getFullYear()) * 12 + (hitDate.getMonth() - now.getMonth());
-  if (months <= 6)  return 'soon';
-  if (months <= 18) return 'later';
-  return 'far';
-}
-
-function affordabilityDate(cost, currentBalance, trajectory) {
-  if (!cost || cost <= 0 || currentBalance >= cost) return null;
-  const hit = trajectory.find(p => p.balance >= cost);
-  if (!hit) return null;
-  const now     = new Date();
-  const hitDate = new Date(hit.date);
-  const months  = (hitDate.getFullYear() - now.getFullYear()) * 12 + (hitDate.getMonth() - now.getMonth());
-  if (months < 1)  return 'This month';
-  if (months < 12) return `~${months} month${months !== 1 ? 's' : ''}`;
-  const yrs  = Math.floor(months / 12);
-  const mths = months % 12;
-  return `~${yrs}y${mths > 0 ? ` ${mths}m` : ''}`;
-}
-
-function findGoalHit(traj, goal) {
-  const hit = traj.find(p => p.balance >= (goal.amount || 0));
-  return hit?.date.slice(0, 7) || null;
-}
 
 // ── Purchase simulator ─────────────────────────────────────────────────────
 function PurchaseSimulator({ item, currentBalance, trajectory, goals, onClose }) {
@@ -180,6 +152,7 @@ export default function Wishlist() {
   const { state, set }        = useApp();
   const [editing, setEditing] = useState(null);
   const [form, setForm]       = useState(EMPTY);
+  const [errors, setErrors]   = useState({});
   const [simItem, setSimItem] = useState(null);
 
   const trajectory = useMemo(() => buildSavingsTrajectory(state), [state]);
@@ -198,11 +171,14 @@ export default function Wishlist() {
     .sort((a, b) => a.hit.date.localeCompare(b.hit.date))[0];
   const nextLabel = nextSoonest ? affordabilityDate(+nextSoonest.item.estimatedCost, currentBal, trajectory) : null;
 
-  const openNew = () => { setForm({ ...EMPTY, id: uid() }); setEditing('new'); };
-  const openEdit = (item) => { setForm({ ...item }); setEditing(item.id); };
-  const close   = () => { setEditing(null); setForm(EMPTY); };
+  const openNew = () => { setForm({ ...EMPTY, id: uid() }); setEditing('new'); setErrors({}); };
+  const openEdit = (item) => { setForm({ ...item }); setEditing(item.id); setErrors({}); };
+  const close   = () => { setEditing(null); setForm(EMPTY); setErrors({}); };
 
   const save = () => {
+    const { ok, errors: errs } = validate(wishlistItemSchema, form);
+    if (!ok) { setErrors(errs); return; }
+    setErrors({});
     const item = { ...form, estimatedCost: +form.estimatedCost || null };
     if (editing === 'new') set('wishlist', [...wishlist, item]);
     else set('wishlist', wishlist.map(i => i.id === form.id ? item : i));
@@ -324,13 +300,15 @@ export default function Wishlist() {
               <div className="form-grid">
                 <div className="form-group full">
                   <label>Item Name</label>
-                  <input className="input" placeholder="e.g. New TV" value={form.name}
+                  <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. New TV" value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+                  {errors.name && <span className="field-error">{errors.name}</span>}
                 </div>
                 <div className="form-group">
                   <label>Estimated Cost ($)</label>
-                  <input className="input mono" type="number" placeholder="0" value={form.estimatedCost}
+                  <input className={`input mono${errors.estimatedCost ? ' input-error' : ''}`} type="number" placeholder="0" value={form.estimatedCost}
                     onChange={e => setForm(f => ({ ...f, estimatedCost: e.target.value }))} />
+                  {errors.estimatedCost && <span className="field-error">{errors.estimatedCost}</span>}
                 </div>
                 <div className="form-group full">
                   <label>Notes</label>
@@ -341,7 +319,7 @@ export default function Wishlist() {
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={!form.name}>Save</button>
+              <button className="btn-primary" onClick={save}>Save</button>
             </div>
           </div>
         </div>

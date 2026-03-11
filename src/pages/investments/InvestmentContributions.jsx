@@ -1,24 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import { createInvestmentContribution, CONTRIBUTION_TYPES, CONTRIBUTION_TYPE_PILL } from '../../models/InvestmentContribution';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-const CONTRIB_TYPES = ['Regular', 'Lump Sum', 'KiwiSaver', 'Dividend Reinvestment', 'Other'];
+const CONTRIB_TYPES = CONTRIBUTION_TYPES;
+const TYPE_DPILL    = CONTRIBUTION_TYPE_PILL;
 
 const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const TYPE_DPILL = {
-  'Regular':               'teal',
-  'Lump Sum':              'amber',
-  'KiwiSaver':             'purple',
-  'Dividend Reinvestment': 'green',
-  'Other':                 '',
-};
-
-const EMPTY = { date: today(), holdingId: '', platform: '', amount: '', type: 'Regular', notes: '' };
+const EMPTY = createInvestmentContribution({ date: today() });
 
 function ContribModal({ contrib, holdings, onSave, onClose }) {
   const [form, setForm] = useState(contrib ? { ...contrib } : { ...EMPTY });

@@ -1,19 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import {
+  createPropertyMaintenance,
+  MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
+} from '../../models/PropertyMaintenance';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-const CATEGORIES   = ['Repair', 'Maintenance', 'Improvement', 'Inspection', 'Cleaning', 'Compliance', 'General'];
-const PERFORMED_BY = ['Self', 'Plumber', 'Electrician', 'Builder', 'Landscaper', 'Roofer', 'Painter', 'HVAC Tech', 'Other'];
+const CATEGORIES   = MAINTENANCE_CATEGORIES;
+const PERFORMED_BY = PERFORMED_BY_OPTIONS;
 
-const EMPTY_RECORD = {
-  id: '', propertyId: '', date: '', title: '', description: '',
-  areaId: '', assetId: '', category: 'Maintenance',
-  performedBy: 'Self', performedByCustom: '',
-  linkedTaskId: '', createdAt: '',
-};
+const EMPTY_RECORD = createPropertyMaintenance();
 
 function groupByMonth(records) {
   const groups = {};

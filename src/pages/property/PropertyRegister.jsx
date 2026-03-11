@@ -1,31 +1,26 @@
 import { useState } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import {
+  createProperty, createPropertyArea,
+  PROPERTY_TYPES, CONSTRUCTION_TYPES, ROOF_TYPES, CLADDING_TYPES,
+  HEATING_TYPES, WATER_SUPPLY_OPTIONS, WASTEWATER_OPTIONS, INSULATION_OPTIONS, AREA_GROUPS,
+} from '../../models/Property';
+import {
+  getPropertyDependents, cascadeDeleteProperty, propertyDeleteMessage,
+  getAreaDependents, cascadeDeleteArea, areaDeleteMessage,
+} from '../../utils/cascade';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function fmtMoney(n) { return n ? `$${Number(n).toLocaleString('en-NZ')}` : null; }
 
-const PROPERTY_TYPES     = ['Primary Home', 'Rental', 'Bach/Holiday', 'Investment', 'Land/Section', 'Other'];
-const CONSTRUCTION_TYPES = ['', 'Timber Frame', 'Brick and Tile', 'Concrete Block', 'Steel Frame', 'Other'];
-const ROOF_TYPES         = ['', 'Iron/Colorsteel', 'Tile', 'Concrete Tile', 'Membrane', 'Shingle', 'Other'];
-const CLADDING_TYPES     = ['', 'Weatherboard', 'Brick Veneer', 'Stucco', 'Fibre Cement', 'Aluminium', 'Stone', 'Other'];
-const HEATING_TYPES      = ['', 'Heat pump', 'Gas central', 'Wood burner', 'Underfloor', 'Panel heaters', 'Multi', 'None'];
-const WATER_SUPPLY       = ['', 'Mains', 'Tank', 'Bore', 'Mains + Tank'];
-const WASTEWATER         = ['', 'Mains sewer', 'Septic'];
-const INSULATION_OPTS    = ['yes', 'no', 'unknown'];
-const AREA_GROUPS        = ['Interior', 'Exterior', 'Grounds', 'Other'];
+// Local aliases for enum names that were standardised in the Property model.
+const WATER_SUPPLY    = WATER_SUPPLY_OPTIONS;
+const WASTEWATER      = WASTEWATER_OPTIONS;
+const INSULATION_OPTS = INSULATION_OPTIONS;
 
-const EMPTY_PROP = {
-  id: '', name: '', type: 'Primary Home', address: '',
-  landArea: '', floorArea: '', bedrooms: '', bathrooms: '',
-  yearBuilt: '', constructionType: '', roofType: '', cladding: '',
-  insulation: { ceiling: 'unknown', underfloor: 'unknown', walls: 'unknown' },
-  heating: '', waterSupply: '', wastewater: '', notes: '',
-  areas: [],
-  valuation: null, // { rv, landValue, improvementsValue, valuationDate, estimatedValue, fetchedAt }
-};
-
-const EMPTY_AREA = { id: '', name: '', group: 'Interior' };
+const EMPTY_PROP = createProperty();
+const EMPTY_AREA = createPropertyArea();
 
 const TYPE_COLOR = {
   'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
@@ -208,7 +203,7 @@ function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, o
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PropertyRegister() {
-  const { state, set } = useApp();
+  const { state, set, cascadeDelete } = useApp();
   const { properties = [], propertyTasks = [], propertyMaintenance = [], selectedPropertyId } = state;
 
   const [showModal,    setShowModal]    = useState(false);
@@ -248,9 +243,11 @@ export default function PropertyRegister() {
   };
 
   const deleteProp = (id) => {
-    if (!confirm('Delete this property? Associated tasks, maintenance, projects, and assets will remain in the store.')) return;
-    set('properties', properties.filter(p => p.id !== id));
-    if (selectedPropertyId === id) set('selectedPropertyId', properties.find(p => p.id !== id)?.id || null);
+    const prop = properties.find(p => p.id === id);
+    if (!prop) return;
+    const deps = getPropertyDependents(state, id);
+    if (!confirm(propertyDeleteMessage(prop.name, deps))) return;
+    cascadeDelete(cascadeDeleteProperty(state, id));
   };
 
   const addAreaToSelected = (area) => {
@@ -260,9 +257,11 @@ export default function PropertyRegister() {
   };
 
   const deleteAreaFromSelected = (areaId) => {
-    set('properties', properties.map(p =>
-      p.id === selProp.id ? { ...p, areas: (p.areas || []).filter(a => a.id !== areaId) } : p
-    ));
+    const area = (selProp.areas || []).find(a => a.id === areaId);
+    if (!area) return;
+    const deps = getAreaDependents(state, selProp.id, areaId);
+    if (!confirm(areaDeleteMessage(area.name, deps))) return;
+    cascadeDelete(cascadeDeleteArea(state, selProp.id, areaId));
   };
 
   const today = new Date().toISOString().slice(0, 10);

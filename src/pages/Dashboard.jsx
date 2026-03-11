@@ -8,8 +8,10 @@ import {
 } from '../store';
 import { fmtMoneyRound, calcNetPay } from '../utils/tax';
 import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../utils/mortgage';
+import { toFortnightly } from '../utils/finance/frequency';
 import { EXPENSE_GROUPS } from '../utils/categories';
 import Icon from '../components/Icon';
+import { validate, accountSchema } from '../utils/validation';
 
 const RATE_COLORS = { fixed: '#FF9F0A', floating: '#34C759', revolving: '#AF52DE', default: '#0071E3' };
 
@@ -41,15 +43,6 @@ const TrajTooltip = ({ active, payload, label, goals, people }) => {
   );
 };
 
-function toFn(e) {
-  const a = +e.amount || 0;
-  if (e.frequency === 'fortnightly') return a;
-  if (e.frequency === 'weekly')      return a * 2;
-  if (e.frequency === 'monthly')     return (a * 12) / 26;
-  if (e.frequency === 'quarterly')   return (a * 4) / 26;
-  if (e.frequency === 'annual')      return a / 26;
-  return a;
-}
 
 const fmtK = v => `$${(v / 1000).toFixed(0)}k`;
 
@@ -57,6 +50,7 @@ const fmtK = v => `$${(v / 1000).toFixed(0)}k`;
 function AccountCard({ account, total, updateAccount }) {
   const [editing, setEditing] = useState(false);
   const [input, setInput]     = useState('');
+  const [error, setError]     = useState('');
   const pct    = total > 0 ? Math.round(account.balance / total * 100) : 0;
   const barPct = total > 0 ? Math.max(2, pct) : 0;
 
@@ -64,26 +58,31 @@ function AccountCard({ account, total, updateAccount }) {
   const color  = COLORS[account.id] || 'var(--teal)';
 
   const save = () => {
-    const val = parseFloat(input);
-    if (!isNaN(val) && val >= 0) updateAccount(account.id, val);
+    const { ok, errors } = validate(accountSchema, { balance: input });
+    if (!ok) { setError(errors.balance || 'Invalid value'); return; }
+    updateAccount(account.id, parseFloat(input));
     setEditing(false);
     setInput('');
+    setError('');
   };
 
   return (
     <div className="account-card">
       <div className="ac-name">{account.name}</div>
       {editing ? (
-        <div className="bw-edit" style={{ margin: '8px 0 14px' }}>
-          <input
-            className="bw-input"
-            type="number" step="0.01" autoFocus
-            value={input}
-            placeholder={account.balance.toFixed(2)}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
-          />
-          <button className="bw-save" onClick={save}><Icon name="check" size={11} /></button>
+        <div style={{ margin: '8px 0 14px' }}>
+          <div className="bw-edit">
+            <input
+              className={`bw-input${error ? ' input-error' : ''}`}
+              type="number" step="0.01" autoFocus
+              value={input}
+              placeholder={account.balance.toFixed(2)}
+              onChange={e => { setInput(e.target.value); setError(''); }}
+              onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setError(''); } }}
+            />
+            <button className="bw-save" onClick={save}><Icon name="check" size={11} /></button>
+          </div>
+          {error && <span className="field-error">{error}</span>}
         </div>
       ) : (
         <button className="bw-value ac-balance-btn" onClick={() => { setInput(account.balance.toFixed(2)); setEditing(true); }}>
@@ -186,14 +185,8 @@ function IncomeCard({ person }) {
   const eventActive = !!person._eventLabel;
 
   const secFn = useMemo(() =>
-    (person.secondaryIncomes || []).reduce((s, si) => {
-      if (si.frequency === 'fortnightly') return s + (+si.amount || 0);
-      if (si.frequency === 'weekly')      return s + (+si.amount || 0) * 2;
-      if (si.frequency === 'monthly')     return s + ((+si.amount || 0) * 12) / 26;
-      if (si.frequency === 'quarterly')   return s + ((+si.amount || 0) * 4) / 26;
-      if (si.frequency === 'annual')      return s + (+si.amount || 0) / 26;
-      return s;
-    }, 0), [person.secondaryIncomes]);
+    (person.secondaryIncomes || []).reduce((s, si) => s + toFortnightly(si.amount, si.frequency), 0),
+    [person.secondaryIncomes]);
 
   return (
     <div className="income-card">
@@ -313,7 +306,7 @@ export default function Dashboard() {
   // ── Expenses ──────────────────────────────────────────────────────────────
   const groupTotals = useMemo(() => {
     const catTotals = {};
-    state.expenses.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + toFn(e); });
+    state.expenses.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + toFortnightly(e.amount, e.frequency); });
     const t = {};
     EXPENSE_GROUPS.forEach(g => { t[g.id] = g.cats.reduce((s, c) => s + (catTotals[c] || 0), 0); });
     return t;

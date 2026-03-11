@@ -1,14 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import {
+  createPropertyAsset,
+  ASSET_TYPES, ASSET_CONDITIONS, CONDITION_PILL,
+} from '../../models/PropertyAsset';
+import { getAssetDependents, cascadeDeleteAsset, assetDeleteMessage } from '../../utils/cascade';
+import { validate, propertyAssetSchema } from '../../utils/validation';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-const ASSET_TYPES = ['HVAC', 'Plumbing', 'Electrical', 'Appliance', 'Structural', 'Roofing', 'Exterior', 'Security', 'Other'];
-const CONDITIONS  = ['Excellent', 'Good', 'Fair', 'Poor', 'Critical'];
-
-const CONDITION_DPILL = { Excellent: 'green', Good: 'teal', Fair: 'amber', Poor: 'red', Critical: 'red' };
+const CONDITIONS      = ASSET_CONDITIONS;
+const CONDITION_DPILL = CONDITION_PILL;
 
 function warrantyStatus(warrantyExpiry) {
   if (!warrantyExpiry) return null;
@@ -27,12 +31,7 @@ function lifespanAlert(dateInstalled, expectedLifespan) {
   return null;
 }
 
-const EMPTY_ASSET = {
-  id: '', propertyId: '', name: '', type: 'Appliance', areaId: '',
-  brand: '', model: '', dateInstalled: '', warrantyExpiry: '',
-  expectedLifespan: '', condition: 'Good', notes: '',
-  createdAt: '',
-};
+const EMPTY_ASSET = createPropertyAsset();
 
 function AssetRow({ asset, area, maintenanceRecords, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
@@ -102,7 +101,7 @@ function AssetRow({ asset, area, maintenanceRecords, onEdit, onDelete }) {
 }
 
 export default function PropertyAssets() {
-  const { state, set } = useApp();
+  const { state, set, cascadeDelete } = useApp();
   const {
     properties = [],
     propertyAssets = [],
@@ -115,6 +114,7 @@ export default function PropertyAssets() {
   const [showModal,  setShowModal]  = useState(false);
   const [form,       setForm]       = useState(EMPTY_ASSET);
   const [editingId,  setEditingId]  = useState(null);
+  const [errors,     setErrors]     = useState({});
   const [filterType, setFilterType] = useState('All');
   const [filterCond, setFilterCond] = useState('All');
   const [propScope,  setPropScope]  = useState('current');
@@ -139,26 +139,31 @@ export default function PropertyAssets() {
 
   const openNew = () => {
     setForm({ ...EMPTY_ASSET, id: uid(), propertyId: selectedPropertyId || '', createdAt: today() });
-    setEditingId('new'); setShowModal(true);
+    setErrors({}); setEditingId('new'); setShowModal(true);
   };
 
   const openEdit = (asset) => {
     setForm({ ...EMPTY_ASSET, ...asset });
-    setEditingId(asset.id); setShowModal(true);
+    setErrors({}); setEditingId(asset.id); setShowModal(true);
   };
 
-  const close = () => { setShowModal(false); setForm(EMPTY_ASSET); setEditingId(null); };
+  const close = () => { setShowModal(false); setForm(EMPTY_ASSET); setEditingId(null); setErrors({}); };
 
   const save = () => {
-    if (!form.name.trim()) return;
+    const { ok, errors: errs } = validate(propertyAssetSchema, form);
+    if (!ok) { setErrors(errs); return; }
+    setErrors({});
     if (editingId === 'new') set('propertyAssets', [...propertyAssets, form]);
     else set('propertyAssets', propertyAssets.map(a => a.id === form.id ? form : a));
     close();
   };
 
   const deleteAsset = (id) => {
-    if (!confirm('Delete this asset?')) return;
-    set('propertyAssets', propertyAssets.filter(a => a.id !== id));
+    const asset = propertyAssets.find(a => a.id === id);
+    if (!asset) return;
+    const deps = getAssetDependents(state, id);
+    if (!confirm(assetDeleteMessage(asset.name, deps))) return;
+    cascadeDelete(cascadeDeleteAsset(state, id));
   };
 
   if (!selProp && propScope === 'current') {
@@ -260,7 +265,8 @@ export default function PropertyAssets() {
               <div className="form-grid">
                 <div className="form-group full">
                   <label>Name *</label>
-                  <input className="input" placeholder='e.g. "Lounge Heat Pump", "Hot Water Cylinder"' value={form.name} onChange={e => setField('name', e.target.value)} autoFocus />
+                  <input className={`input${errors.name ? ' input-error' : ''}`} placeholder='e.g. "Lounge Heat Pump", "Hot Water Cylinder"' value={form.name} onChange={e => setField('name', e.target.value)} autoFocus />
+                  {errors.name && <span className="field-error">{errors.name}</span>}
                 </div>
                 <div className="form-group">
                   <label>Type</label>
@@ -276,10 +282,11 @@ export default function PropertyAssets() {
                 </div>
                 <div className="form-group">
                   <label>Property</label>
-                  <select className="input" value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
+                  <select className={`input${errors.propertyId ? ' input-error' : ''}`} value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
                     <option value="">— Select —</option>
                     {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                  {errors.propertyId && <span className="field-error">{errors.propertyId}</span>}
                 </div>
                 <div className="form-group">
                   <label>Area</label>
@@ -308,7 +315,8 @@ export default function PropertyAssets() {
                 </div>
                 <div className="form-group">
                   <label>Expected Lifespan (years)</label>
-                  <input className="input" type="number" min="1" placeholder="e.g. 15" value={form.expectedLifespan} onChange={e => setField('expectedLifespan', e.target.value)} />
+                  <input className={`input${errors.expectedLifespan ? ' input-error' : ''}`} type="number" min="1" placeholder="e.g. 15" value={form.expectedLifespan} onChange={e => setField('expectedLifespan', e.target.value)} />
+                  {errors.expectedLifespan && <span className="field-error">{errors.expectedLifespan}</span>}
                 </div>
                 <div className="form-group full">
                   <label>Notes (serial number, supplier, etc.)</label>
@@ -318,7 +326,7 @@ export default function PropertyAssets() {
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={!form.name.trim()}>
+              <button className="btn-primary" onClick={save}>
                 {editingId === 'new' ? 'Add Asset' : 'Save'}
               </button>
             </div>

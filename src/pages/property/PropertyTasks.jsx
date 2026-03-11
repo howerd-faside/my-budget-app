@@ -1,25 +1,26 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import {
+  createPropertyTask,
+  TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, TASK_EFFORTS, RECUR_UNITS,
+  PRIORITY_PILL, STATUS_NEXT,
+} from '../../models/PropertyTask';
+import { getTaskDependents, cascadeDeleteTask, taskDeleteMessage } from '../../utils/cascade';
+import { validate, propertyTaskSchema } from '../../utils/validation';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-const CATEGORIES  = ['Repair', 'Maintenance', 'Improvement', 'Inspection', 'Cleaning', 'Compliance', 'General'];
-const PRIORITIES  = ['Urgent', 'High', 'Medium', 'Low'];
-const STATUSES    = ['To Do', 'In Progress', 'Waiting', 'Done', 'Cancelled'];
-const EFFORTS     = ['Small', 'Medium', 'Large', 'Multi-Day'];
-const RECUR_UNITS = ['days', 'weeks', 'fortnights', 'months', 'years'];
+const CATEGORIES     = TASK_CATEGORIES;
+const PRIORITIES     = TASK_PRIORITIES;
+const STATUSES       = TASK_STATUSES;
+const EFFORTS        = TASK_EFFORTS;
+const PRIORITY_DPILL = PRIORITY_PILL;
+// Visual colour bar (UI-only, not in model)
+const PRIORITY_BAR   = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--teal)', Low: 'var(--sep2)' };
 
-const PRIORITY_BAR = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--teal)', Low: 'var(--sep2)' };
-const PRIORITY_DPILL = { Urgent: 'red', High: 'amber', Medium: 'teal', Low: '' };
-const STATUS_NEXT = { 'To Do': 'In Progress', 'In Progress': 'Waiting', 'Waiting': 'Done', 'Done': 'To Do', 'Cancelled': 'To Do' };
-
-const EMPTY_TASK = {
-  id: '', propertyId: '', title: '', description: '',
-  areaId: '', category: 'Maintenance', priority: 'Medium', status: 'To Do',
-  dueDate: '', effort: '', notes: [], recurring: null, createdAt: '',
-};
+const EMPTY_TASK = createPropertyTask();
 
 function addInterval(dateStr, interval, unit) {
   const d = new Date(dateStr);
@@ -125,7 +126,7 @@ function TaskRow({ task, areas, propName, showProp, onEdit, onDelete, onStatusCh
 }
 
 export default function PropertyTasks() {
-  const { state, set } = useApp();
+  const { state, set, cascadeDelete } = useApp();
   const { properties = [], propertyTasks = [], selectedPropertyId } = state;
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
@@ -137,6 +138,7 @@ export default function PropertyTasks() {
   const [showModal,       setShowModal]       = useState(false);
   const [form,            setForm]            = useState(EMPTY_TASK);
   const [editingId,       setEditingId]       = useState(null);
+  const [errors,          setErrors]          = useState({});
   const [recurEnabled,    setRecurEnabled]    = useState(false);
   const [recurInterval,   setRecurInterval]   = useState(6);
   const [recurUnit,       setRecurUnit]       = useState('months');
@@ -164,7 +166,7 @@ export default function PropertyTasks() {
   const openNew = () => {
     setForm({ ...EMPTY_TASK, id: uid(), propertyId: selectedPropertyId || '', createdAt: today() });
     setRecurEnabled(false); setRecurInterval(6); setRecurUnit('months');
-    setEditingId('new'); setShowModal(true);
+    setErrors({}); setEditingId('new'); setShowModal(true);
   };
 
   const openEdit = (task) => {
@@ -172,13 +174,21 @@ export default function PropertyTasks() {
     setRecurEnabled(!!task.recurring);
     setRecurInterval(task.recurring?.interval || 6);
     setRecurUnit(task.recurring?.unit || 'months');
-    setEditingId(task.id); setShowModal(true);
+    setErrors({}); setEditingId(task.id); setShowModal(true);
   };
 
-  const close = () => { setShowModal(false); setForm(EMPTY_TASK); setEditingId(null); };
+  const close = () => { setShowModal(false); setForm(EMPTY_TASK); setEditingId(null); setErrors({}); };
 
   const save = () => {
-    if (!form.title.trim()) return;
+    const payload = {
+      title:      form.title,
+      propertyId: form.propertyId,
+      ...(recurEnabled ? { recurInterval } : {}),
+    };
+    const { ok, errors: errs } = validate(propertyTaskSchema, payload);
+    if (!ok) { setErrors(errs); return; }
+    setErrors({});
+
     const taskData = { ...form, recurring: recurEnabled ? { interval: +recurInterval, unit: recurUnit } : null };
     if (editingId === 'new') set('propertyTasks', [...propertyTasks, taskData]);
     else set('propertyTasks', propertyTasks.map(t => t.id === taskData.id ? taskData : t));
@@ -186,8 +196,9 @@ export default function PropertyTasks() {
   };
 
   const deleteTask = (id) => {
-    if (!confirm('Delete this task?')) return;
-    set('propertyTasks', propertyTasks.filter(t => t.id !== id));
+    const deps = getTaskDependents(state, id);
+    if (!confirm(taskDeleteMessage(deps))) return;
+    cascadeDelete(cascadeDeleteTask(state, id));
   };
 
   const cycleStatus = (task) => {
@@ -314,7 +325,8 @@ export default function PropertyTasks() {
               <div className="form-grid">
                 <div className="form-group full">
                   <label>Title *</label>
-                  <input className="input" placeholder="What needs doing?" value={form.title} onChange={e => setField('title', e.target.value)} autoFocus />
+                  <input className={`input${errors.title ? ' input-error' : ''}`} placeholder="What needs doing?" value={form.title} onChange={e => setField('title', e.target.value)} autoFocus />
+                  {errors.title && <span className="field-error">{errors.title}</span>}
                 </div>
                 <div className="form-group full">
                   <label>Description</label>
@@ -322,10 +334,11 @@ export default function PropertyTasks() {
                 </div>
                 <div className="form-group">
                   <label>Property</label>
-                  <select className="input" value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
+                  <select className={`input${errors.propertyId ? ' input-error' : ''}`} value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
                     <option value="">— Select —</option>
                     {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                  {errors.propertyId && <span className="field-error">{errors.propertyId}</span>}
                 </div>
                 <div className="form-group">
                   <label>Area</label>
@@ -371,20 +384,23 @@ export default function PropertyTasks() {
                     <label htmlFor="recur" style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>Recurring task</label>
                   </div>
                   {recurEnabled && (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span className="text3" style={{ fontSize: 12 }}>Repeat every</span>
-                      <input className="input" type="number" min="1" style={{ width: 60 }} value={recurInterval} onChange={e => setRecurInterval(e.target.value)} />
-                      <select className="input" style={{ width: 110 }} value={recurUnit} onChange={e => setRecurUnit(e.target.value)}>
-                        {RECUR_UNITS.map(u => <option key={u}>{u}</option>)}
-                      </select>
-                    </div>
+                    <>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span className="text3" style={{ fontSize: 12 }}>Repeat every</span>
+                        <input className={`input${errors.recurInterval ? ' input-error' : ''}`} type="number" min="1" style={{ width: 60 }} value={recurInterval} onChange={e => setRecurInterval(e.target.value)} />
+                        <select className="input" style={{ width: 110 }} value={recurUnit} onChange={e => setRecurUnit(e.target.value)}>
+                          {RECUR_UNITS.map(u => <option key={u}>{u}</option>)}
+                        </select>
+                      </div>
+                      {errors.recurInterval && <span className="field-error">{errors.recurInterval}</span>}
+                    </>
                   )}
                 </div>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={!form.title.trim()}>
+              <button className="btn-primary" onClick={save}>
                 {editingId === 'new' ? 'Add Task' : 'Save'}
               </button>
             </div>

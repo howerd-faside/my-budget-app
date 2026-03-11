@@ -1,55 +1,27 @@
 import { useState, useMemo } from 'react';
 import { useApp, calcFortnightlyExpenses } from '../store';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
+import { toFortnightly, annualInterestToFortnightly } from '../utils/finance/frequency';
+import { createExpense, createFacility, FREQUENCIES, PAYMENT_METHODS } from '../models/Expense';
 import { EXPENSE_GROUPS, CATEGORIES, getCatColor, getCatGroup } from '../utils/categories';
 import Icon from '../components/Icon';
+import { validate, expenseSchema, loanExpenseSchema } from '../utils/validation';
 
-const FREQUENCIES   = ['weekly', 'fortnightly', 'monthly', 'quarterly', 'annual'];
-const PAYMENT_TYPES = ['Direct Debit', 'Credit Card', 'Bank Transfer', 'Auto-Pay', 'Cash'];
+// FREQUENCIES and PAYMENT_METHODS now imported from the Expense model.
+const PAYMENT_TYPES = PAYMENT_METHODS; // local alias kept for backward compat with JSX below
 const DD_DAYS       = Array.from({ length: 28 }, (_, i) => i + 1);
 const TODAY_STR     = new Date().toISOString().slice(0, 10);
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
-const EMPTY = {
-  id: '', name: '', category: 'Groceries',
-  type: 'standard', subtype: 'fixed',
-  amount: '', frequency: 'monthly',
-  paymentMethod: 'Direct Debit', ddDay: '',
-  lender: '', facilities: [],
-  notes: '', history: [],
-  startDate: '', endDate: '',
-  forPerson: '',
-};
-
-const EMPTY_FACILITY = {
-  id: '', label: '', balance: '', rate: '',
-  rateType: 'fixed', repaymentType: 'P&I',
-  fixedTermExpiry: '', amount: '',
-};
+const EMPTY          = createExpense();
+const EMPTY_FACILITY = createFacility();
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function toFn(e) {
-  const a = +e.amount || 0;
-  if (e.frequency === 'fortnightly') return a;
-  if (e.frequency === 'weekly')      return a * 2;
-  if (e.frequency === 'monthly')     return (a * 12) / 26;
-  if (e.frequency === 'quarterly')   return (a * 4)  / 26;
-  if (e.frequency === 'annual')      return a / 26;
-  return a;
-}
-
-function facToFn(f) {
-  const a = +f.amount || 0;
-  if (!f.frequency || f.frequency === 'fortnightly') return a;
-  if (f.frequency === 'weekly')  return a * 2;
-  if (f.frequency === 'monthly') return (a * 12) / 26;
-  return a;
-}
-
-function facInterestFn(f) {
-  return (+f.balance || 0) * (+f.rate || 0) / 100 / 26;
-}
+// Thin wrappers kept for local readability; logic lives in utils/finance/frequency.js
+const toFn         = (e) => toFortnightly(e.amount, e.frequency);
+const facToFn      = (f) => toFortnightly(f.amount, f.frequency || 'fortnightly');
+const facInterestFn = (f) => annualInterestToFortnightly(f.balance, f.rate);
 
 function fixedExpiryStatus(expiry) {
   if (!expiry) return null;
@@ -73,6 +45,7 @@ export default function Expenses() {
   const { state, set }  = useApp();
   const [editing, setEditing]             = useState(null);
   const [form, setForm]                   = useState(EMPTY);
+  const [errors, setErrors]               = useState({});
   const [expandedRows, setExpandedRows]   = useState(new Set());
   const [filterGroup, setFilterGroup]     = useState('All');
   const [archiveOpen, setArchiveOpen]     = useState(false);
@@ -138,9 +111,9 @@ export default function Expenses() {
   const facilitiesTotalFn = (facs) => (facs || []).reduce((s, f) => s + facToFn(f), 0);
 
   // ── Modal helpers ──────────────────────────────────────────────────────
-  const openNew  = () => { setForm({ ...EMPTY, id: uid() }); setEditing('new'); };
-  const openEdit = (e, ev) => { ev.stopPropagation(); setForm(normalizeLegacyExpense(e)); setEditing(e.id); };
-  const close    = () => { setEditing(null); setForm(EMPTY); };
+  const openNew  = () => { setForm({ ...EMPTY, id: uid() }); setEditing('new'); setErrors({}); };
+  const openEdit = (e, ev) => { ev.stopPropagation(); setForm(normalizeLegacyExpense(e)); setEditing(e.id); setErrors({}); };
+  const close    = () => { setEditing(null); setForm(EMPTY); setErrors({}); };
 
   const addFacility    = () => setForm(f => ({ ...f, facilities: [...f.facilities, { ...EMPTY_FACILITY, id: uid() }] }));
   const updateFacility = (id, field, val) => setForm(f => ({
@@ -149,6 +122,11 @@ export default function Expenses() {
   const removeFacility = (id) => setForm(f => ({ ...f, facilities: f.facilities.filter(fac => fac.id !== id) }));
 
   const save = () => {
+    const schema = form.type === 'loan' ? loanExpenseSchema : expenseSchema;
+    const { ok, errors: errs } = validate(schema, form);
+    if (!ok) { setErrors(errs); return; }
+    setErrors({});
+
     let expense = { ...form, ddDay: form.ddDay ? +form.ddDay : null };
     if (form.type === 'loan') {
       expense = { ...expense, amount: facilitiesTotalFn(form.facilities), frequency: 'fortnightly' };
@@ -503,8 +481,9 @@ export default function Expenses() {
                 <div className="form-grid">
                   <div className="form-group full">
                     <label>Label</label>
-                    <input className="input" placeholder="e.g. Billy's Spending Money" value={form.name}
+                    <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. Billy's Spending Money" value={form.name}
                       onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                    {errors.name && <span className="field-error">{errors.name}</span>}
                   </div>
                   <div className="form-group">
                     <label>For Person</label>
@@ -513,8 +492,9 @@ export default function Expenses() {
                   </div>
                   <div className="form-group">
                     <label>Amount ($)</label>
-                    <input className="input mono" type="number" step="0.01" placeholder="0.00" value={form.amount}
+                    <input className={`input mono${errors.amount ? ' input-error' : ''}`} type="number" step="0.01" placeholder="0.00" value={form.amount}
                       onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                    {errors.amount && <span className="field-error">{errors.amount}</span>}
                   </div>
                   <div className="form-group">
                     <label>Frequency</label>
@@ -546,8 +526,9 @@ export default function Expenses() {
                 <div className="form-grid">
                   <div className="form-group full">
                     <label>Expense Name</label>
-                    <input className="input" placeholder="e.g. Power — Contact Energy" value={form.name}
+                    <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. Power — Contact Energy" value={form.name}
                       onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                    {errors.name && <span className="field-error">{errors.name}</span>}
                   </div>
                   <div className="form-group">
                     <label>Category</label>
@@ -570,8 +551,9 @@ export default function Expenses() {
                   </div>
                   <div className="form-group">
                     <label>Amount ($)</label>
-                    <input className="input mono" type="number" step="0.01" placeholder="0.00" value={form.amount}
+                    <input className={`input mono${errors.amount ? ' input-error' : ''}`} type="number" step="0.01" placeholder="0.00" value={form.amount}
                       onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+                    {errors.amount && <span className="field-error">{errors.amount}</span>}
                   </div>
                   <div className="form-group">
                     <label>Frequency</label>
@@ -623,8 +605,9 @@ export default function Expenses() {
                   <div className="form-grid">
                     <div className="form-group full">
                       <label>Loan Name</label>
-                      <input className="input" placeholder="e.g. ANZ Home Loan" value={form.name}
+                      <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. ANZ Home Loan" value={form.name}
                         onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                      {errors.name && <span className="field-error">{errors.name}</span>}
                     </div>
                     <div className="form-group">
                       <label>Category</label>
@@ -663,6 +646,7 @@ export default function Expenses() {
                       <span className="form-section-label">Loan Splits / Facilities</span>
                       <button className="btn-ghost small" onClick={addFacility}>+ Add Split</button>
                     </div>
+                    {errors.facilities && <span className="field-error" style={{ marginBottom: 6 }}>{errors.facilities}</span>}
 
                     {form.facilities.length === 0 && (
                       <div className="fac-empty">Add splits to track each fixed/floating portion separately</div>
@@ -755,10 +739,7 @@ export default function Expenses() {
             </div>
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save}
-                disabled={!form.name || (form.type !== 'loan' ? !form.amount : form.facilities.length === 0)}>
-                Save
-              </button>
+              <button className="btn-primary" onClick={save}>Save</button>
             </div>
           </div>
         </div>

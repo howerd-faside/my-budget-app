@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import { createDividend } from '../../models/Dividend';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -8,10 +9,7 @@ function today() { return new Date().toISOString().slice(0, 10); }
 const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const EMPTY = {
-  date: today(), holdingId: '', platform: '',
-  grossAmount: '', taxAmount: '', netAmount: '', notes: '',
-};
+const EMPTY = createDividend({ date: today() });
 
 function DividendModal({ dividend, holdings, onSave, onClose }) {
   const [form, setForm] = useState(dividend ? { ...dividend } : { ...EMPTY });

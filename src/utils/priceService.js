@@ -3,6 +3,7 @@
  * Stocks / ETFs / etc. → Yahoo Finance (via Vite dev proxy)
  * Crypto               → CoinGecko public API
  */
+import { withRetry } from './retry';
 
 const CRYPTO_CATEGORIES = new Set(['Crypto']);
 
@@ -10,20 +11,24 @@ const CRYPTO_CATEGORIES = new Set(['Crypto']);
 
 async function fetchStockPrice(ticker) {
   const url = `/api/yahoo/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
-  const data = await res.json();
-  const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-  if (price == null) throw new Error('No price in response');
-  return +price;
+  return withRetry(async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+    const data = await res.json();
+    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (price == null) throw new Error('No price in response');
+    return +price;
+  });
 }
 
 async function fetchCryptoPricesBatch(tickers) {
   const searches = await Promise.allSettled(
     tickers.map(async (ticker) => {
-      const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(ticker)}`);
-      if (!res.ok) throw new Error(`Search HTTP ${res.status}`);
-      const { coins } = await res.json();
+      const { coins } = await withRetry(async () => {
+        const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(ticker)}`);
+        if (!res.ok) throw new Error(`Search HTTP ${res.status}`);
+        return res.json();
+      });
       const match = coins?.find(c => c.symbol.toUpperCase() === ticker.toUpperCase()) || coins?.[0];
       if (!match) throw new Error(`No coin for ${ticker}`);
       return { ticker, coinId: match.id };
@@ -40,12 +45,17 @@ async function fetchCryptoPricesBatch(tickers) {
   if (resolved.length === 0) return { prices: new Map(), failures };
 
   const ids = resolved.map(r => r.coinId).join(',');
-  const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
-  if (!priceRes.ok) {
-    resolved.forEach(r => failures.set(r.ticker, `Price HTTP ${priceRes.status}`));
+  let priceData;
+  try {
+    priceData = await withRetry(async () => {
+      const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+      if (!priceRes.ok) throw new Error(`Price HTTP ${priceRes.status}`);
+      return priceRes.json();
+    });
+  } catch (e) {
+    resolved.forEach(r => failures.set(r.ticker, e.message));
     return { prices: new Map(), failures };
   }
-  const priceData = await priceRes.json();
 
   const prices = new Map();
   for (const { ticker, coinId } of resolved) {
@@ -90,44 +100,47 @@ export async function refreshAllPrices(holdings) {
 
 async function fetchStockHistory(ticker) {
   const url = `/api/yahoo/v8/finance/chart/${encodeURIComponent(ticker)}?range=2y&interval=1d`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
-  const data = await res.json();
-  const result = data?.chart?.result?.[0];
-  if (!result) throw new Error('No data returned');
+  return withRetry(async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+    const data = await res.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) throw new Error('No data returned');
 
-  const timestamps = result.timestamp || [];
-  const closes     = result.indicators?.quote?.[0]?.close || [];
+    const timestamps = result.timestamp || [];
+    const closes     = result.indicators?.quote?.[0]?.close || [];
 
-  const priceMap = new Map();
-  timestamps.forEach((ts, i) => {
-    const price = closes[i];
-    if (price != null) {
-      const dateStr = new Date(ts * 1000).toISOString().slice(0, 10);
-      priceMap.set(dateStr, price);
-    }
+    const priceMap = new Map();
+    timestamps.forEach((ts, i) => {
+      const price = closes[i];
+      if (price != null) {
+        const dateStr = new Date(ts * 1000).toISOString().slice(0, 10);
+        priceMap.set(dateStr, price);
+      }
+    });
+    return priceMap;
   });
-  return priceMap;
 }
 
 async function fetchCryptoHistory(ticker) {
   // Binance public API — no key required, CORS-friendly
-  // Try USDT pair first, fall back to BUSD
   const symbol = `${ticker.toUpperCase()}USDT`;
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=730`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Binance HTTP ${res.status} for ${symbol}`);
-  const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) throw new Error(`No Binance data for ${symbol}`);
+  return withRetry(async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Binance HTTP ${res.status} for ${symbol}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error(`No Binance data for ${symbol}`);
 
-  // kline format: [openTime, open, high, low, close, ...]
-  const priceMap = new Map();
-  for (const kline of data) {
-    const dateStr = new Date(kline[0]).toISOString().slice(0, 10);
-    const close   = parseFloat(kline[4]);
-    if (!isNaN(close)) priceMap.set(dateStr, close);
-  }
-  return priceMap;
+    // kline format: [openTime, open, high, low, close, ...]
+    const priceMap = new Map();
+    for (const kline of data) {
+      const dateStr = new Date(kline[0]).toISOString().slice(0, 10);
+      const close   = parseFloat(kline[4]);
+      if (!isNaN(close)) priceMap.set(dateStr, close);
+    }
+    return priceMap;
+  });
 }
 
 /**

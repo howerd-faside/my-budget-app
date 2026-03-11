@@ -6,6 +6,8 @@ import {
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
 import { fetchAllHistoricalPrices, buildPortfolioSeries, CHART_RANGES } from '../../utils/priceService';
+import { useToast } from '../../components/Toast';
+import { calcPortfolioStats, enrichHoldings } from '../../utils/finance/savings';
 
 const CAT_COLOR = {
   'Shares':       '#0071E3',
@@ -65,6 +67,7 @@ function ChartTooltip({ active, payload, label }) {
 // ── Portfolio chart ───────────────────────────────────────────────────────────
 
 function PortfolioChart({ holdings }) {
+  const toast = useToast();
   const [histMap, setHistMap] = useState(null);
   const [skipped, setSkipped] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,6 +89,7 @@ function PortfolioChart({ holdings }) {
       setSkipped(skip);
     } catch (e) {
       setError(e.message);
+      toast(`Failed to load price history — ${e.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -211,18 +215,8 @@ export default function InvestmentPerformance() {
   const holdings = (state.investments || []).filter(h => h.portfolioId === pid);
 
   const stats = useMemo(() => {
-    const totalValue = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.currentPrice || 0), 0);
-    const totalCost  = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.avgCost      || 0), 0);
-    const unrealised = totalValue - totalCost;
-    const returnPct  = totalCost > 0 ? (unrealised / totalCost * 100) : 0;
-
-    const enriched = holdings.map(h => {
-      const value = (+h.units || 0) * (+h.currentPrice || 0);
-      const cost  = (+h.units || 0) * (+h.avgCost      || 0);
-      const gl    = value - cost;
-      const glPct = cost > 0 ? (gl / cost * 100) : 0;
-      return { ...h, value, cost, gl, glPct };
-    });
+    const { totalValue, totalCost, unrealised, returnPct } = calcPortfolioStats(holdings, [], []);
+    const enriched = enrichHoldings(holdings);
 
     // Category breakdown
     const catMap = {};

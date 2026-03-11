@@ -2,29 +2,22 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
 import { refreshAllPrices } from '../../utils/priceService';
+import { useToast } from '../../components/Toast';
+import { createHolding, HOLDING_CATEGORIES, CATEGORY_COLORS } from '../../models/Holding';
+import { getHoldingDependents, cascadeDeleteHolding, holdingDeleteMessage } from '../../utils/cascade';
+import { validate, holdingSchema } from '../../utils/validation';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-const CATEGORIES = ['Shares', 'ETF', 'Managed Fund', 'Bonds', 'Term Deposit', 'Crypto', 'Other'];
+const CATEGORIES = HOLDING_CATEGORIES;
 const CAT_FILTER  = ['All', ...CATEGORIES];
-
-const CAT_COLOR = {
-  'Shares':       '#0071E3',
-  'ETF':          '#34C759',
-  'Managed Fund': '#AF52DE',
-  'Bonds':        '#FF9F0A',
-  'Term Deposit': '#FF6B2B',
-  'Crypto':       '#32ADE6',
-  'Other':        '#86868B',
-};
+const CAT_COLOR   = CATEGORY_COLORS;
 
 const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const EMPTY = {
-  name: '', ticker: '', platform: '', category: 'Shares', currentPrice: '', notes: '',
-};
+const EMPTY = createHolding();
 
 /** Derive total units + weighted avg cost from a tranches array */
 function computeTranches(tranches = []) {
@@ -166,6 +159,7 @@ function HoldingRow({ holding, onEdit, onDelete }) {
 
 function HoldingModal({ holding, onSave, onClose }) {
   const [form, setForm] = useState(() => initForm(holding));
+  const [errors, setErrors] = useState({});
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const setTranche = (id, k, v) =>
@@ -179,7 +173,12 @@ function HoldingModal({ holding, onSave, onClose }) {
   const currentValue = totalUnits * (+form.currentPrice || 0);
   const gl           = currentValue - totalCost;
 
-  const canSave = form.name.trim().length > 0 && form.tranches.length > 0;
+  const handleSave = () => {
+    const { ok, errors: errs } = validate(holdingSchema, form);
+    if (!ok) { setErrors(errs); return; }
+    setErrors({});
+    onSave(form);
+  };
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -194,8 +193,9 @@ function HoldingModal({ holding, onSave, onClose }) {
           <div className="form-grid">
             <div className="form-group full">
               <label>Asset Name</label>
-              <input className="input" placeholder="e.g. Apple Inc"
+              <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. Apple Inc"
                 value={form.name} onChange={e => setField('name', e.target.value)} />
+              {errors.name && <span className="field-error">{errors.name}</span>}
             </div>
             <div className="form-group">
               <label>Ticker / Code</label>
@@ -215,8 +215,9 @@ function HoldingModal({ holding, onSave, onClose }) {
             </div>
             <div className="form-group full">
               <label>Current Price per Unit (USD)</label>
-              <input className="input mono" type="number" step="0.0001" placeholder="0.00"
+              <input className={`input mono${errors.currentPrice ? ' input-error' : ''}`} type="number" step="0.0001" placeholder="0.00"
                 value={form.currentPrice} onChange={e => setField('currentPrice', e.target.value)} />
+              {errors.currentPrice && <span className="field-error">{errors.currentPrice}</span>}
             </div>
           </div>
 
@@ -236,21 +237,27 @@ function HoldingModal({ holding, onSave, onClose }) {
               <span />
             </div>
 
-            {form.tranches.map((t) => {
-              const lineTotal = (+t.units || 0) * (+t.costPerUnit || 0);
+            {form.tranches.map((t, idx) => {
+              const lineTotal  = (+t.units || 0) * (+t.costPerUnit || 0);
+              const errUnits   = errors[`tranches.${idx}.units`];
+              const errCost    = errors[`tranches.${idx}.costPerUnit`];
               return (
-                <div key={t.id} className="tranche-grid">
-                  <input className="input mono" type="date"
-                    value={t.date} onChange={e => setTranche(t.id, 'date', e.target.value)} />
-                  <input className="input mono" type="number" step="0.000001" placeholder="0"
-                    value={t.units} onChange={e => setTranche(t.id, 'units', e.target.value)} />
-                  <input className="input mono" type="number" step="0.0001" placeholder="0.00"
-                    value={t.costPerUnit} onChange={e => setTranche(t.id, 'costPerUnit', e.target.value)} />
-                  <span className="mono tranche-total">{lineTotal > 0 ? fmt(lineTotal) : '—'}</span>
-                  <button className="btn-icon small danger" disabled={form.tranches.length === 1}
-                    onClick={() => removeTranche(t.id)}>
-                    <Icon name="close" size={10} />
-                  </button>
+                <div key={t.id}>
+                  <div className="tranche-grid">
+                    <input className="input mono" type="date"
+                      value={t.date} onChange={e => setTranche(t.id, 'date', e.target.value)} />
+                    <input className={`input mono${errUnits ? ' input-error' : ''}`} type="number" step="0.000001" placeholder="0"
+                      value={t.units} onChange={e => setTranche(t.id, 'units', e.target.value)} />
+                    <input className={`input mono${errCost ? ' input-error' : ''}`} type="number" step="0.0001" placeholder="0.00"
+                      value={t.costPerUnit} onChange={e => setTranche(t.id, 'costPerUnit', e.target.value)} />
+                    <span className="mono tranche-total">{lineTotal > 0 ? fmt(lineTotal) : '—'}</span>
+                    <button className="btn-icon small danger" disabled={form.tranches.length === 1}
+                      onClick={() => removeTranche(t.id)}>
+                      <Icon name="close" size={10} />
+                    </button>
+                  </div>
+                  {errUnits && <span className="field-error" style={{ paddingLeft: 2 }}>{errUnits}</span>}
+                  {errCost  && !errUnits && <span className="field-error" style={{ paddingLeft: 2 }}>{errCost}</span>}
                 </div>
               );
             })}
@@ -280,7 +287,7 @@ function HoldingModal({ holding, onSave, onClose }) {
         </div>
         <div className="modal-footer">
           <button className="btn-ghost small" onClick={onClose}>Cancel</button>
-          <button className="btn-primary small" disabled={!canSave} onClick={() => onSave(form)}>
+          <button className="btn-primary small" onClick={handleSave}>
             {holding?.id ? 'Save Changes' : 'Add Holding'}
           </button>
         </div>
@@ -292,10 +299,11 @@ function HoldingModal({ holding, onSave, onClose }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InvestmentHoldings() {
-  const { state, set } = useApp();
+  const { state, set, cascadeDelete } = useApp();
   const pid      = state.selectedPortfolioId;
   const holdings = (state.investments || []).filter(h => h.portfolioId === pid);
 
+  const toast = useToast();
   const [catFilter,  setCatFilter]  = useState('All');
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -324,8 +332,13 @@ export default function InvestmentHoldings() {
         ));
       }
       setRefreshMsg({ updated: updated.length, failedTickers: failed.map(f => f.ticker) });
-    } catch {
-      setRefreshMsg({ updated: 0, failedTickers: holdings.filter(h => h.ticker).map(h => h.ticker) });
+      if (failed.length > 0) {
+        toast(`Could not update: ${failed.map(f => f.ticker).join(', ')}`, 'error');
+      }
+    } catch (e) {
+      const failedTickers = holdings.filter(h => h.ticker).map(h => h.ticker);
+      setRefreshMsg({ updated: 0, failedTickers });
+      toast(`Price refresh failed — ${e?.message || 'check your connection'}`, 'error');
     } finally {
       setRefreshing(false);
     }
@@ -346,8 +359,11 @@ export default function InvestmentHoldings() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Remove this holding?'))
-      set('investments', allHoldings.filter(h => h.id !== id));
+    const holding = allHoldings.find(h => h.id === id);
+    if (!holding) return;
+    const deps = getHoldingDependents(state, id);
+    if (!window.confirm(holdingDeleteMessage(holding.name, deps))) return;
+    cascadeDelete(cascadeDeleteHolding(state, id));
   };
 
   const openEdit = (h) => { setEditTarget(h); setShowModal(true); };

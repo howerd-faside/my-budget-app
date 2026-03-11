@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import { calcPortfolioStats } from '../../utils/finance/savings';
 
 const CAT_COLOR = {
   'Shares':       '#0071E3',
@@ -22,25 +23,10 @@ export default function InvestmentDashboard({ onSelectTab }) {
   const contributions = (state.investmentContributions || []).filter(c => c.portfolioId === pid);
   const dividends     = (state.investmentDividends     || []).filter(d => d.portfolioId === pid);
 
-  const stats = useMemo(() => {
-    const totalValue   = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.currentPrice || 0), 0);
-    const totalCost    = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.avgCost || 0), 0);
-    const totalContrib = contributions.reduce((s, c) => s + (+c.amount || 0), 0);
-    const totalDivNet  = dividends.reduce((s, d) => s + (+d.netAmount || 0), 0);
-    const unrealised   = totalValue - totalCost;
-    const returnPct    = totalCost > 0 ? (unrealised / totalCost * 100) : 0;
-
-    const byCat = {};
-    for (const h of holdings) {
-      const val = (+h.units || 0) * (+h.currentPrice || 0);
-      byCat[h.category] = (byCat[h.category] || 0) + val;
-    }
-    const allocation = Object.entries(byCat)
-      .map(([cat, val]) => ({ cat, val, pct: totalValue > 0 ? val / totalValue : 0 }))
-      .sort((a, b) => b.val - a.val);
-
-    return { totalValue, totalCost, totalContrib, totalDivNet, unrealised, returnPct, allocation };
-  }, [holdings, contributions, dividends]);
+  const stats = useMemo(
+    () => calcPortfolioStats(holdings, contributions, dividends),
+    [holdings, contributions, dividends]
+  );
 
   const recentActivity = useMemo(() => {
     const contribItems = contributions.map(c => ({

@@ -1,18 +1,16 @@
 import { useState } from 'react';
 import { useApp, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyAssetIncome, getPersonIncomeAt } from '../store';
 import { calcNetPay, TAX_CODES, KIWISAVER_RATES, PAY_FREQUENCIES, fmtMoneyRound, fmtMoney } from '../utils/tax';
+import { toFortnightly } from '../utils/finance/frequency';
+import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymentRole, createAssetIncome } from '../models/Person';
+import { getPersonDependents, cascadeDeletePerson, personDeleteMessage } from '../utils/cascade';
 import Icon from '../components/Icon';
 
-const EMPTY_PERSON = {
-  name: '', grossAnnual: '', taxCode: 'M', kiwiSaverRate: 3,
-  payFrequency: 'fortnightly', secondaryIncomes: [], incomeEvents: [], employmentHistory: [],
-};
-
-const EMPTY_SECONDARY = { id: '', name: '', amount: '', frequency: 'monthly' };
-const EMPTY_EVENT = { id: '', label: '', startDate: '', endDate: '', grossAnnual: '' };
-const EMPTY_ROLE  = { id: '', employer: '', role: '', startDate: '', endDate: '', grossAnnual: '' };
-
-const EMPTY_ASSET = { id: '', name: '', type: 'rental', amount: '', frequency: 'monthly', notes: '' };
+const EMPTY_PERSON    = createPerson();
+const EMPTY_SECONDARY = createSecondaryIncome();
+const EMPTY_EVENT     = createIncomeEvent();
+const EMPTY_ROLE      = createEmploymentRole();
+const EMPTY_ASSET     = createAssetIncome();
 
 const ASSET_TYPES = [
   { value: 'rental',   label: 'Rental Property' },
@@ -23,20 +21,11 @@ const ASSET_TYPES = [
 ];
 const ASSET_TYPE_LABEL = Object.fromEntries(ASSET_TYPES.map(t => [t.value, t.label]));
 
-function toFnAsset(a) {
-  const amt = +a.amount || 0;
-  if (a.frequency === 'fortnightly') return amt;
-  if (a.frequency === 'weekly')      return amt * 2;
-  if (a.frequency === 'monthly')     return (amt * 12) / 26;
-  if (a.frequency === 'quarterly')   return (amt * 4) / 26;
-  if (a.frequency === 'annual')      return amt / 26;
-  return amt;
-}
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
 export default function People() {
-  const { state, set } = useApp();
+  const { state, set, cascadeDelete } = useApp();
   const [editing, setEditing]           = useState(null);
   const [form, setForm]                 = useState(EMPTY_PERSON);
   const [openCards, setOpenCards]       = useState(new Set());
@@ -72,7 +61,11 @@ export default function People() {
   };
 
   const remove = (id) => {
-    if (confirm('Remove this person?')) set('people', state.people.filter(p => p.id !== id));
+    const person = state.people.find(p => p.id === id);
+    if (!person) return;
+    const deps = getPersonDependents(state, id);
+    if (!confirm(personDeleteMessage(person.name, deps))) return;
+    cascadeDelete(cascadeDeletePerson(state, id));
   };
 
   const addSecondary = () => {
@@ -377,12 +370,12 @@ export default function People() {
                 </div>
               </div>
               <div className="asset-amount">
-                <span className="mono teal">{fmtMoneyRound(toFnAsset(a))}</span>
+                <span className="mono teal">{fmtMoneyRound(toFortnightly(a.amount, a.frequency))}</span>
                 <span className="text3"> /fn</span>
               </div>
               <div className="asset-detail">
                 <span className="text3">{fmtMoneyRound(+a.amount || 0)} {a.frequency}</span>
-                <span className="mono text3">{fmtMoneyRound(toFnAsset(a) * 26)}/yr</span>
+                <span className="mono text3">{fmtMoneyRound(toFortnightly(a.amount, a.frequency) * 26)}/yr</span>
               </div>
               {a.notes && <div className="asset-notes">{a.notes}</div>}
             </div>
@@ -683,8 +676,8 @@ export default function People() {
               </div>
               {assetForm.amount > 0 && (
                 <div className="calc-preview">
-                  <span>Fortnightly: <strong className="teal">{fmtMoneyRound(toFnAsset(assetForm))}</strong></span>
-                  <span>Annual: <strong>{fmtMoneyRound(toFnAsset(assetForm) * 26)}</strong></span>
+                  <span>Fortnightly: <strong className="teal">{fmtMoneyRound(toFortnightly(assetForm.amount, assetForm.frequency))}</strong></span>
+                  <span>Annual: <strong>{fmtMoneyRound(toFortnightly(assetForm.amount, assetForm.frequency) * 26)}</strong></span>
                 </div>
               )}
             </div>
