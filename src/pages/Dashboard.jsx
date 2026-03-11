@@ -16,7 +16,6 @@ import { validate, accountSchema } from '../utils/validation';
 
 const RATE_COLORS = { fixed: '#FF9F0A', floating: '#34C759', revolving: '#AF52DE', default: '#0071E3' };
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 
 const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
 const VIEW_LIMITS = { '1y': 13, '2y': 26, '3y': 39, '5y': 65 };
@@ -391,7 +390,7 @@ export default function Dashboard() {
   const projectedBal  = trajectory[endIdx]?.balance ?? 0;
   const projectedYear = trajectory[endIdx]?.date.slice(0, 4) ?? '2030';
 
-  const openGoal  = () => { setGoalForm({ ...EMPTY_GOAL, id: uid() }); setEditing('new'); };
+  const openGoal  = () => { setGoalForm({ ...EMPTY_GOAL, id: crypto.randomUUID() }); setEditing('new'); };
   const closeGoal = () => { setEditing(null); setGoalForm(EMPTY_GOAL); };
   const saveGoal  = () => {
     const goal = { ...goalForm, amount: +goalForm.amount };

@@ -7,6 +7,11 @@
 import { create } from 'zustand';
 import { persist }  from 'zustand/middleware';
 import { createBudgetStorage } from './budgetStorage';
+import {
+  INVESTMENT_VERSION,
+  INVESTMENT_VERSION_KEY,
+  INVESTMENT_MIGRATIONS,
+} from './migrations/investment';
 
 export const INVESTMENT_KEYS = [
   'investmentPortfolios', 'selectedPortfolioId',
@@ -21,15 +26,6 @@ const defaults = {
   investmentDividends:     [],
 };
 
-function migrateInvestment(slice) {
-  if (!slice.investmentPortfolios)    slice.investmentPortfolios    = [];
-  if (!('selectedPortfolioId' in slice)) slice.selectedPortfolioId  = null;
-  if (!slice.investments)             slice.investments             = [];
-  if (!slice.investmentContributions) slice.investmentContributions = [];
-  if (!slice.investmentDividends)     slice.investmentDividends     = [];
-  return slice;
-}
-
 export const useInvestmentStore = create(
   persist(
     (set) => ({
@@ -40,7 +36,13 @@ export const useInvestmentStore = create(
     }),
     {
       name:       'budget_v1',
-      storage:    createBudgetStorage(INVESTMENT_KEYS, migrateInvestment),
+      version:    INVESTMENT_VERSION,
+      storage:    createBudgetStorage(
+        INVESTMENT_KEYS,
+        INVESTMENT_VERSION_KEY,
+        INVESTMENT_VERSION,
+        INVESTMENT_MIGRATIONS
+      ),
       partialize: (s) => Object.fromEntries(INVESTMENT_KEYS.map(k => [k, s[k]])),
     }
   )

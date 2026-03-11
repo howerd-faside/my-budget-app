@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
 import { calcPortfolioStats } from '../../utils/finance/savings';
+import { getPortfolioActivity } from '../../utils/finance/transactions';
 
 const CAT_COLOR = {
   'Shares':       '#0071E3',
@@ -28,24 +29,10 @@ export default function InvestmentDashboard({ onSelectTab }) {
     [holdings, contributions, dividends]
   );
 
-  const recentActivity = useMemo(() => {
-    const contribItems = contributions.map(c => ({
-      id: c.id, date: c.date, type: 'contribution',
-      label: c.type || 'Contribution',
-      holding: holdings.find(h => h.id === c.holdingId)?.name || c.platform || '—',
-      amount: +c.amount || 0,
-    }));
-    const dividendItems = dividends.map(d => ({
-      id: d.id, date: d.date, type: 'dividend',
-      label: 'Dividend',
-      holding: holdings.find(h => h.id === d.holdingId)?.name || d.platform || '—',
-      amount: +d.netAmount || 0,
-    }));
-    return [...contribItems, ...dividendItems]
-      .filter(x => x.date)
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 8);
-  }, [contributions, dividends, holdings]);
+  const recentActivity = useMemo(
+    () => getPortfolioActivity(contributions, dividends, holdings),
+    [contributions, dividends, holdings]
+  );
 
   const portfolios = state.investmentPortfolios || [];
   const hasData    = holdings.length > 0 || contributions.length > 0 || dividends.length > 0;

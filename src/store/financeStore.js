@@ -5,14 +5,18 @@
  */
 import { create } from 'zustand';
 import { persist }  from 'zustand/middleware';
-import { createDefaultAccounts, normalizeAccount } from '../models/Account';
-import { createBudgetStorage } from './budgetStorage';
+import { createDefaultAccounts } from '../models/Account';
+import { createBudgetStorage }   from './budgetStorage';
+import {
+  FINANCE_VERSION,
+  FINANCE_VERSION_KEY,
+  FINANCE_MIGRATIONS,
+} from './migrations/finance';
 
 export const FINANCE_KEYS = [
   'accounts', 'transfers', 'fortnightlyData', 'goals', 'assetIncomes', 'settings',
 ];
 
-function uid()   { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const defaults = {
@@ -24,37 +28,11 @@ const defaults = {
   settings:        { currentBalance: 0 },   // legacy — kept for migrate only
 };
 
-function migrateFinance(slice) {
-  // Normalise accounts
-  if (slice.accounts && Array.isArray(slice.accounts) && slice.accounts.length > 0) {
-    slice.accounts = slice.accounts.map(normalizeAccount);
-  } else {
-    slice.accounts = createDefaultAccounts();
-  }
-
-  // Backfill from legacy currentBalance if all accounts are zero
-  const allZero = slice.accounts.every(a => (a.balance || 0) === 0);
-  if (allZero && slice.settings?.currentBalance > 0) {
-    slice.accounts = slice.accounts.map((a, i) =>
-      i === 0 ? { ...a, balance: slice.settings.currentBalance } : a
-    );
-  }
-
-  if (!slice.transfers)       slice.transfers       = [];
-  if (!slice.fortnightlyData) slice.fortnightlyData = {};
-  if (!slice.goals)           slice.goals           = [];
-  if (!slice.assetIncomes)    slice.assetIncomes    = [];
-  if (!slice.settings)        slice.settings        = { currentBalance: 0 };
-
-  return slice;
-}
-
 export const useFinanceStore = create(
   persist(
     (set) => ({
       ...defaults,
 
-      // Generic slice setter used by the bridge
       setSlice:    (key, val) => set({ [key]: val }),
       mergeSlices: (slices)   => set(slices),
 
@@ -86,7 +64,14 @@ export const useFinanceStore = create(
         const amt = +amount;
         if (!amt || amt <= 0) return;
         set(s => {
-          const tx = { id: uid(), date: today(), fromId, toId, amount: amt, note };
+          const tx = {
+            id:     crypto.randomUUID(),
+            date:   today(),
+            fromId,
+            toId,
+            amount: amt,
+            note,
+          };
           return {
             transfers: [...s.transfers, tx],
             accounts: s.accounts.map(a =>
@@ -113,7 +98,13 @@ export const useFinanceStore = create(
     }),
     {
       name:       'budget_v1',
-      storage:    createBudgetStorage(FINANCE_KEYS, migrateFinance),
+      version:    FINANCE_VERSION,
+      storage:    createBudgetStorage(
+        FINANCE_KEYS,
+        FINANCE_VERSION_KEY,
+        FINANCE_VERSION,
+        FINANCE_MIGRATIONS
+      ),
       partialize: (s) => Object.fromEntries(FINANCE_KEYS.map(k => [k, s[k]])),
     }
   )

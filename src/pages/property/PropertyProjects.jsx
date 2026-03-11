@@ -3,7 +3,6 @@ import { useApp } from '../../store';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const PROJECT_STATUSES = ['Idea', 'Planning', 'In Progress', 'On Hold', 'Completed', 'Cancelled'];
@@ -45,7 +44,7 @@ function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusC
     if (!noteText.trim()) return;
     const updated = {
       ...proj,
-      notes: [...(proj.notes || []), { id: uid(), date: today(), text: noteText.trim() }],
+      notes: [...(proj.notes || []), { id: crypto.randomUUID(), date: today(), text: noteText.trim() }],
     };
     set('propertyProjects', propertyProjects.map(p => p.id === proj.id ? updated : p));
     setNoteText('');
@@ -199,7 +198,7 @@ export default function PropertyProjects() {
   const propTasks = selProp ? propertyTasks.filter(t => t.propertyId === selProp.id) : [];
 
   const openNew = () => {
-    setForm({ ...EMPTY_PROJ, id: uid(), propertyId: selectedPropertyId || '', createdAt: today() });
+    setForm({ ...EMPTY_PROJ, id: crypto.randomUUID(), propertyId: selectedPropertyId || '', createdAt: today() });
     setEditingId('new'); setActiveTab('info'); setNoteText(''); setShowModal(true);
   };
 
@@ -212,7 +211,7 @@ export default function PropertyProjects() {
 
   const addNoteToForm = () => {
     if (!noteText.trim()) return;
-    setForm(f => ({ ...f, notes: [...(f.notes || []), { id: uid(), date: today(), text: noteText.trim() }] }));
+    setForm(f => ({ ...f, notes: [...(f.notes || []), { id: crypto.randomUUID(), date: today(), text: noteText.trim() }] }));
     setNoteText('');
   };
 

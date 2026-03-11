@@ -12,7 +12,6 @@ import {
   getAreaDependents, cascadeDeleteArea, areaDeleteMessage,
 } from '../../utils/cascade';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function fmtMoney(n) { return n ? `$${Number(n).toLocaleString('en-NZ')}` : null; }
 
 // Local aliases for enum names that were standardised in the Property model.
@@ -35,7 +34,7 @@ function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, o
 
   const submitArea = () => {
     if (!areaForm.name.trim()) return;
-    onAddArea({ ...areaForm, id: uid() });
+    onAddArea({ ...areaForm, id: crypto.randomUUID() });
     setAreaForm(EMPTY_AREA); setAddingArea(false);
   };
 
@@ -219,7 +218,7 @@ export default function PropertyRegister() {
   const setInsul = (k, v) => setForm(f => ({ ...f, insulation: { ...f.insulation, [k]: v } }));
 
   const openNew = () => {
-    setForm({ ...EMPTY_PROP, id: uid(), areas: [] });
+    setForm({ ...EMPTY_PROP, id: crypto.randomUUID(), areas: [] });
     setEditingId('new'); setModalTab('profile');
     setShowModal(true);
   };
@@ -496,7 +495,7 @@ export default function PropertyRegister() {
                       onChange={e => setAreaForm(f => ({ ...f, name: e.target.value }))}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && areaForm.name.trim()) {
-                          setForm(f => ({ ...f, areas: [...f.areas, { ...areaForm, id: uid() }] }));
+                          setForm(f => ({ ...f, areas: [...f.areas, { ...areaForm, id: crypto.randomUUID() }] }));
                           setAreaForm(EMPTY_AREA);
                         }
                       }}
@@ -506,7 +505,7 @@ export default function PropertyRegister() {
                     </select>
                     <button className="btn-ghost small" onClick={() => {
                       if (!areaForm.name.trim()) return;
-                      setForm(f => ({ ...f, areas: [...f.areas, { ...areaForm, id: uid() }] }));
+                      setForm(f => ({ ...f, areas: [...f.areas, { ...areaForm, id: crypto.randomUUID() }] }));
                       setAreaForm(EMPTY_AREA);
                     }}>Add</button>
                   </div>

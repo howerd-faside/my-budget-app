@@ -10,7 +10,6 @@ import {
 import { getTaskDependents, cascadeDeleteTask, taskDeleteMessage } from '../../utils/cascade';
 import { validate, propertyTaskSchema } from '../../utils/validation';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const CATEGORIES     = TASK_CATEGORIES;
@@ -165,7 +164,7 @@ export default function PropertyTasks() {
   const overdueCount = visible.filter(t => t.dueDate && t.dueDate < today() && t.status !== 'Done' && t.status !== 'Cancelled').length;
 
   const openNew = () => {
-    setForm({ ...EMPTY_TASK, id: uid(), propertyId: selectedPropertyId || '', createdAt: today() });
+    setForm({ ...EMPTY_TASK, id: crypto.randomUUID(), propertyId: selectedPropertyId || '', createdAt: today() });
     setRecurEnabled(false); setRecurInterval(6); setRecurUnit('months');
     setErrors({}); setEditingId('new'); setShowModal(true);
   };
@@ -207,14 +206,14 @@ export default function PropertyTasks() {
     let updated = propertyTasks.map(t => t.id === task.id ? { ...t, status: next } : t);
     if (next === 'Done' && task.recurring?.interval && task.dueDate) {
       const nextDue = addInterval(task.dueDate, task.recurring.interval, task.recurring.unit);
-      updated = [...updated, { ...task, id: uid(), status: 'To Do', dueDate: nextDue, notes: [], createdAt: today() }];
+      updated = [...updated, { ...task, id: crypto.randomUUID(), status: 'To Do', dueDate: nextDue, notes: [], createdAt: today() }];
     }
     set('propertyTasks', updated);
   };
 
   const addNote = (taskId, text) => {
     set('propertyTasks', propertyTasks.map(t =>
-      t.id === taskId ? { ...t, notes: [...(t.notes || []), { id: uid(), date: today(), text }] } : t
+      t.id === taskId ? { ...t, notes: [...(t.notes || []), { id: crypto.randomUUID(), date: today(), text }] } : t
     ));
   };
 

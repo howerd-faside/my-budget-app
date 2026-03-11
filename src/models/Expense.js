@@ -14,6 +14,12 @@
  *   backfills them to safe defaults.
  * - `forPerson` links to a Person.id but there is no referential-integrity check;
  *   deleted people leave dangling forPerson values.
+ *
+ * Numeric normalization:
+ *   `normalize*` functions coerce all financial/numeric fields to their canonical
+ *   types (number or null). `create*` factories keep `''` defaults for form binding.
+ *   - `amount`, `balance`, `rate` → number (0 when empty/invalid)
+ *   - `ddDay` → number | null  (null when not applicable)
  */
 
 /**
@@ -41,16 +47,43 @@ export const RATE_TYPES = /** @type {const} */ (['fixed', 'floating', 'revolving
 /** Valid repayment structure labels for loan facilities. */
 export const REPAYMENT_TYPES = /** @type {const} */ (['P&I', 'IO']);
 
+// ── Private helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Parse a numeric value from storage; returns `fallback` (default 0) for
+ * empty strings, null, undefined, or non-finite values.
+ * @param {*} val
+ * @param {number} [fallback=0]
+ * @returns {number}
+ */
+function toNum(val, fallback = 0) {
+  const n = parseFloat(val);
+  return isFinite(n) ? n : fallback;
+}
+
+/**
+ * Parse an optional numeric value; returns `null` for empty/absent/invalid.
+ * @param {*} val
+ * @returns {number|null}
+ */
+function toNumOrNull(val) {
+  if (val === '' || val == null) return null;
+  const n = parseFloat(val);
+  return isFinite(n) ? n : null;
+}
+
+// ── Typedefs ─────────────────────────────────────────────────────────────────
+
 /**
  * @typedef {Object} Facility
  * @property {string}        id              - Unique identifier
  * @property {string}        label           - Display label (e.g. 'Fixed 5yr', 'Revolving')
- * @property {number|string} balance         - Outstanding loan balance in NZD
- * @property {number|string} rate            - Annual interest rate (%)
+ * @property {number}        balance         - Outstanding loan balance in NZD
+ * @property {number}        rate            - Annual interest rate (%)
  * @property {RateType}      rateType        - 'fixed' | 'floating' | 'revolving'
  * @property {RepaymentType} repaymentType   - 'P&I' (principal & interest) | 'IO' (interest only)
  * @property {string}        fixedTermExpiry - ISO 'YYYY-MM' when fixed term expires (or '')
- * @property {number|string} amount          - Scheduled repayment amount per `frequency`
+ * @property {number}        amount          - Scheduled repayment amount per `frequency`
  * @property {Frequency}     [frequency]     - Repayment frequency (defaults to 'fortnightly')
  */
 
@@ -61,10 +94,10 @@ export const REPAYMENT_TYPES = /** @type {const} */ (['P&I', 'IO']);
  * @property {string}        category      - Category key from utils/categories.js
  * @property {ExpenseType}   type          - 'standard' | 'loan'
  * @property {ExpenseSubtype} subtype      - 'fixed' | 'variable'
- * @property {number|string} amount        - Amount per `frequency`
+ * @property {number}        amount        - Amount per `frequency`
  * @property {Frequency}     frequency     - Payment frequency
  * @property {PaymentMethod} paymentMethod - How the expense is paid
- * @property {number|string} ddDay         - Day of month for direct debit (1–28, or '')
+ * @property {number|null}   ddDay         - Day of month for direct debit (1–28), or null
  * @property {string}        lender        - Lender name for loan expenses
  * @property {Facility[]}    facilities    - Loan facilities / splits (type === 'loan' only)
  * @property {string}        notes         - Free-text notes
@@ -73,6 +106,8 @@ export const REPAYMENT_TYPES = /** @type {const} */ (['P&I', 'IO']);
  * @property {string}        endDate       - ISO date when expense stops ('' = ongoing)
  * @property {string}        forPerson     - Person.id this expense is assigned to (or '')
  */
+
+// ── Factories (form defaults — numeric fields intentionally '' for input binding) ──
 
 /**
  * Factory — returns a blank Facility with sensible defaults.
@@ -121,6 +156,8 @@ export function createExpense(overrides = {}) {
   };
 }
 
+// ── Normalizers (storage boundary — all numeric fields coerced to number/null) ──
+
 /**
  * Coerce a raw (possibly legacy) facility object to the canonical shape.
  * @param {object} raw
@@ -130,12 +167,12 @@ export function normalizeFacility(raw = {}) {
   return createFacility({
     id:              raw.id              ?? '',
     label:           raw.label           ?? '',
-    balance:         raw.balance         ?? '',
-    rate:            raw.rate            ?? '',
+    balance:         toNum(raw.balance),
+    rate:            toNum(raw.rate),
     rateType:        raw.rateType        ?? 'fixed',
     repaymentType:   raw.repaymentType   ?? 'P&I',
     fixedTermExpiry: raw.fixedTermExpiry ?? '',
-    amount:          raw.amount          ?? '',
+    amount:          toNum(raw.amount),
     frequency:       raw.frequency       ?? 'fortnightly',
   });
 }
@@ -161,10 +198,10 @@ export function normalizeExpense(raw = {}) {
     category:      raw.category      ?? 'Groceries',
     type,
     subtype,
-    amount:        raw.amount        ?? '',
+    amount:        toNum(raw.amount),
     frequency:     raw.frequency     ?? 'monthly',
     paymentMethod: raw.paymentMethod ?? 'Direct Debit',
-    ddDay:         raw.ddDay         ?? '',
+    ddDay:         toNumOrNull(raw.ddDay),
     lender:        raw.lender        ?? '',
     facilities:    (raw.facilities   ?? []).map(normalizeFacility),
     notes:         raw.notes         ?? '',

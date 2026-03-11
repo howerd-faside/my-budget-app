@@ -10,6 +10,10 @@
  * - RWT (Resident Withholding Tax) on dividends is stored per-record but there
  *   is no `rwtRate` field; the rate must be inferred from grossAmount and taxAmount,
  *   which is fragile.
+ *
+ * Numeric normalization:
+ *   `normalizeDividend` coerces `grossAmount`, `taxAmount`, `netAmount` to numbers.
+ *   `createDividend` retains `''` defaults for form binding.
  */
 
 /**
@@ -19,9 +23,9 @@
  * @property {string}        date        - ISO date (YYYY-MM-DD)
  * @property {string}        holdingId   - Source Holding.id, or '' if unlinked
  * @property {string}        platform    - Brokerage/platform name
- * @property {number|string} grossAmount - Gross dividend before tax (NZD)
- * @property {number|string} taxAmount   - RWT / withholding tax deducted (NZD)
- * @property {number|string} netAmount   - Net dividend received (NZD). No auto-calculation.
+ * @property {number} grossAmount - Gross dividend before tax (NZD)
+ * @property {number} taxAmount   - RWT / withholding tax deducted (NZD)
+ * @property {number} netAmount   - Net dividend received (NZD). No auto-calculation.
  * @property {string}        notes       - Free-text notes
  * @property {string}        createdAt   - ISO timestamp of record creation
  */
@@ -48,7 +52,18 @@ export function createDividend(overrides = {}) {
 }
 
 /**
+ * Parse a numeric value from storage; returns 0 for empty/invalid.
+ * @param {*} val
+ * @returns {number}
+ */
+function toNum(val) {
+  const n = parseFloat(val);
+  return isFinite(n) ? n : 0;
+}
+
+/**
  * Coerce a raw dividend record to the canonical shape.
+ * `grossAmount`, `taxAmount`, `netAmount` are coerced to numbers (0 if absent).
  * @param {object} raw
  * @returns {Dividend}
  */
@@ -59,9 +74,9 @@ export function normalizeDividend(raw = {}) {
     date:        raw.date        ?? '',
     holdingId:   raw.holdingId   ?? '',
     platform:    raw.platform    ?? '',
-    grossAmount: raw.grossAmount ?? '',
-    taxAmount:   raw.taxAmount   ?? '',
-    netAmount:   raw.netAmount   ?? '',
+    grossAmount: toNum(raw.grossAmount),
+    taxAmount:   toNum(raw.taxAmount),
+    netAmount:   toNum(raw.netAmount),
     notes:       raw.notes       ?? '',
     createdAt:   raw.createdAt   ?? '',
   });

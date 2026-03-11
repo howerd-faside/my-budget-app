@@ -16,6 +16,11 @@
  * - `grossAnnual` on Person is a fallback when no EmploymentRole covers the date;
  *   it is never explicitly removed when employmentHistory is populated, which can
  *   cause subtle inconsistencies if the two diverge.
+ *
+ * Numeric normalization:
+ *   All financial amounts and rates are stored as numbers after normalization.
+ *   `create*` factories retain `''` defaults so form inputs bind to empty strings.
+ *   `normalize*` functions are the single coercion boundary for storage data.
  */
 
 /**
@@ -47,48 +52,64 @@ export const ASSET_INCOME_TYPES = /** @type {const} */ (
   ['rental', 'dividend', 'business', 'trust', 'other']
 );
 
+// ── Private helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Parse a numeric value from storage; returns `fallback` (default 0) for
+ * empty strings, null, undefined, or non-finite values.
+ * @param {*} val
+ * @param {number} [fallback=0]
+ * @returns {number}
+ */
+function toNum(val, fallback = 0) {
+  const n = parseFloat(val);
+  return isFinite(n) ? n : fallback;
+}
+
+// ── Typedefs ─────────────────────────────────────────────────────────────────
+
 /**
  * @typedef {Object} SecondaryIncome
  * @property {string} id        - Unique identifier
  * @property {string} name      - Display label
- * @property {number|string} amount   - Amount per `frequency` (treated as net/post-tax)
+ * @property {number} amount    - Amount per `frequency` (treated as net/post-tax)
  * @property {string} frequency - Payment frequency
  */
 
 /**
  * @typedef {Object} IncomeEvent
- * @property {string}        id          - Unique identifier
- * @property {string}        label       - Event name (e.g. 'Maternity Leave', 'Pay Rise')
- * @property {string}        startDate   - ISO date when the event starts (YYYY-MM-DD)
- * @property {string}        endDate     - ISO date when the event ends, or '' for ongoing
- * @property {number|string} grossAnnual - Override gross annual income during this event
+ * @property {string} id          - Unique identifier
+ * @property {string} label       - Event name (e.g. 'Maternity Leave', 'Pay Rise')
+ * @property {string} startDate   - ISO date when the event starts (YYYY-MM-DD)
+ * @property {string} endDate     - ISO date when the event ends, or '' for ongoing
+ * @property {number} grossAnnual - Override gross annual income during this event
  */
 
 /**
  * @typedef {Object} EmploymentRole
- * @property {string}        id          - Unique identifier
- * @property {string}        employer    - Employer name
- * @property {string}        role        - Job title / role
- * @property {string}        startDate   - ISO date role started (YYYY-MM-DD)
- * @property {string}        endDate     - ISO date role ended, or '' if current
- * @property {number|string} grossAnnual - Gross annual salary for this role
+ * @property {string} id          - Unique identifier
+ * @property {string} employer    - Employer name
+ * @property {string} role        - Job title / role
+ * @property {string} startDate   - ISO date role started (YYYY-MM-DD)
+ * @property {string} endDate     - ISO date role ended, or '' if current
+ * @property {number} grossAnnual - Gross annual salary for this role
  */
 
 /**
  * @typedef {Object} AssetIncome
- * @property {string}        id        - Unique identifier
- * @property {string}        name      - Display label
- * @property {AssetIncomeType} type    - Income source type
- * @property {number|string} amount    - Amount per `frequency`
- * @property {string}        frequency - Payment frequency
- * @property {string}        notes     - Free-text notes
+ * @property {string}          id        - Unique identifier
+ * @property {string}          name      - Display label
+ * @property {AssetIncomeType} type      - Income source type
+ * @property {number}          amount    - Amount per `frequency`
+ * @property {string}          frequency - Payment frequency
+ * @property {string}          notes     - Free-text notes
  */
 
 /**
  * @typedef {Object} Person
  * @property {string}          id                - Unique identifier
  * @property {string}          name              - Full name
- * @property {number|string}   grossAnnual       - Fallback gross annual income (NZD)
+ * @property {number}          grossAnnual       - Fallback gross annual income (NZD).
  *                                                 Used when no EmploymentRole covers the date.
  * @property {TaxCode}         taxCode           - NZ tax code
  * @property {number}          kiwiSaverRate     - KiwiSaver employee rate (%). 0 = not enrolled.
@@ -97,6 +118,8 @@ export const ASSET_INCOME_TYPES = /** @type {const} */ (
  * @property {IncomeEvent[]}     incomeEvents      - Temporary income overrides (maternity leave, etc.)
  * @property {EmploymentRole[]}  employmentHistory - Chronological employment history
  */
+
+// ── Factories (form defaults — numeric fields intentionally '' for input binding) ──
 
 /** @returns {SecondaryIncome} */
 export function createSecondaryIncome(overrides = {}) {
@@ -138,22 +161,86 @@ export function createPerson(overrides = {}) {
   };
 }
 
+// ── Normalizers (storage boundary — all numeric fields coerced to number) ────
+
+/**
+ * Coerce a raw secondary income to the canonical shape.
+ * @param {object} raw
+ * @returns {SecondaryIncome}
+ */
+export function normalizeSecondaryIncome(raw = {}) {
+  return createSecondaryIncome({
+    id:        raw.id        ?? '',
+    name:      raw.name      ?? '',
+    amount:    toNum(raw.amount),
+    frequency: raw.frequency ?? 'monthly',
+  });
+}
+
+/**
+ * Coerce a raw income event to the canonical shape.
+ * @param {object} raw
+ * @returns {IncomeEvent}
+ */
+export function normalizeIncomeEvent(raw = {}) {
+  return createIncomeEvent({
+    id:          raw.id          ?? '',
+    label:       raw.label       ?? '',
+    startDate:   raw.startDate   ?? '',
+    endDate:     raw.endDate     ?? '',
+    grossAnnual: toNum(raw.grossAnnual),
+  });
+}
+
+/**
+ * Coerce a raw employment role to the canonical shape.
+ * @param {object} raw
+ * @returns {EmploymentRole}
+ */
+export function normalizeEmploymentRole(raw = {}) {
+  return createEmploymentRole({
+    id:          raw.id          ?? '',
+    employer:    raw.employer    ?? '',
+    role:        raw.role        ?? '',
+    startDate:   raw.startDate   ?? '',
+    endDate:     raw.endDate     ?? '',
+    grossAnnual: toNum(raw.grossAnnual),
+  });
+}
+
+/**
+ * Coerce a raw asset income to the canonical shape.
+ * @param {object} raw
+ * @returns {AssetIncome}
+ */
+export function normalizeAssetIncome(raw = {}) {
+  return createAssetIncome({
+    id:        raw.id        ?? '',
+    name:      raw.name      ?? '',
+    type:      raw.type      ?? 'rental',
+    amount:    toNum(raw.amount),
+    frequency: raw.frequency ?? 'monthly',
+    notes:     raw.notes     ?? '',
+  });
+}
+
 /**
  * Coerce a raw person to the canonical shape.
- * Ensures sub-arrays are always present (migration safety).
+ * Ensures sub-arrays are always present and all numeric fields are numbers.
  * @param {object} raw
  * @returns {Person}
  */
 export function normalizePerson(raw = {}) {
   return createPerson({
-    id:                raw.id                ?? '',
-    name:              raw.name              ?? '',
-    grossAnnual:       raw.grossAnnual       ?? '',
-    taxCode:           raw.taxCode           ?? 'M',
-    kiwiSaverRate:     raw.kiwiSaverRate     ?? 3,
-    payFrequency:      raw.payFrequency      ?? 'fortnightly',
-    secondaryIncomes:  (raw.secondaryIncomes  ?? []).map(s => createSecondaryIncome(s)),
-    incomeEvents:      (raw.incomeEvents      ?? []).map(e => createIncomeEvent(e)),
-    employmentHistory: (raw.employmentHistory ?? []).map(r => createEmploymentRole(r)),
+    id:           raw.id       ?? '',
+    name:         raw.name     ?? '',
+    grossAnnual:  toNum(raw.grossAnnual),
+    taxCode:      raw.taxCode  ?? 'M',
+    // kiwiSaverRate: coerce to number; preserve 0 (not enrolled); default to 3 if absent.
+    kiwiSaverRate:     raw.kiwiSaverRate != null ? toNum(raw.kiwiSaverRate) : 3,
+    payFrequency:      raw.payFrequency ?? 'fortnightly',
+    secondaryIncomes:  (raw.secondaryIncomes  ?? []).map(normalizeSecondaryIncome),
+    incomeEvents:      (raw.incomeEvents      ?? []).map(normalizeIncomeEvent),
+    employmentHistory: (raw.employmentHistory ?? []).map(normalizeEmploymentRole),
   });
 }

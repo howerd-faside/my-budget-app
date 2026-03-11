@@ -13,6 +13,11 @@
  *   assets whose install date is unknown, leaving it blank silently suppresses
  *   all age-based alerts.
  * - `areaId` references a PropertyArea; dangling-reference risk if the area is deleted.
+ *
+ * Numeric normalization:
+ *   `normalizePropertyAsset` coerces `expectedLifespan` to number | null.
+ *   null means "lifespan unknown"; 0 would be nonsensical so invalid strings → null.
+ *   `createPropertyAsset` retains `''` default for form binding.
  */
 
 /**
@@ -44,7 +49,7 @@ export const CONDITION_PILL = /** @type {const} */ ({
  * @property {string}         model            - Model number / identifier
  * @property {string}         dateInstalled    - ISO date of installation (YYYY-MM-DD), or ''
  * @property {string}         warrantyExpiry   - ISO date warranty expires (YYYY-MM-DD), or ''
- * @property {number|string}  expectedLifespan - Expected lifespan in years (or '')
+ * @property {number|null}    expectedLifespan - Expected lifespan in years, or null if unknown
  * @property {AssetCondition} condition        - Current condition rating
  * @property {string}         notes            - Free-text notes
  * @property {string}         createdAt        - ISO timestamp of record creation
@@ -75,7 +80,19 @@ export function createPropertyAsset(overrides = {}) {
 }
 
 /**
+ * Parse an optional numeric value; returns `null` for empty/absent/invalid.
+ * @param {*} val
+ * @returns {number|null}
+ */
+function toNumOrNull(val) {
+  if (val === '' || val == null) return null;
+  const n = parseFloat(val);
+  return isFinite(n) ? n : null;
+}
+
+/**
  * Coerce a raw asset object to the canonical shape.
+ * `expectedLifespan` is coerced to number | null (null = unknown lifespan).
  * @param {object} raw
  * @returns {PropertyAsset}
  */
@@ -90,7 +107,7 @@ export function normalizePropertyAsset(raw = {}) {
     model:            raw.model            ?? '',
     dateInstalled:    raw.dateInstalled    ?? '',
     warrantyExpiry:   raw.warrantyExpiry   ?? '',
-    expectedLifespan: raw.expectedLifespan ?? '',
+    expectedLifespan: toNumOrNull(raw.expectedLifespan),
     condition:        raw.condition        ?? 'Good',
     notes:            raw.notes            ?? '',
     createdAt:        raw.createdAt        ?? '',

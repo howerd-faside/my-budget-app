@@ -3,8 +3,9 @@ import { useApp } from '../../store';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { createDividend } from '../../models/Dividend';
+import { transactionFromDividend } from '../../models/Transaction';
+import { sumTransactions, sumField } from '../../utils/finance/transactions';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const fmt = (n) =>
@@ -131,17 +132,20 @@ export default function InvestmentDividends() {
     [dividends],
   );
 
-  const stats = useMemo(() => ({
-    totalGross: dividends.reduce((s, d) => s + (+d.grossAmount || 0), 0),
-    totalTax:   dividends.reduce((s, d) => s + (+d.taxAmount   || 0), 0),
-    totalNet:   dividends.reduce((s, d) => s + (+d.netAmount   || 0), 0),
-  }), [dividends]);
+  const stats = useMemo(() => {
+    const txs = dividends.map(transactionFromDividend);
+    return {
+      totalGross: sumField(txs, 'grossAmount'),
+      totalTax:   sumField(txs, 'taxAmount'),
+      totalNet:   sumTransactions(txs),
+    };
+  }, [dividends]);
 
   const handleSave = (form) => {
     if (form.id) {
       set('investmentDividends', allDividends.map(d => d.id === form.id ? { ...form } : d));
     } else {
-      set('investmentDividends', [...allDividends, { ...form, id: uid(), portfolioId: pid, createdAt: today() }]);
+      set('investmentDividends', [...allDividends, { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
     }
     setShowModal(false);
     setEditTarget(null);

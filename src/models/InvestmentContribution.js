@@ -9,6 +9,10 @@
  * - `holdingId` defaults to '' in the form but the contribution can be saved without
  *   selecting a holding (it becomes a portfolio-level contribution). However, the
  *   field is used for linking in the UI — a missing holdingId renders as '—' silently.
+ *
+ * Numeric normalization:
+ *   `normalizeInvestmentContribution` coerces `amount` to a number (0 if absent).
+ *   `createInvestmentContribution` retains `''` default for form binding.
  */
 
 /**
@@ -36,7 +40,7 @@ export const CONTRIBUTION_TYPE_PILL = /** @type {const} */ ({
  * @property {string}           date        - ISO date (YYYY-MM-DD)
  * @property {string}           holdingId   - Target Holding.id, or '' for portfolio-level
  * @property {string}           platform    - Brokerage/platform name
- * @property {number|string}    amount      - Amount contributed (NZD)
+ * @property {number}           amount      - Amount contributed (NZD)
  * @property {ContributionType} type        - Contribution type
  * @property {string}           notes       - Free-text notes
  * @property {string}           createdAt   - ISO timestamp of record creation
@@ -63,7 +67,18 @@ export function createInvestmentContribution(overrides = {}) {
 }
 
 /**
+ * Parse a numeric value from storage; returns 0 for empty/invalid.
+ * @param {*} val
+ * @returns {number}
+ */
+function toNum(val) {
+  const n = parseFloat(val);
+  return isFinite(n) ? n : 0;
+}
+
+/**
  * Coerce a raw contribution record to the canonical shape.
+ * `amount` is coerced to a number (0 if absent/invalid).
  * @param {object} raw
  * @returns {InvestmentContribution}
  */
@@ -74,7 +89,7 @@ export function normalizeInvestmentContribution(raw = {}) {
     date:        raw.date        ?? '',
     holdingId:   raw.holdingId   ?? '',
     platform:    raw.platform    ?? '',
-    amount:      raw.amount      ?? '',
+    amount:      toNum(raw.amount),
     type:        raw.type        ?? 'Regular',
     notes:       raw.notes       ?? '',
     createdAt:   raw.createdAt   ?? '',

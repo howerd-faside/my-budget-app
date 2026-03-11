@@ -77,7 +77,6 @@ function PortfolioBar() {
   const inputRef  = useRef(null);
   const renameRef = useRef(null);
 
-  function uid() { return Math.random().toString(36).slice(2, 9); }
   function today() { return new Date().toISOString().slice(0, 10); }
 
   const startCreate = () => { setCreating(true); setNewName(''); setTimeout(() => inputRef.current?.focus(), 0); };
@@ -85,7 +84,7 @@ function PortfolioBar() {
   const confirmCreate = () => {
     const name = newName.trim();
     if (!name) { setCreating(false); return; }
-    const id = uid();
+    const id = crypto.randomUUID();
     const newPortfolios = [...portfolios, { id, name, createdAt: today() }];
     set('investmentPortfolios', newPortfolios);
     set('selectedPortfolioId', id);

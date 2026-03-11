@@ -9,7 +9,6 @@ import {
 import { getAssetDependents, cascadeDeleteAsset, assetDeleteMessage } from '../../utils/cascade';
 import { validate, propertyAssetSchema } from '../../utils/validation';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const CONDITIONS      = ASSET_CONDITIONS;
@@ -139,7 +138,7 @@ export default function PropertyAssets() {
   }).length, [visibleAssets]);
 
   const openNew = () => {
-    setForm({ ...EMPTY_ASSET, id: uid(), propertyId: selectedPropertyId || '', createdAt: today() });
+    setForm({ ...EMPTY_ASSET, id: crypto.randomUUID(), propertyId: selectedPropertyId || '', createdAt: today() });
     setErrors({}); setEditingId('new'); setShowModal(true);
   };
 

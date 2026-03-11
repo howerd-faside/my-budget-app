@@ -7,7 +7,6 @@ import Icon from '../components/Icon';
 import Portal from '../components/Portal';
 import { validate, wishlistItemSchema } from '../utils/validation';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 
 const EMPTY = createWishlistItem();
 
@@ -174,7 +173,7 @@ export default function Wishlist() {
     .sort((a, b) => a.hit.date.localeCompare(b.hit.date))[0];
   const nextLabel = nextSoonest ? affordabilityDate(+nextSoonest.item.estimatedCost, currentBal, trajectory) : null;
 
-  const openNew = () => { setForm({ ...EMPTY, id: uid() }); setEditing('new'); setErrors({}); };
+  const openNew = () => { setForm({ ...EMPTY, id: crypto.randomUUID() }); setEditing('new'); setErrors({}); };
   const openEdit = (item) => { setForm({ ...item }); setEditing(item.id); setErrors({}); };
   const close   = () => { setEditing(null); setForm(EMPTY); setErrors({}); };
 

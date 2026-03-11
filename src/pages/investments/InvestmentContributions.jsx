@@ -3,8 +3,9 @@ import { useApp } from '../../store';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { createInvestmentContribution, CONTRIBUTION_TYPES, CONTRIBUTION_TYPE_PILL } from '../../models/InvestmentContribution';
+import { transactionFromContribution } from '../../models/Transaction';
+import { filterByYear, filterByYearMonth, sumTransactions } from '../../utils/finance/transactions';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const CONTRIB_TYPES = CONTRIBUTION_TYPES;
@@ -119,10 +120,11 @@ export default function InvestmentContributions() {
   const stats = useMemo(() => {
     const thisYear  = new Date().getFullYear().toString();
     const thisMonth = new Date().toISOString().slice(0, 7);
+    const txs = contributions.map(transactionFromContribution);
     return {
-      total:     contributions.reduce((s, c) => s + (+c.amount || 0), 0),
-      thisYear:  contributions.filter(c => c.date?.startsWith(thisYear)).reduce((s, c) => s + (+c.amount || 0), 0),
-      thisMonth: contributions.filter(c => c.date?.startsWith(thisMonth)).reduce((s, c) => s + (+c.amount || 0), 0),
+      total:     sumTransactions(txs),
+      thisYear:  sumTransactions(filterByYear(txs, thisYear)),
+      thisMonth: sumTransactions(filterByYearMonth(txs, thisMonth)),
     };
   }, [contributions]);
 
@@ -130,7 +132,7 @@ export default function InvestmentContributions() {
     if (form.id) {
       set('investmentContributions', allContributions.map(c => c.id === form.id ? { ...form } : c));
     } else {
-      set('investmentContributions', [...allContributions, { ...form, id: uid(), portfolioId: pid, createdAt: today() }]);
+      set('investmentContributions', [...allContributions, { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
     }
     setShowModal(false);
     setEditTarget(null);

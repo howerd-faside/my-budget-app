@@ -149,7 +149,8 @@ export function getPersonIncomeAt(person, date) {
       .filter(r => r.startDate && new Date(r.startDate) <= d && (!r.endDate || new Date(r.endDate) > d))
       .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
     const employer = activeRoles.length > 0 ? (activeRoles[0].employer || null) : null;
-    return { grossAnnual: +activeEvents[0].grossAnnual, eventLabel: activeEvents[0].label, employer };
+    // grossAnnual is guaranteed numeric after normalization — no + coercion needed.
+    return { grossAnnual: activeEvents[0].grossAnnual, eventLabel: activeEvents[0].label, employer };
   }
 
   // 2. Employment history
@@ -157,7 +158,7 @@ export function getPersonIncomeAt(person, date) {
     .filter(r => r.startDate && new Date(r.startDate) <= d && (!r.endDate || new Date(r.endDate) > d))
     .sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
   if (activeRoles.length > 0)
-    return { grossAnnual: +activeRoles[0].grossAnnual, eventLabel: null, employer: activeRoles[0].employer || null };
+    return { grossAnnual: activeRoles[0].grossAnnual, eventLabel: null, employer: activeRoles[0].employer || null };
 
   // 3. Fallback — if employment history exists but date is before any role started
   const allRoles = person.employmentHistory || [];

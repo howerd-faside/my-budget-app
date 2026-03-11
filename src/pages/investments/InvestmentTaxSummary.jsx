@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import { transactionFromContribution, transactionFromDividend } from '../../models/Transaction';
+import { filterByYear, sumTransactions, sumField, groupSumByCategory } from '../../utils/finance/transactions';
 
 const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -36,24 +38,29 @@ export default function InvestmentTaxSummary() {
   const yearStr = String(year);
 
   const summary = useMemo(() => {
-    const yearContribs = contributions.filter(c => c.date?.startsWith(yearStr));
-    const yearDivs     = dividends.filter(d => d.date?.startsWith(yearStr));
+    // Aggregate totals via Transaction adapters (canonical numeric coercion).
+    const yearContribTxs = filterByYear(contributions.map(transactionFromContribution), yearStr);
+    const yearDivTxs     = filterByYear(dividends.map(transactionFromDividend), yearStr);
 
-    const totalContrib  = yearContribs.reduce((s, c) => s + (+c.amount      || 0), 0);
-    const totalDivGross = yearDivs.reduce((s, d)     => s + (+d.grossAmount  || 0), 0);
-    const totalDivTax   = yearDivs.reduce((s, d)     => s + (+d.taxAmount    || 0), 0);
-    const totalDivNet   = yearDivs.reduce((s, d)     => s + (+d.netAmount    || 0), 0);
+    const totalContrib  = sumTransactions(yearContribTxs);
+    const totalDivGross = sumField(yearDivTxs, 'grossAmount');
+    const totalDivTax   = sumField(yearDivTxs, 'taxAmount');
+    const totalDivNet   = sumTransactions(yearDivTxs);
+    const contribByType = groupSumByCategory(yearContribTxs);
 
-    const contribByType = {};
-    for (const c of yearContribs) {
-      contribByType[c.type || 'Other'] = (contribByType[c.type || 'Other'] || 0) + (+c.amount || 0);
-    }
+    // Keep domain records for rendering (template accesses raw fields).
+    const yearContribs = contributions
+      .filter(c => c.date?.startsWith(yearStr))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const yearDivs = dividends
+      .filter(d => d.date?.startsWith(yearStr))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     return {
       totalContrib, totalDivGross, totalDivTax, totalDivNet,
       contribByType,
-      yearContribs: [...yearContribs].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
-      yearDivs:     [...yearDivs].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
+      yearContribs,
+      yearDivs,
     };
   }, [contributions, dividends, yearStr]);
 

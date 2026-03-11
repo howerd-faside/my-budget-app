@@ -11,7 +11,6 @@ const INCOME_CATS   = ['Bonus', 'Commission', 'Tax Refund', 'Side Income', 'Gift
 const YEAR_WINDOW   = 7;
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 
 export default function FinancialTracking() {
   const { state, updateFortnight: updFn } = useApp();
@@ -184,7 +183,7 @@ export default function FinancialTracking() {
     const existing = (yd.fortnights || {})[txModal] || { adhocTransactions: [] };
     const isIncome = txType === 'income';
     const tx = {
-      id: uid(),
+      id: crypto.randomUUID(),
       date: new Date().toISOString().slice(0, 10),
       description: txForm.description,
       amount: isIncome ? +Math.abs(+txForm.amount) : -Math.abs(+txForm.amount),

@@ -1,4 +1,8 @@
 import { monthsBetween } from './dates';
+import {
+  transactionFromContribution,
+  transactionFromDividend,
+} from '../../models/Transaction';
 
 // ── Wishlist affordability ────────────────────────────────────────────────────
 
@@ -47,12 +51,19 @@ export function findGoalHit(trajectory, goal) {
 /**
  * Compute aggregate portfolio stats from holdings, contributions, and dividends.
  * Returns { totalValue, totalCost, totalContrib, totalDivNet, unrealised, returnPct, allocation }
+ *
+ * Contribution and dividend totals are computed via Transaction adapters so
+ * that all numeric coercion is handled by the canonical model boundary.
  */
 export function calcPortfolioStats(holdings, contributions, dividends) {
   const totalValue   = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.currentPrice || 0), 0);
   const totalCost    = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.avgCost || 0), 0);
-  const totalContrib = (contributions || []).reduce((s, c) => s + (+c.amount || 0), 0);
-  const totalDivNet  = (dividends || []).reduce((s, d) => s + (+d.netAmount || 0), 0);
+  const totalContrib = (contributions || [])
+    .map(transactionFromContribution)
+    .reduce((s, tx) => s + tx.amount, 0);
+  const totalDivNet  = (dividends || [])
+    .map(transactionFromDividend)
+    .reduce((s, tx) => s + tx.amount, 0);
   const unrealised   = totalValue - totalCost;
   const returnPct    = totalCost > 0 ? (unrealised / totalCost * 100) : 0;
 

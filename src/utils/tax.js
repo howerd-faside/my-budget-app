@@ -39,7 +39,8 @@ export function calcStudentLoan(annual, taxCode = '') {
 
 // Returns net annual and fortnightly after tax, ACC, KiwiSaver, Student Loan
 export function calcNetPay(person) {
-  const gross = person.grossAnnual || 0;
+  // grossAnnual is stored as a number after normalization; ?? preserves intentional 0.
+  const gross = +(person.grossAnnual ?? 0);
   const tax   = calcIncomeTax(gross);
   const acc   = calcACC(gross);
   const ks    = calcKiwiSaver(gross, person.kiwiSaverRate ?? 3);

@@ -7,7 +7,6 @@ import {
   MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
 } from '../../models/PropertyMaintenance';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const CATEGORIES   = MAINTENANCE_CATEGORIES;
@@ -68,7 +67,7 @@ export default function PropertyMaintenance() {
   const propAssets = selProp ? propertyAssets.filter(a => a.propertyId === selProp.id) : [];
 
   const openNew = () => {
-    setForm({ ...EMPTY_RECORD, id: uid(), propertyId: selectedPropertyId || '', date: today(), createdAt: today() });
+    setForm({ ...EMPTY_RECORD, id: crypto.randomUUID(), propertyId: selectedPropertyId || '', date: today(), createdAt: today() });
     setEditingId('new'); setShowModal(true);
   };
 

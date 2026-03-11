@@ -8,7 +8,6 @@ import { createHolding, HOLDING_CATEGORIES, CATEGORY_COLORS } from '../../models
 import { getHoldingDependents, cascadeDeleteHolding, holdingDeleteMessage } from '../../utils/cascade';
 import { validate, holdingSchema } from '../../utils/validation';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 const CATEGORIES = HOLDING_CATEGORIES;
@@ -30,12 +29,12 @@ function computeTranches(tranches = []) {
 /** Initialise modal form from an existing holding or a blank slate */
 function initForm(holding) {
   if (!holding) {
-    return { ...EMPTY, tranches: [{ id: uid(), date: today(), units: '', costPerUnit: '' }] };
+    return { ...EMPTY, tranches: [{ id: crypto.randomUUID(), date: today(), units: '', costPerUnit: '' }] };
   }
   // Convert legacy flat fields to a single tranche if no tranches exist
   const tranches = holding.tranches?.length > 0
     ? holding.tranches.map(t => ({ ...t }))
-    : [{ id: uid(), date: holding.createdAt?.slice(0, 10) || today(), units: holding.units || '', costPerUnit: holding.avgCost || '' }];
+    : [{ id: crypto.randomUUID(), date: holding.createdAt?.slice(0, 10) || today(), units: holding.units || '', costPerUnit: holding.avgCost || '' }];
   return { ...holding, tranches };
 }
 
@@ -166,7 +165,7 @@ function HoldingModal({ holding, onSave, onClose }) {
   const setTranche = (id, k, v) =>
     setForm(f => ({ ...f, tranches: f.tranches.map(t => t.id === id ? { ...t, [k]: v } : t) }));
   const addTranche = () =>
-    setForm(f => ({ ...f, tranches: [...f.tranches, { id: uid(), date: today(), units: '', costPerUnit: '' }] }));
+    setForm(f => ({ ...f, tranches: [...f.tranches, { id: crypto.randomUUID(), date: today(), units: '', costPerUnit: '' }] }));
   const removeTranche = (id) =>
     setForm(f => ({ ...f, tranches: f.tranches.filter(t => t.id !== id) }));
 
@@ -355,7 +354,7 @@ export default function InvestmentHoldings() {
     if (form.id) {
       set('investments', allHoldings.map(h => h.id === form.id ? toSave : h));
     } else {
-      set('investments', [...allHoldings, { ...toSave, id: uid(), portfolioId: pid, createdAt: today() }]);
+      set('investments', [...allHoldings, { ...toSave, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
     }
     setShowModal(false);
     setEditTarget(null);

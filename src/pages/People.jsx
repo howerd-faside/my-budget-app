@@ -23,7 +23,6 @@ const ASSET_TYPES = [
 const ASSET_TYPE_LABEL = Object.fromEntries(ASSET_TYPES.map(t => [t.value, t.label]));
 
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 
 export default function People() {
   const { state, set, cascadeDelete } = useApp();
@@ -32,7 +31,7 @@ export default function People() {
   const [openCards, setOpenCards]       = useState(new Set());
   const [incomeArchiveOpen, setIncomeArchiveOpen] = useState(false);
 
-  const openNew = () => { setForm({ ...EMPTY_PERSON, id: uid() }); setEditing('new'); };
+  const openNew = () => { setForm({ ...EMPTY_PERSON, id: crypto.randomUUID() }); setEditing('new'); };
   const openEdit = (p) => {
     setForm({ ...p, incomeEvents: p.incomeEvents || [], employmentHistory: p.employmentHistory || [] });
     setEditing(p.id);
@@ -70,7 +69,7 @@ export default function People() {
   };
 
   const addSecondary = () => {
-    setForm(f => ({ ...f, secondaryIncomes: [...(f.secondaryIncomes || []), { ...EMPTY_SECONDARY, id: uid() }] }));
+    setForm(f => ({ ...f, secondaryIncomes: [...(f.secondaryIncomes || []), { ...EMPTY_SECONDARY, id: crypto.randomUUID() }] }));
   };
 
   const updateSecondary = (id, field, val) => {
@@ -85,7 +84,7 @@ export default function People() {
   };
 
   const addEvent = () => {
-    setForm(f => ({ ...f, incomeEvents: [...(f.incomeEvents || []), { ...EMPTY_EVENT, id: uid() }] }));
+    setForm(f => ({ ...f, incomeEvents: [...(f.incomeEvents || []), { ...EMPTY_EVENT, id: crypto.randomUUID() }] }));
   };
 
   const updateEvent = (id, field, val) => {
@@ -100,7 +99,7 @@ export default function People() {
   };
 
   const addRole = () => {
-    setForm(f => ({ ...f, employmentHistory: [...(f.employmentHistory || []), { ...EMPTY_ROLE, id: uid() }] }));
+    setForm(f => ({ ...f, employmentHistory: [...(f.employmentHistory || []), { ...EMPTY_ROLE, id: crypto.randomUUID() }] }));
   };
   const updateRole = (id, field, val) => {
     setForm(f => ({ ...f, employmentHistory: (f.employmentHistory || []).map(r => r.id === id ? { ...r, [field]: val } : r) }));
@@ -113,7 +112,7 @@ export default function People() {
   const [editingAsset, setEditingAsset] = useState(null);
   const [assetForm, setAssetForm]       = useState(EMPTY_ASSET);
 
-  const openNewAsset  = () => { setAssetForm({ ...EMPTY_ASSET, id: uid() }); setEditingAsset('new'); };
+  const openNewAsset  = () => { setAssetForm({ ...EMPTY_ASSET, id: crypto.randomUUID() }); setEditingAsset('new'); };
   const openEditAsset = (a) => { setAssetForm({ ...a }); setEditingAsset(a.id); };
   const closeAsset    = () => { setEditingAsset(null); setAssetForm(EMPTY_ASSET); };
 

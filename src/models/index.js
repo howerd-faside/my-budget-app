@@ -18,3 +18,5 @@ export * from './PropertyTask';
 export * from './PropertyMaintenance';
 export * from './PropertyAsset';
 export * from './WishlistItem';
+
+export * from './PropertyProject';

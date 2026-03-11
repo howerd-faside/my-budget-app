@@ -10,6 +10,10 @@
  *   EMPTY template, so older holdings lack it entirely.
  * - `ticker` is optional — holdings like KiwiSaver managed funds often have no
  *   ticker, which causes the price-fetch service to skip them silently.
+ *
+ * Numeric normalization:
+ *   `normalizeHolding` coerces `units`, `avgCost`, `currentPrice` to numbers (0 if absent).
+ *   `createHolding` retains `''` defaults for form binding.
  */
 
 /**
@@ -40,9 +44,9 @@ export const CATEGORY_COLORS = /** @type {const} */ ({
  * @property {string}          ticker         - Exchange ticker (e.g. 'AAPL'), or '' for untickered holdings
  * @property {string}          platform       - Brokerage/platform name (e.g. 'Sharesies')
  * @property {HoldingCategory} category       - Asset class
- * @property {number|string}   units          - Number of units/shares held
- * @property {number|string}   avgCost        - Average cost per unit (NZD)
- * @property {number|string}   currentPrice   - Latest price per unit (NZD)
+ * @property {number}          units          - Number of units/shares held
+ * @property {number}          avgCost        - Average cost per unit (NZD)
+ * @property {number}          currentPrice   - Latest price per unit (NZD)
  * @property {string}          [priceUpdatedAt] - ISO timestamp of last price fetch
  * @property {string}          notes          - Free-text notes
  * @property {string}          createdAt      - ISO timestamp of record creation
@@ -71,7 +75,18 @@ export function createHolding(overrides = {}) {
 }
 
 /**
+ * Parse a numeric value from storage; returns 0 for empty/invalid.
+ * @param {*} val
+ * @returns {number}
+ */
+function toNum(val) {
+  const n = parseFloat(val);
+  return isFinite(n) ? n : 0;
+}
+
+/**
  * Coerce a raw holding to the canonical shape.
+ * `units`, `avgCost`, `currentPrice` are coerced to numbers (0 if absent/invalid).
  * @param {object} raw
  * @returns {Holding}
  */
@@ -83,9 +98,9 @@ export function normalizeHolding(raw = {}) {
     ticker:         raw.ticker         ?? '',
     platform:       raw.platform       ?? '',
     category:       raw.category       ?? 'Shares',
-    units:          raw.units          ?? '',
-    avgCost:        raw.avgCost        ?? '',
-    currentPrice:   raw.currentPrice   ?? '',
+    units:          toNum(raw.units),
+    avgCost:        toNum(raw.avgCost),
+    currentPrice:   toNum(raw.currentPrice),
     priceUpdatedAt: raw.priceUpdatedAt ?? undefined,
     notes:          raw.notes          ?? '',
     createdAt:      raw.createdAt      ?? '',

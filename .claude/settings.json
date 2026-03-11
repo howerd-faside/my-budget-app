@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/Billy/AppData/Local/Temp/claude/c--Users-Billy-my-budget-app/tasks/**)"
+      "Read(//c/Users/Billy/AppData/Local/Temp/claude/c--Users-Billy-my-budget-app/tasks/**)",
+      "Bash(npx vitest:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

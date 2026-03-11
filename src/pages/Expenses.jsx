@@ -13,7 +13,6 @@ const PAYMENT_TYPES = PAYMENT_METHODS; // local alias kept for backward compat w
 const DD_DAYS       = Array.from({ length: 28 }, (_, i) => i + 1);
 const TODAY_STR     = new Date().toISOString().slice(0, 10);
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
 
 const EMPTY          = createExpense();
 const EMPTY_FACILITY = createFacility();
@@ -112,11 +111,11 @@ export default function Expenses() {
   const facilitiesTotalFn = (facs) => (facs || []).reduce((s, f) => s + facToFn(f), 0);
 
   // ── Modal helpers ──────────────────────────────────────────────────────
-  const openNew  = () => { setForm({ ...EMPTY, id: uid() }); setEditing('new'); setErrors({}); };
+  const openNew  = () => { setForm({ ...EMPTY, id: crypto.randomUUID() }); setEditing('new'); setErrors({}); };
   const openEdit = (e, ev) => { ev.stopPropagation(); setForm(normalizeLegacyExpense(e)); setEditing(e.id); setErrors({}); };
   const close    = () => { setEditing(null); setForm(EMPTY); setErrors({}); };
 
-  const addFacility    = () => setForm(f => ({ ...f, facilities: [...f.facilities, { ...EMPTY_FACILITY, id: uid() }] }));
+  const addFacility    = () => setForm(f => ({ ...f, facilities: [...f.facilities, { ...EMPTY_FACILITY, id: crypto.randomUUID() }] }));
   const updateFacility = (id, field, val) => setForm(f => ({
     ...f, facilities: f.facilities.map(fac => fac.id === id ? { ...fac, [field]: val } : fac),
   }));
