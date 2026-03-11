@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -340,6 +341,7 @@ export default function PropertyProjects() {
 
       {/* ── Modal ──────────────────────────────────────────────────────────── */}
       {showModal && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" style={{ maxWidth: 620 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -483,6 +485,7 @@ export default function PropertyProjects() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

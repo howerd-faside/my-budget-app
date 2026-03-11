@@ -11,6 +11,7 @@ import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../uti
 import { toFortnightly } from '../utils/finance/frequency';
 import { EXPENSE_GROUPS } from '../utils/categories';
 import Icon from '../components/Icon';
+import Portal from '../components/Portal';
 import { validate, accountSchema } from '../utils/validation';
 
 const RATE_COLORS = { fixed: '#FF9F0A', floating: '#34C759', revolving: '#AF52DE', default: '#0071E3' };
@@ -117,6 +118,7 @@ function TransferModal({ accounts, onClose, onTransfer }) {
   const submit = () => { if (!valid) return; onTransfer(form); onClose(); };
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
@@ -171,6 +173,7 @@ function TransferModal({ accounts, onClose, onTransfer }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -1054,6 +1057,7 @@ export default function Dashboard() {
       )}
 
       {editing && (
+        <Portal>
         <div className="modal-overlay" onClick={closeGoal}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -1090,6 +1094,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

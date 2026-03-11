@@ -5,6 +5,7 @@ import { toFortnightly, annualInterestToFortnightly } from '../utils/finance/fre
 import { createExpense, createFacility, FREQUENCIES, PAYMENT_METHODS } from '../models/Expense';
 import { EXPENSE_GROUPS, CATEGORIES, getCatColor, getCatGroup } from '../utils/categories';
 import Icon from '../components/Icon';
+import Portal from '../components/Portal';
 import { validate, expenseSchema, loanExpenseSchema } from '../utils/validation';
 
 // FREQUENCIES and PAYMENT_METHODS now imported from the Expense model.
@@ -452,6 +453,7 @@ export default function Expenses() {
 
       {/* ── MODAL ── */}
       {editing && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -743,6 +745,7 @@ export default function Expenses() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

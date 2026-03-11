@@ -4,6 +4,7 @@ import { fmtMoneyRound } from '../utils/tax';
 import { affordabilityStatus, affordabilityDate, findGoalHit } from '../utils/finance/savings';
 import { createWishlistItem } from '../models/WishlistItem';
 import Icon from '../components/Icon';
+import Portal from '../components/Portal';
 import { validate, wishlistItemSchema } from '../utils/validation';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
@@ -39,6 +40,7 @@ function PurchaseSimulator({ item, currentBalance, trajectory, goals, onClose })
   }).filter(g => g.orig || g.shifted);
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
@@ -90,6 +92,7 @@ function PurchaseSimulator({ item, currentBalance, trajectory, goals, onClose })
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -290,6 +293,7 @@ export default function Wishlist() {
       )}
 
       {editing && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -323,6 +327,7 @@ export default function Wishlist() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

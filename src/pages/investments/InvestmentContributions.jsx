@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 import { createInvestmentContribution, CONTRIBUTION_TYPES, CONTRIBUTION_TYPE_PILL } from '../../models/InvestmentContribution';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
@@ -23,6 +24,7 @@ function ContribModal({ contrib, holdings, onSave, onClose }) {
   const canSave = form.date && (+form.amount || 0) > 0;
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal wide">
         <div className="modal-header">
@@ -95,6 +97,7 @@ function ContribModal({ contrib, holdings, onSave, onClose }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

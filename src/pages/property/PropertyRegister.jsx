@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 import {
   createProperty, createPropertyArea,
   PROPERTY_TYPES, CONSTRUCTION_TYPES, ROOF_TYPES, CLADDING_TYPES,
@@ -366,6 +367,7 @@ export default function PropertyRegister() {
 
       {/* ── Modal ─────────────────────────────────────────────────────────── */}
       {showModal && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -533,6 +535,7 @@ export default function PropertyRegister() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

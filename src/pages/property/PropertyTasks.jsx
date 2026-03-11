@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 import {
   createPropertyTask,
   TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, TASK_EFFORTS, RECUR_UNITS,
@@ -315,6 +316,7 @@ export default function PropertyTasks() {
 
       {/* ── Modal ──────────────────────────────────────────────────────────── */}
       {showModal && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -406,6 +408,7 @@ export default function PropertyTasks() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

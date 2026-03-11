@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 import {
   createPropertyMaintenance,
   MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
@@ -219,6 +220,7 @@ export default function PropertyMaintenance() {
 
       {/* ── Modal ─────────────────────────────────────────────────────────── */}
       {showModal && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -301,6 +303,7 @@ export default function PropertyMaintenance() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 import { refreshAllPrices } from '../../utils/priceService';
 import { useToast } from '../../components/Toast';
 import { createHolding, HOLDING_CATEGORIES, CATEGORY_COLORS } from '../../models/Holding';
@@ -181,6 +182,7 @@ function HoldingModal({ holding, onSave, onClose }) {
   };
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal wide">
         <div className="modal-header">
@@ -293,6 +295,7 @@ function HoldingModal({ holding, onSave, onClose }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../../store';
 import Icon from '../../components/Icon';
+import Portal from '../../components/Portal';
 import {
   createPropertyAsset,
   ASSET_TYPES, ASSET_CONDITIONS, CONDITION_PILL,
@@ -255,6 +256,7 @@ export default function PropertyAssets() {
 
       {/* ── Modal ──────────────────────────────────────────────────────────── */}
       {showModal && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -332,6 +334,7 @@ export default function PropertyAssets() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

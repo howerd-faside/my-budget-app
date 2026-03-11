@@ -211,15 +211,15 @@ body {
 /* ── Page animations ───────────────────────────────────────────────────── */
 @keyframes pageSlideInRight {
   from { opacity: 0; transform: translateX(36px); }
-  to   { opacity: 1; transform: translateX(0);    }
+  to   { opacity: 1; }
 }
 @keyframes pageSlideInLeft {
   from { opacity: 0; transform: translateX(-36px); }
-  to   { opacity: 1; transform: translateX(0);     }
+  to   { opacity: 1; }
 }
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  to   { opacity: 1; }
 }
 
 .page-anim { width: 100%; }
@@ -889,12 +889,14 @@ body {
   background: rgba(0,0,0,0.28);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 24px;
+  display: flex; align-items: flex-start; justify-content: center; z-index: 200; padding: 24px;
+  overflow-y: auto;
 }
 .modal {
   background: var(--card); border: 1px solid rgba(0,0,0,0.1);
   border-radius: 20px;
-  width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto;
+  width: 100%; max-width: 500px; max-height: none; overflow-y: visible;
+  margin: auto;
   box-shadow: 0 24px 64px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.07);
 }
 .modal.wide { max-width: 580px; }

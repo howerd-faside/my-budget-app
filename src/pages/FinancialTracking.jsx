@@ -3,6 +3,7 @@ import { useApp, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightly
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
+import Portal from '../components/Portal';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
 
 const EXPENSE_CATS  = ADHOC_EXPENSE_CATS;
@@ -531,6 +532,7 @@ export default function FinancialTracking() {
 
       {/* Add transaction modal */}
       {txModal !== null && (
+        <Portal>
         <div className="modal-overlay" onClick={() => setTxModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -592,6 +594,7 @@ export default function FinancialTracking() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );

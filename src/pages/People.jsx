@@ -5,6 +5,7 @@ import { toFortnightly } from '../utils/finance/frequency';
 import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymentRole, createAssetIncome } from '../models/Person';
 import { getPersonDependents, cascadeDeletePerson, personDeleteMessage } from '../utils/cascade';
 import Icon from '../components/Icon';
+import Portal from '../components/Portal';
 
 const EMPTY_PERSON    = createPerson();
 const EMPTY_SECONDARY = createSecondaryIncome();
@@ -393,6 +394,7 @@ export default function People() {
 
       {/* ── MODAL ── */}
       {editing && (
+        <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -586,6 +588,7 @@ export default function People() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
       {/* ── INCOME HISTORY ARCHIVE ── */}
@@ -634,6 +637,7 @@ export default function People() {
 
       {/* ── ASSET MODAL ── */}
       {editingAsset && (
+        <Portal>
         <div className="modal-overlay" onClick={closeAsset}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -687,6 +691,7 @@ export default function People() {
             </div>
           </div>
         </div>
+        </Portal>
       )}
     </div>
   );
