@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useApp, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance, buildSavingsTrajectory } from '../store';
+import { calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance, buildSavingsTrajectory } from '../store';
+import { useFinance } from '../store/hooks';
+import { usePeople }  from '../store/hooks';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
@@ -13,7 +15,8 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 
 export default function FinancialTracking() {
-  const { state, updateFortnight: updFn } = useApp();
+  const { accounts, fortnightlyData, assetIncomes, updateFortnight: updFn } = useFinance();
+  const { people, expenses } = usePeople();
   const thisYear = new Date().getFullYear();
   const [year,         setYear]         = useState(thisYear);
   const [windowStart,  setWindowStart]  = useState(thisYear);
@@ -23,21 +26,21 @@ export default function FinancialTracking() {
   const [txType, setTxType]   = useState('expense');
   const [txForm, setTxForm]   = useState({ description: '', amount: '', category: 'Other', note: '' });
 
-  const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
-  const fnAssetIncome = calcFortnightlyAssetIncome(state.assetIncomes || []);
-  const fnExpenses    = calcFortnightlyExpenses(state.expenses);
+  const fnIncome      = calcFortnightlyIncome(people);       // base (no events)
+  const fnAssetIncome = calcFortnightlyAssetIncome(assetIncomes || []);
+  const fnExpenses    = calcFortnightlyExpenses(expenses);
 
   // Event-aware income for right now (used by summary tile + incomeEventActive flag)
   const now           = new Date();
-  const fnIncomeNow   = calcFortnightlyIncomeAt(state.people, now);
+  const fnIncomeNow   = calcFortnightlyIncomeAt(people, now);
   const fnNet         = fnIncomeNow + fnAssetIncome - fnExpenses;   // today's effective net
   const fnNetBase     = fnIncome + fnAssetIncome - fnExpenses;      // base (no events)
   const incomeEventActiveNow = Math.abs(fnIncomeNow - fnIncome) > 0.5;
 
-  const startBal   = totalBalance(state.accounts);
-  const trajectory = useMemo(() => buildSavingsTrajectory(state), [state]);
+  const startBal   = totalBalance(accounts);
+  const trajectory = useMemo(() => buildSavingsTrajectory({ people, expenses, fortnightlyData, accounts, assetIncomes }), [people, expenses, fortnightlyData, accounts, assetIncomes]);
 
-  const yd = state.fortnightlyData[year] || { fortnights: {} };
+  const yd = fortnightlyData[year] || { fortnights: {} };
 
   const fortnights = useMemo(() => {
     const now        = new Date();
@@ -50,8 +53,8 @@ export default function FinancialTracking() {
       const adhoc          = (ftData.adhocTransactions || []).reduce((s, t) => s + (t.amount || 0), 0);
       const midDate        = new Date((start.getTime() + end.getTime()) / 2);
       // Date-aware income (events) and expenses (startDate) per fortnight
-      const fnIncomeAt     = calcFortnightlyIncomeAt(state.people, midDate);
-      const fnExpensesAt   = calcFortnightlyExpensesAt(state.expenses, midDate);
+      const fnIncomeAt     = calcFortnightlyIncomeAt(people, midDate);
+      const fnExpensesAt   = calcFortnightlyExpensesAt(expenses, midDate);
       const actual         = fnIncomeAt + fnAssetIncome - fnExpensesAt + adhoc;
       return { i, start, end, adhoc, actual, fnIncomeAt, fnExpensesAt, ftData, balance: 0 };
     });
@@ -86,7 +89,7 @@ export default function FinancialTracking() {
     }
 
     return rows;
-  }, [year, yd, state.expenses, fnAssetIncome, startBal, state.people, trajectory]);
+  }, [year, yd, expenses, fnAssetIncome, startBal, people, trajectory]);
 
   const today        = new Date();
   const isPastYear   = year < thisYear;
@@ -113,7 +116,7 @@ export default function FinancialTracking() {
   const fnIncomeForYear   = fortnights[0]?.fnIncomeAt   ?? fnIncomeNow;
   const fnExpensesForYear = fortnights[0]?.fnExpensesAt ?? fnExpenses;
   const fnNetForYear      = fnIncomeForYear + fnAssetIncome - fnExpensesForYear;
-  const incomeEventInYear = state.people.some(p =>
+  const incomeEventInYear = people.some(p =>
     (p.incomeEvents || []).some(e =>
       e.startDate &&
       e.startDate.slice(0, 4) <= String(year) &&
@@ -139,7 +142,7 @@ export default function FinancialTracking() {
     const yearStartStr = `${year}-01-01`;
     const yearEndStr   = `${year}-12-31`;
 
-    for (const person of state.people) {
+    for (const person of people) {
       for (const e of (person.incomeEvents || [])) {
         if (!e.startDate) continue;
         // Skip events that don't overlap this year at all
@@ -170,7 +173,7 @@ export default function FinancialTracking() {
     const seen = new Set();
     const dedupedLines = lines.filter(m => { const k = `${m.n}-${m.label}`; if (seen.has(k)) return false; seen.add(k); return true; });
     return { areas, lines: dedupedLines };
-  }, [state.people, fortnights]);
+  }, [people, fortnights]);
 
   const openTxModal = (fnIdx) => {
     setTxForm({ description: '', amount: '', category: 'Other', note: '' });
@@ -425,7 +428,7 @@ export default function FinancialTracking() {
       {(() => {
         const yearStart = `${year}-01-01`;
         const yearEnd   = `${year}-12-31`;
-        const events = state.people.flatMap(p =>
+        const events = people.flatMap(p =>
           (p.incomeEvents || [])
             .filter(e => e.startDate && e.startDate <= yearEnd && (!e.endDate || e.endDate >= yearStart))
             .map(e => ({ ...e, personName: p.name }))

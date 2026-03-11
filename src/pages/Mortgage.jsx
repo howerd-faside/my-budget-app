@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import { useApp } from '../store';
+import { usePeople } from '../store/hooks';
 import { fmtMoneyRound } from '../utils/tax';
 import {
   calcRemainingTerm, calcTotalInterest, calcEarlyRepaymentSavings,
@@ -222,10 +222,10 @@ function FacilityCard({ facility }) {
 
 // ── Mortgage page ─────────────────────────────────────────────────────────────
 export default function Mortgage() {
-  const { state } = useApp();
+  const { expenses } = usePeople();
 
   const loanExpenses = useMemo(() =>
-    (state.expenses || []).filter(e => e.type === 'loan'), [state.expenses]);
+    (expenses || []).filter(e => e.type === 'loan'), [expenses]);
 
   const allFacilities = useMemo(() =>
     loanExpenses.flatMap(loan =>

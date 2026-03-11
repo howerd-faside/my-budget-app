@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../../store';
+import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import {
@@ -203,8 +203,10 @@ function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, o
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PropertyRegister() {
-  const { state, set, cascadeDelete } = useApp();
-  const { properties = [], propertyTasks = [], propertyMaintenance = [], selectedPropertyId } = state;
+  const {
+    properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets,
+    selectedPropertyId, setProperty, mergeProperty,
+  } = useProperty();
 
   const [showModal,    setShowModal]    = useState(false);
   const [form,         setForm]         = useState(EMPTY_PROP);
@@ -234,10 +236,10 @@ export default function PropertyRegister() {
   const save = () => {
     if (!form.name.trim()) return;
     if (editingId === 'new') {
-      set('properties', [...properties, form]);
-      if (!selectedPropertyId) set('selectedPropertyId', form.id);
+      setProperty('properties', [...properties, form]);
+      if (!selectedPropertyId) setProperty('selectedPropertyId', form.id);
     } else {
-      set('properties', properties.map(p => p.id === form.id ? form : p));
+      setProperty('properties', properties.map(p => p.id === form.id ? form : p));
     }
     close();
   };
@@ -245,13 +247,14 @@ export default function PropertyRegister() {
   const deleteProp = (id) => {
     const prop = properties.find(p => p.id === id);
     if (!prop) return;
-    const deps = getPropertyDependents(state, id);
+    const propState = { properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, selectedPropertyId };
+    const deps = getPropertyDependents(propState, id);
     if (!confirm(propertyDeleteMessage(prop.name, deps))) return;
-    cascadeDelete(cascadeDeleteProperty(state, id));
+    mergeProperty(cascadeDeleteProperty(propState, id));
   };
 
   const addAreaToSelected = (area) => {
-    set('properties', properties.map(p =>
+    setProperty('properties', properties.map(p =>
       p.id === selProp.id ? { ...p, areas: [...(p.areas || []), area] } : p
     ));
   };
@@ -259,9 +262,10 @@ export default function PropertyRegister() {
   const deleteAreaFromSelected = (areaId) => {
     const area = (selProp.areas || []).find(a => a.id === areaId);
     if (!area) return;
-    const deps = getAreaDependents(state, selProp.id, areaId);
+    const areaState = { propertyTasks, propertyMaintenance, propertyAssets, properties };
+    const deps = getAreaDependents(areaState, selProp.id, areaId);
     if (!confirm(areaDeleteMessage(area.name, deps))) return;
-    cascadeDelete(cascadeDeleteArea(state, selProp.id, areaId));
+    mergeProperty(cascadeDeleteArea(areaState, selProp.id, areaId));
   };
 
   const today = new Date().toISOString().slice(0, 10);
@@ -305,7 +309,7 @@ export default function PropertyRegister() {
                         border: isSelected ? '1px solid var(--teal)' : '1px solid transparent',
                         background: isSelected ? 'rgba(0,113,227,0.04)' : undefined,
                       }}
-                      onClick={() => set('selectedPropertyId', prop.id)}
+                      onClick={() => setProperty('selectedPropertyId', prop.id)}
                     >
                       <div className="ic-header">
                         <div style={{ flex: 1, minWidth: 0 }}>

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import {
@@ -101,13 +101,7 @@ function AssetRow({ asset, area, maintenanceRecords, onEdit, onDelete }) {
 }
 
 export default function PropertyAssets() {
-  const { state, set, cascadeDelete } = useApp();
-  const {
-    properties = [],
-    propertyAssets = [],
-    propertyMaintenance = [],
-    selectedPropertyId,
-  } = state;
+  const { properties, propertyAssets, propertyMaintenance, selectedPropertyId, setProperty, mergeProperty } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
@@ -153,17 +147,17 @@ export default function PropertyAssets() {
     const { ok, errors: errs } = validate(propertyAssetSchema, form);
     if (!ok) { setErrors(errs); return; }
     setErrors({});
-    if (editingId === 'new') set('propertyAssets', [...propertyAssets, form]);
-    else set('propertyAssets', propertyAssets.map(a => a.id === form.id ? form : a));
+    if (editingId === 'new') setProperty('propertyAssets', [...propertyAssets, form]);
+    else setProperty('propertyAssets', propertyAssets.map(a => a.id === form.id ? form : a));
     close();
   };
 
   const deleteAsset = (id) => {
     const asset = propertyAssets.find(a => a.id === id);
     if (!asset) return;
-    const deps = getAssetDependents(state, id);
+    const deps = getAssetDependents({ propertyMaintenance }, id);
     if (!confirm(assetDeleteMessage(asset.name, deps))) return;
-    cascadeDelete(cascadeDeleteAsset(state, id));
+    mergeProperty(cascadeDeleteAsset({ propertyAssets, propertyMaintenance }, id));
   };
 
   if (!selProp && propScope === 'current') {

@@ -4,8 +4,10 @@ import {
   CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
 import {
-  useApp, totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
+  totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
 } from '../store';
+import { useFinance } from '../store/hooks';
+import { usePeople }  from '../store/hooks';
 import { fmtMoneyRound, calcNetPay } from '../utils/tax';
 import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../utils/mortgage';
 import { toFortnightly } from '../utils/finance/frequency';
@@ -270,20 +272,21 @@ const TOOLTIP_STYLE = {
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const { state, set, updateAccount, addTransfer, removeTransfer } = useApp();
+  const { accounts: rawAccounts, transfers, fortnightlyData, goals, assetIncomes, setFinance, updateAccount, addTransfer, removeTransfer } = useFinance();
+  const { people, expenses } = usePeople();
   const [showTransfer, setShowTransfer] = useState(false);
   const [viewRange, setViewRange]       = useState('3y');
   const [editing, setEditing]           = useState(null);
   const [goalForm, setGoalForm]         = useState(EMPTY_GOAL);
 
-  const accounts      = state.accounts || [];
+  const accounts      = rawAccounts || [];
   const netWorth      = totalBalance(accounts);
-  const fnIncome      = calcFortnightlyIncome(state.people);       // base (no events)
-  const fnAssetIncome = calcFortnightlyAssetIncome(state.assetIncomes || []);
+  const fnIncome      = calcFortnightlyIncome(people);       // base (no events)
+  const fnAssetIncome = calcFortnightlyAssetIncome(assetIncomes || []);
   // Event-aware income for today
   const now            = new Date();
-  const fnExpenses    = calcFortnightlyExpensesAt(state.expenses, now);
-  const fnIncomeNow    = calcFortnightlyIncomeAt(state.people, now);
+  const fnExpenses    = calcFortnightlyExpensesAt(expenses, now);
+  const fnIncomeNow    = calcFortnightlyIncomeAt(people, now);
   const fnNet          = fnIncomeNow + fnAssetIncome - fnExpenses;
   const fnTotal        = fnIncomeNow + fnAssetIncome;
   const savingsRate    = fnTotal > 0 ? Math.round(fnNet / fnTotal * 100) : 0;
@@ -292,13 +295,13 @@ export default function Dashboard() {
   // ── Income ────────────────────────────────────────────────────────────────
   const incomeRows = useMemo(() => {
     const d = new Date();
-    return state.people.map(p => {
+    return people.map(p => {
       const { grossAnnual: effectiveGross, eventLabel, employer } = getPersonIncomeAt(p, d);
       const effectivePay = calcNetPay({ ...p, grossAnnual: effectiveGross });
       const basePay      = calcNetPay(p);
       return { ...p, _effectivePay: effectivePay, _basePay: basePay, _eventLabel: eventLabel, _employer: employer };
     });
-  }, [state.people]);
+  }, [people]);
   const totalGrossAnnual = incomeRows.reduce((s, p) => s + (p._effectivePay?.grossAnnual || p.grossAnnual || 0), 0);
   const totalNetAnnual   = fnIncomeNow * 26;
   const avgTaxRate       = totalGrossAnnual > 0
@@ -308,14 +311,14 @@ export default function Dashboard() {
   // ── Expenses ──────────────────────────────────────────────────────────────
   const groupTotals = useMemo(() => {
     const catTotals = {};
-    state.expenses.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + toFortnightly(e.amount, e.frequency); });
+    expenses.forEach(e => { catTotals[e.category] = (catTotals[e.category] || 0) + toFortnightly(e.amount, e.frequency); });
     const t = {};
     EXPENSE_GROUPS.forEach(g => { t[g.id] = g.cats.reduce((s, c) => s + (catTotals[c] || 0), 0); });
     return t;
-  }, [state.expenses]);
+  }, [expenses]);
 
   // ── Goals & Trajectory ────────────────────────────────────────────────────
-  const trajectory = useMemo(() => buildSavingsTrajectory(state), [state]);
+  const trajectory = useMemo(() => buildSavingsTrajectory({ people, expenses, fortnightlyData, accounts, assetIncomes }), [people, expenses, fortnightlyData, accounts, assetIncomes]);
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const todayIdx = useMemo(() => {
@@ -329,8 +332,8 @@ export default function Dashboard() {
   const todayLabel = trajectory[todayIdx]?.date.slice(0, 7);
 
   const allIncomeEvents = useMemo(() =>
-    state.people.flatMap(p => (p.incomeEvents || []).filter(e => e.startDate)),
-    [state.people]);
+    people.flatMap(p => (p.incomeEvents || []).filter(e => e.startDate)),
+    [people]);
 
   const chartData = useMemo(() => {
     const limit  = VIEW_LIMITS[viewRange] ?? 36;
@@ -372,7 +375,7 @@ export default function Dashboard() {
   };
 
   const goalsWithDates = useMemo(() => {
-    return (state.goals || []).map(g => {
+    return (goals || []).map(g => {
       const hit     = trajectory.find(p => p.balance >= (g.amount || 0));
       const hitDate = hit ? hit.date.slice(0, 7) : null;
       let monthsRemaining = null;
@@ -383,7 +386,7 @@ export default function Dashboard() {
       }
       return { ...g, _hitDate: hitDate, _hitBalance: hit?.balance, _monthsRemaining: monthsRemaining };
     });
-  }, [state.goals, trajectory]);
+  }, [goals, trajectory]);
 
   const currentBal    = trajectory[todayIdx]?.balance ?? netWorth;
   const endIdx        = Math.min(trajectory.length - 1, todayIdx + (VIEW_LIMITS[viewRange] ?? 36));
@@ -394,18 +397,18 @@ export default function Dashboard() {
   const closeGoal = () => { setEditing(null); setGoalForm(EMPTY_GOAL); };
   const saveGoal  = () => {
     const goal = { ...goalForm, amount: +goalForm.amount };
-    if (editing === 'new') set('goals', [...(state.goals || []), goal]);
-    else set('goals', (state.goals || []).map(g => g.id === goalForm.id ? goal : g));
+    if (editing === 'new') setFinance('goals', [...(goals || []), goal]);
+    else setFinance('goals', (goals || []).map(g => g.id === goalForm.id ? goal : g));
     closeGoal();
   };
   const removeGoal = (id) => {
-    if (confirm('Remove this goal?')) set('goals', (state.goals || []).filter(g => g.id !== id));
+    if (confirm('Remove this goal?')) setFinance('goals', (goals || []).filter(g => g.id !== id));
   };
 
   const nextGoalIdx = goalsWithDates.findIndex(g => currentBal < (g.amount || 0));
 
   // ── Loans ─────────────────────────────────────────────────────────────────
-  const loanExpenses = useMemo(() => (state.expenses || []).filter(e => e.type === 'loan'), [state.expenses]);
+  const loanExpenses = useMemo(() => (expenses || []).filter(e => e.type === 'loan'), [expenses]);
 
   const allFacilities = useMemo(() =>
     loanExpenses.flatMap(loan =>
@@ -461,7 +464,7 @@ export default function Dashboard() {
 
   // ── Transfers ─────────────────────────────────────────────────────────────
   const recentTransfers = useMemo(() =>
-    [...(state.transfers || [])].reverse().slice(0, 6), [state.transfers]);
+    [...(transfers || [])].reverse().slice(0, 6), [transfers]);
 
   const accountName = (id) => accounts.find(a => a.id === id)?.name || id;
 
@@ -509,11 +512,11 @@ export default function Dashboard() {
       </div>
 
       {/* ── INCOME ──────────────────────────────────────────────────────── */}
-      {state.people.length > 0 && (
+      {people.length > 0 && (
         <div className="dash-section">
           <div className="section-header">
             <h3>Income</h3>
-            <span className="text3" style={{ fontSize: 11 }}>{state.people.length} earner{state.people.length !== 1 ? 's' : ''}</span>
+            <span className="text3" style={{ fontSize: 11 }}>{people.length} earner{people.length !== 1 ? 's' : ''}</span>
           </div>
 
           <div className="fn-summary">
@@ -580,7 +583,7 @@ export default function Dashboard() {
           )}
           <div className="fns-item">
             <span>Goals Set</span>
-            <span className="mono">{(state.goals || []).length}</span>
+            <span className="mono">{(goals || []).length}</span>
           </div>
         </div>
 
@@ -625,7 +628,7 @@ export default function Dashboard() {
                 tick={{ fill: '#86868B', fontSize: 10 }}
                 tickLine={false} axisLine={false} width={52}
                 domain={[0, 'auto']} />
-              <Tooltip content={<TrajTooltip goals={goalsWithDates} people={state.people} />} />
+              <Tooltip content={<TrajTooltip goals={goalsWithDates} people={people} />} />
               {todayLabel && (
                 <ReferenceLine x={todayLabel} stroke="rgba(0,113,227,0.4)" strokeDasharray="4 4"
                   label={{ value: 'Today', position: 'insideTopRight', fill: 'rgba(0,113,227,0.6)', fontSize: 9 }} />
@@ -691,8 +694,8 @@ export default function Dashboard() {
         </div>
 
         {/* Income events affecting this trajectory */}
-        {state.people.some(p => (p.incomeEvents || []).length > 0) && (() => {
-          const events = state.people.flatMap(p =>
+        {people.some(p => (p.incomeEvents || []).length > 0) && (() => {
+          const events = people.flatMap(p =>
             (p.incomeEvents || []).filter(e => e.startDate).map(e => ({ ...e, personName: p.name }))
           );
           if (!events.length) return null;
@@ -758,7 +761,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {(state.goals || []).length === 0 && (
+        {(goals || []).length === 0 && (
           <div className="traj-empty">
             <span className="text3">No goals yet —</span>
             <button className="btn-ghost small" onClick={openGoal}>add a savings target</button>
@@ -767,7 +770,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── EXPENSES ────────────────────────────────────────────────────── */}
-      {state.expenses.length > 0 && (
+      {expenses.length > 0 && (
         <div className="dash-section">
           <div className="section-header">
             <h3>Expenses</h3>
@@ -1040,7 +1043,7 @@ export default function Dashboard() {
       )}
 
       {/* Empty state */}
-      {state.people.length === 0 && state.expenses.length === 0 && (
+      {people.length === 0 && expenses.length === 0 && (
         <div className="empty-state">
           <div className="es-icon">◈</div>
           <div className="es-text">Welcome! Start by adding your income profile and expenses to see your financial picture.</div>

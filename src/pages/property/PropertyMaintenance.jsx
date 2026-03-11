@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import {
@@ -33,8 +33,7 @@ function fmtMonth(ym) {
 }
 
 export default function PropertyMaintenance() {
-  const { state, set } = useApp();
-  const { properties = [], propertyMaintenance = [], propertyTasks = [], propertyAssets = [], selectedPropertyId } = state;
+  const { properties, propertyMaintenance, propertyTasks, propertyAssets, selectedPropertyId, setProperty } = useProperty();
 
   const selProp  = properties.find(p => p.id === selectedPropertyId) || null;
   const areas    = selProp?.areas || [];
@@ -80,14 +79,14 @@ export default function PropertyMaintenance() {
 
   const save = () => {
     if (!form.title.trim() || !form.date) return;
-    if (editingId === 'new') set('propertyMaintenance', [...propertyMaintenance, form]);
-    else set('propertyMaintenance', propertyMaintenance.map(r => r.id === form.id ? form : r));
+    if (editingId === 'new') setProperty('propertyMaintenance', [...propertyMaintenance, form]);
+    else setProperty('propertyMaintenance', propertyMaintenance.map(r => r.id === form.id ? form : r));
     close();
   };
 
   const deleteRecord = (id) => {
     if (!confirm('Delete this maintenance record?')) return;
-    set('propertyMaintenance', propertyMaintenance.filter(r => r.id !== id));
+    setProperty('propertyMaintenance', propertyMaintenance.filter(r => r.id !== id));
   };
 
   if (!selProp && propScope === 'current') {

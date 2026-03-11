@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { createInvestmentContribution, CONTRIBUTION_TYPES, CONTRIBUTION_TYPE_PILL } from '../../models/InvestmentContribution';
@@ -103,11 +103,10 @@ function ContribModal({ contrib, holdings, onSave, onClose }) {
 }
 
 export default function InvestmentContributions() {
-  const { state, set } = useApp();
-  const pid                = state.selectedPortfolioId;
-  const allContributions   = state.investmentContributions || [];
+  const { selectedPortfolioId: pid, investments, investmentContributions, setInvestment } = useInvestment();
+  const allContributions   = investmentContributions || [];
   const contributions      = allContributions.filter(c => c.portfolioId === pid);
-  const holdings           = (state.investments || []).filter(h => h.portfolioId === pid);
+  const holdings           = (investments || []).filter(h => h.portfolioId === pid);
 
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -130,9 +129,9 @@ export default function InvestmentContributions() {
 
   const handleSave = (form) => {
     if (form.id) {
-      set('investmentContributions', allContributions.map(c => c.id === form.id ? { ...form } : c));
+      setInvestment('investmentContributions', allContributions.map(c => c.id === form.id ? { ...form } : c));
     } else {
-      set('investmentContributions', [...allContributions, { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
+      setInvestment('investmentContributions', [...allContributions, { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
     }
     setShowModal(false);
     setEditTarget(null);
@@ -140,7 +139,7 @@ export default function InvestmentContributions() {
 
   const handleDelete = (id) => {
     if (window.confirm('Remove this contribution?'))
-      set('investmentContributions', allContributions.filter(c => c.id !== id));
+      setInvestment('investmentContributions', allContributions.filter(c => c.id !== id));
   };
 
   const openEdit = (c) => { setEditTarget(c); setShowModal(true); };

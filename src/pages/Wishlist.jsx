@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { useApp, buildSavingsTrajectory, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, totalBalance } from '../store';
+import { buildSavingsTrajectory, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, totalBalance } from '../store';
+import { useFinance } from '../store/hooks';
+import { usePeople }  from '../store/hooks';
 import { fmtMoneyRound } from '../utils/tax';
 import { affordabilityStatus, affordabilityDate, findGoalHit } from '../utils/finance/savings';
 import { createWishlistItem } from '../models/WishlistItem';
@@ -151,15 +153,16 @@ function WishCard({ item, currentBal, trajectory, onEdit, onRemove, onToggle, on
 
 // ── Main ──────────────────────────────────────────────────────────────────
 export default function Wishlist() {
-  const { state, set }        = useApp();
+  const { accounts, fortnightlyData, goals, assetIncomes } = useFinance();
+  const { people, expenses, wishlist: storeWishlist, setPeople } = usePeople();
   const [editing, setEditing] = useState(null);
   const [form, setForm]       = useState(EMPTY);
   const [errors, setErrors]   = useState({});
   const [simItem, setSimItem] = useState(null);
 
-  const trajectory = useMemo(() => buildSavingsTrajectory(state), [state]);
-  const currentBal = totalBalance(state.accounts);
-  const wishlist   = state.wishlist || [];
+  const trajectory = useMemo(() => buildSavingsTrajectory({ people, expenses, fortnightlyData, accounts, assetIncomes }), [people, expenses, fortnightlyData, accounts, assetIncomes]);
+  const currentBal = totalBalance(accounts);
+  const wishlist   = storeWishlist || [];
 
   const pending   = useMemo(() => wishlist.filter(i => !i.purchased), [wishlist]);
   const purchased = useMemo(() => wishlist.filter(i => i.purchased),  [wishlist]);
@@ -182,17 +185,17 @@ export default function Wishlist() {
     if (!ok) { setErrors(errs); return; }
     setErrors({});
     const item = { ...form, estimatedCost: +form.estimatedCost || null };
-    if (editing === 'new') set('wishlist', [...wishlist, item]);
-    else set('wishlist', wishlist.map(i => i.id === form.id ? item : i));
+    if (editing === 'new') setPeople('wishlist', [...wishlist, item]);
+    else setPeople('wishlist', wishlist.map(i => i.id === form.id ? item : i));
     close();
   };
 
   const remove = (id) => {
-    if (confirm('Remove this item?')) set('wishlist', wishlist.filter(i => i.id !== id));
+    if (confirm('Remove this item?')) setPeople('wishlist', wishlist.filter(i => i.id !== id));
   };
 
   const togglePurchased = (id) => {
-    set('wishlist', wishlist.map(i => i.id === id ? { ...i, purchased: !i.purchased } : i));
+    setPeople('wishlist', wishlist.map(i => i.id === id ? { ...i, purchased: !i.purchased } : i));
   };
 
   return (
@@ -286,7 +289,7 @@ export default function Wishlist() {
           item={simItem}
           currentBalance={currentBal}
           trajectory={trajectory}
-          goals={state.goals || []}
+          goals={goals || []}
           onClose={() => setSimItem(null)}
         />
       )}

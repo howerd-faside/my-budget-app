@@ -1,14 +1,26 @@
 /**
  * Compatibility bridge — preserves the legacy useApp() / AppProvider API.
  *
- * All state is now managed by Zustand domain stores in src/store/.
- * This file composes them into the single { state, set, cascadeDelete, … }
- * shape that every existing component consumes via useApp().
+ * @deprecated
+ * All components have been migrated to domain-specific hooks (src/store/hooks/).
+ * Prefer importing from there:
  *
- * Migration path for individual components:
- *   Replace `const { state } = useApp()` with the targeted store hook, e.g.
- *   `const accounts = useFinanceStore(s => s.accounts)`
- *   for finer-grained subscriptions and a smaller re-render surface.
+ *   import { useFinance }    from './store/hooks';
+ *   import { usePeople }     from './store/hooks';
+ *   import { useProperty }   from './store/hooks';
+ *   import { useInvestment } from './store/hooks';
+ *   import { useUI }         from './store/hooks';
+ *
+ * Remaining callers of useApp() / AppProvider:
+ *   - App.jsx: AppProvider wrapper (no-op, safe to keep indefinitely)
+ *
+ * Remaining callers of derived helpers (totalBalance, calcFortnightlyIncome, …):
+ *   - Dashboard.jsx, FinancialTracking.jsx, Wishlist.jsx, People.jsx, etc.
+ *   These are pure functions — not store-coupled — and remain here as a
+ *   stable home. Do not move them until a dedicated utils module is created.
+ *
+ * This file will be simplified once AppProvider is inlined and the pure
+ * helpers are relocated.
  */
 
 import { calcNetPay } from './utils/tax';

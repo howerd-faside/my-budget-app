@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { refreshAllPrices } from '../../utils/priceService';
@@ -301,9 +301,8 @@ function HoldingModal({ holding, onSave, onClose }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InvestmentHoldings() {
-  const { state, set, cascadeDelete } = useApp();
-  const pid      = state.selectedPortfolioId;
-  const holdings = (state.investments || []).filter(h => h.portfolioId === pid);
+  const { selectedPortfolioId: pid, investments, investmentContributions, investmentDividends, setInvestment, mergeInvestment } = useInvestment();
+  const holdings = (investments || []).filter(h => h.portfolioId === pid);
 
   const toast = useToast();
   const [catFilter,  setCatFilter]  = useState('All');
@@ -327,7 +326,7 @@ export default function InvestmentHoldings() {
       const { updated, failed } = await refreshAllPrices(holdings);
       if (updated.length > 0) {
         const updMap = Object.fromEntries(updated.map(u => [u.id, u]));
-        set('investments', allHoldings.map(h =>
+        setInvestment('investments', allHoldings.map(h =>
           updMap[h.id]
             ? { ...h, currentPrice: String(updMap[h.id].price), priceUpdatedAt: updMap[h.id].priceUpdatedAt }
             : h
@@ -346,15 +345,15 @@ export default function InvestmentHoldings() {
     }
   };
 
-  const allHoldings = state.investments || [];
+  const allHoldings = investments || [];
 
   const handleSave = (form) => {
     const { totalUnits, totalCost, avgCost } = computeTranches(form.tranches);
     const toSave = { ...form, units: String(totalUnits), avgCost: String(avgCost) };
     if (form.id) {
-      set('investments', allHoldings.map(h => h.id === form.id ? toSave : h));
+      setInvestment('investments', allHoldings.map(h => h.id === form.id ? toSave : h));
     } else {
-      set('investments', [...allHoldings, { ...toSave, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
+      setInvestment('investments', [...allHoldings, { ...toSave, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
     }
     setShowModal(false);
     setEditTarget(null);
@@ -363,9 +362,10 @@ export default function InvestmentHoldings() {
   const handleDelete = (id) => {
     const holding = allHoldings.find(h => h.id === id);
     if (!holding) return;
-    const deps = getHoldingDependents(state, id);
+    const invState = { investments, investmentContributions, investmentDividends };
+    const deps = getHoldingDependents(invState, id);
     if (!window.confirm(holdingDeleteMessage(holding.name, deps))) return;
-    cascadeDelete(cascadeDeleteHolding(state, id));
+    mergeInvestment(cascadeDeleteHolding(invState, id));
   };
 
   const openEdit = (h) => { setEditTarget(h); setShowModal(true); };

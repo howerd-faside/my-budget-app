@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
-import { AppProvider, useApp, totalBalance } from './store';
+import { AppProvider, totalBalance } from './store';
+import { useFinance }    from './store/hooks';
+import { useInvestment } from './store/hooks';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import Dashboard from './pages/Dashboard';
@@ -21,6 +23,7 @@ import InvestmentDividends from './pages/investments/InvestmentDividends';
 import InvestmentPerformance from './pages/investments/InvestmentPerformance';
 import InvestmentTaxSummary from './pages/investments/InvestmentTaxSummary';
 import { getPortfolioDependents, cascadeDeletePortfolio, portfolioDeleteMessage } from './utils/cascade';
+import DataManagement from './components/DataManagement';
 import Icon from './components/Icon';
 import fasideLogo from './assets/faside-logo.png';
 import './App.css';
@@ -66,9 +69,13 @@ const ACCOUNT_COLORS = { main: '#0071E3', emergency: '#FF9F0A', travel: '#AF52DE
 // ── Portfolio switcher ─────────────────────────────────────────────────────
 
 function PortfolioBar() {
-  const { state, set, cascadeDelete } = useApp();
-  const portfolios = state.investmentPortfolios || [];
-  const selectedId = state.selectedPortfolioId;
+  const {
+    investmentPortfolios, selectedPortfolioId,
+    investments, investmentContributions, investmentDividends,
+    setInvestment, mergeInvestment,
+  } = useInvestment();
+  const portfolios = investmentPortfolios || [];
+  const selectedId = selectedPortfolioId;
 
   const [creating,    setCreating]    = useState(false);
   const [newName,     setNewName]     = useState('');
@@ -86,8 +93,8 @@ function PortfolioBar() {
     if (!name) { setCreating(false); return; }
     const id = crypto.randomUUID();
     const newPortfolios = [...portfolios, { id, name, createdAt: today() }];
-    set('investmentPortfolios', newPortfolios);
-    set('selectedPortfolioId', id);
+    setInvestment('investmentPortfolios', newPortfolios);
+    setInvestment('selectedPortfolioId', id);
     setCreating(false);
   };
 
@@ -99,7 +106,7 @@ function PortfolioBar() {
   const confirmRename = () => {
     const name = renameText.trim();
     if (name && renamingId) {
-      set('investmentPortfolios', portfolios.map(p => p.id === renamingId ? { ...p, name } : p));
+      setInvestment('investmentPortfolios', portfolios.map(p => p.id === renamingId ? { ...p, name } : p));
     }
     setRenamingId(null);
   };
@@ -107,9 +114,10 @@ function PortfolioBar() {
   const deletePortfolio = (id) => {
     const portfolio = portfolios.find(p => p.id === id);
     if (!portfolio) return;
-    const deps = getPortfolioDependents(state, id);
+    const invState = { investmentPortfolios, selectedPortfolioId, investments, investmentContributions, investmentDividends };
+    const deps = getPortfolioDependents(invState, id);
     if (!window.confirm(portfolioDeleteMessage(portfolio.name, deps))) return;
-    cascadeDelete(cascadeDeletePortfolio(state, id));
+    mergeInvestment(cascadeDeletePortfolio(invState, id));
   };
 
   if (portfolios.length === 0 && !creating) {
@@ -130,7 +138,7 @@ function PortfolioBar() {
           <div
             key={p.id}
             className={`portfolio-pill ${isActive ? 'active' : ''}`}
-            onClick={() => !isRenaming && set('selectedPortfolioId', p.id)}
+            onClick={() => !isRenaming && setInvestment('selectedPortfolioId', p.id)}
           >
             {isRenaming ? (
               <input
@@ -192,8 +200,8 @@ function Shell() {
   const [slideDir, setSlideDir] = useState(0);   // -1 | 0 | 1
   const [animKey,  setAnimKey]  = useState(0);
 
-  const { state } = useApp();
-  const accounts  = state.accounts || [];
+  const { accounts: rawAccounts } = useFinance();
+  const accounts  = rawAccounts || [];
   const netWorth  = totalBalance(accounts);
 
   const fmtShort = (n) =>
@@ -347,7 +355,7 @@ function Shell() {
           <div className="content-wrap">
             <div key={animKey} className={`page-anim ${animClass}`}>
               <ErrorBoundary key={tab} label={currentTabs.find(t => t.id === tab)?.label}>
-                {section === 'home' ? <div className="home-blank" /> : renderPage()}
+                {section === 'home' ? <DataManagement /> : renderPage()}
               </ErrorBoundary>
             </div>
           </div>

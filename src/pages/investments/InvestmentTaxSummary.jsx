@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { transactionFromContribution, transactionFromDividend } from '../../models/Transaction';
 import { filterByYear, sumTransactions, sumField, groupSumByCategory } from '../../utils/finance/transactions';
@@ -11,11 +11,10 @@ const YEAR_WINDOW = 7;
 const THIS_YEAR   = new Date().getFullYear();
 
 export default function InvestmentTaxSummary() {
-  const { state } = useApp();
-  const pid           = state.selectedPortfolioId;
-  const holdings      = (state.investments             || []).filter(h => h.portfolioId === pid);
-  const contributions = (state.investmentContributions || []).filter(c => c.portfolioId === pid);
-  const dividends     = (state.investmentDividends     || []).filter(d => d.portfolioId === pid);
+  const { selectedPortfolioId: pid, investments, investmentContributions, investmentDividends } = useInvestment();
+  const holdings      = (investments             || []).filter(h => h.portfolioId === pid);
+  const contributions = (investmentContributions || []).filter(c => c.portfolioId === pid);
+  const dividends     = (investmentDividends     || []).filter(d => d.portfolioId === pid);
 
   const [year,         setYear]         = useState(THIS_YEAR);
   const [windowStart,  setWindowStart]  = useState(THIS_YEAR - 2);

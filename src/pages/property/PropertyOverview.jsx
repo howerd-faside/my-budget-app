@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useApp } from '../../store';
+import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -12,15 +12,10 @@ const PRIORITY_COLOR = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'va
 const PRIORITY_DPILL = { Urgent: 'red', High: 'amber', Medium: 'teal', Low: '' };
 
 export default function PropertyOverview({ onSelectTab }) {
-  const { state, set } = useApp();
   const {
-    properties = [],
-    propertyTasks = [],
-    propertyMaintenance = [],
-    propertyProjects = [],
-    propertyAssets = [],
-    selectedPropertyId,
-  } = state;
+    properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets,
+    selectedPropertyId, setProperty,
+  } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
@@ -106,7 +101,7 @@ export default function PropertyOverview({ onSelectTab }) {
                   border: isSelected ? '1px solid var(--teal)' : '1px solid transparent',
                   background: isSelected ? 'rgba(0,113,227,0.04)' : undefined,
                 }}
-                onClick={() => set('selectedPropertyId', prop.id)}
+                onClick={() => setProperty('selectedPropertyId', prop.id)}
               >
                 <div className="ic-header">
                   <div style={{ flex: 1, minWidth: 0 }}>

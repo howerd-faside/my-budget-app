@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import {
@@ -126,8 +126,7 @@ function TaskRow({ task, areas, propName, showProp, onEdit, onDelete, onStatusCh
 }
 
 export default function PropertyTasks() {
-  const { state, set, cascadeDelete } = useApp();
-  const { properties = [], propertyTasks = [], selectedPropertyId } = state;
+  const { properties, propertyTasks, propertyMaintenance, selectedPropertyId, setProperty, mergeProperty } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
@@ -190,15 +189,15 @@ export default function PropertyTasks() {
     setErrors({});
 
     const taskData = { ...form, recurring: recurEnabled ? { interval: +recurInterval, unit: recurUnit } : null };
-    if (editingId === 'new') set('propertyTasks', [...propertyTasks, taskData]);
-    else set('propertyTasks', propertyTasks.map(t => t.id === taskData.id ? taskData : t));
+    if (editingId === 'new') setProperty('propertyTasks', [...propertyTasks, taskData]);
+    else setProperty('propertyTasks', propertyTasks.map(t => t.id === taskData.id ? taskData : t));
     close();
   };
 
   const deleteTask = (id) => {
-    const deps = getTaskDependents(state, id);
+    const deps = getTaskDependents({ propertyMaintenance }, id);
     if (!confirm(taskDeleteMessage(deps))) return;
-    cascadeDelete(cascadeDeleteTask(state, id));
+    mergeProperty(cascadeDeleteTask({ propertyTasks, propertyMaintenance }, id));
   };
 
   const cycleStatus = (task) => {
@@ -208,11 +207,11 @@ export default function PropertyTasks() {
       const nextDue = addInterval(task.dueDate, task.recurring.interval, task.recurring.unit);
       updated = [...updated, { ...task, id: crypto.randomUUID(), status: 'To Do', dueDate: nextDue, notes: [], createdAt: today() }];
     }
-    set('propertyTasks', updated);
+    setProperty('propertyTasks', updated);
   };
 
   const addNote = (taskId, text) => {
-    set('propertyTasks', propertyTasks.map(t =>
+    setProperty('propertyTasks', propertyTasks.map(t =>
       t.id === taskId ? { ...t, notes: [...(t.notes || []), { id: crypto.randomUUID(), date: today(), text }] } : t
     ));
   };

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useApp, calcFortnightlyExpenses } from '../store';
+import { calcFortnightlyExpenses } from '../store';
+import { usePeople } from '../store/hooks';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { toFortnightly, annualInterestToFortnightly } from '../utils/finance/frequency';
 import { createExpense, createFacility, FREQUENCIES, PAYMENT_METHODS } from '../models/Expense';
@@ -42,7 +43,7 @@ function normalizeLegacyExpense(e) {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function Expenses() {
-  const { state, set }  = useApp();
+  const { expenses: storeExpenses, setPeople } = usePeople();
   const [editing, setEditing]             = useState(null);
   const [form, setForm]                   = useState(EMPTY);
   const [errors, setErrors]               = useState({});
@@ -50,7 +51,7 @@ export default function Expenses() {
   const [filterGroup, setFilterGroup]     = useState('All');
   const [archiveOpen, setArchiveOpen]     = useState(false);
 
-  const expenses = useMemo(() => state.expenses.map(normalizeLegacyExpense), [state.expenses]);
+  const expenses = useMemo(() => storeExpenses.map(normalizeLegacyExpense), [storeExpenses]);
 
   // Split active vs archived based on endDate
   const activeExpenses = useMemo(
@@ -134,21 +135,21 @@ export default function Expenses() {
       expense = { ...expense, amount: +form.amount };
     }
     if (editing === 'new') {
-      set('expenses', [...state.expenses, expense]);
+      setPeople('expenses', [...storeExpenses, expense]);
     } else {
-      const existing = state.expenses.find(e => e.id === form.id);
+      const existing = storeExpenses.find(e => e.id === form.id);
       if (existing && +existing.amount !== +expense.amount) {
         expense.history = [...(existing.history || []),
           { date: new Date().toISOString().slice(0, 10), oldAmount: existing.amount, newAmount: expense.amount }];
       }
-      set('expenses', state.expenses.map(e => e.id === form.id ? expense : e));
+      setPeople('expenses', storeExpenses.map(e => e.id === form.id ? expense : e));
     }
     close();
   };
 
   const remove = (id, e) => {
     e.stopPropagation();
-    if (confirm('Remove this expense?')) set('expenses', state.expenses.filter(e => e.id !== id));
+    if (confirm('Remove this expense?')) setPeople('expenses', storeExpenses.filter(e => e.id !== id));
   };
 
   const previewFn = form.type === 'loan' ? facilitiesTotalFn(form.facilities) : toFn(form);

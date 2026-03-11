@@ -1446,6 +1446,62 @@ select.input {
 /* Home blank */
 .home-blank { flex: 1; }
 
+/* ── DATA MANAGEMENT PAGE ────────────────────────────────────────────────── */
+.dm-page {
+  display: flex; flex-direction: column; gap: 28px;
+  padding: 32px 0 48px;
+}
+.dm-header {
+  display: flex; align-items: flex-start; gap: 16px;
+}
+.dm-header-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: var(--teal-dim); color: var(--teal);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.dm-title    { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; color: var(--text); line-height: 1.2; }
+.dm-subtitle { font-size: 13px; color: var(--text2); margin-top: 4px; line-height: 1.5; }
+
+.dm-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+.dm-card {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 24px 24px 20px;
+}
+.dm-card-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dm-card-icon--teal  { background: var(--teal-dim);  color: var(--teal); }
+.dm-card-icon--amber { background: var(--amber-dim); color: var(--amber); }
+
+.dm-card-title { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
+.dm-card-desc  { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.dm-card-includes { display: flex; flex-wrap: wrap; gap: 6px; }
+.dm-card-btn {
+  display: flex; align-items: center; gap: 7px;
+  align-self: flex-start; margin-top: 4px;
+}
+
+.dm-file-error {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--red-dim); color: var(--red);
+  font-size: 12px; line-height: 1.5;
+}
+.dm-file-error svg { flex-shrink: 0; margin-top: 1px; }
+
+.dm-confirm-date {
+  font-family: var(--mono); font-size: 14px; font-weight: 500;
+  color: var(--text); background: var(--card2);
+  border: 1px solid var(--sep); border-radius: var(--radius);
+  padding: 10px 14px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PROPERTY MANAGEMENT
    ═══════════════════════════════════════════════════════════════════════════ */

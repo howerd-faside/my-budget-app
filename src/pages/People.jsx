@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useApp, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyAssetIncome, getPersonIncomeAt } from '../store';
+import { calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyAssetIncome, getPersonIncomeAt } from '../store';
+import { useFinance } from '../store/hooks';
+import { usePeople }  from '../store/hooks';
 import { calcNetPay, TAX_CODES, KIWISAVER_RATES, PAY_FREQUENCIES, fmtMoneyRound, fmtMoney } from '../utils/tax';
 import { toFortnightly } from '../utils/finance/frequency';
 import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymentRole, createAssetIncome } from '../models/Person';
@@ -25,7 +27,8 @@ const ASSET_TYPE_LABEL = Object.fromEntries(ASSET_TYPES.map(t => [t.value, t.lab
 
 
 export default function People() {
-  const { state, set, cascadeDelete } = useApp();
+  const { people, expenses, setPeople, mergePeople } = usePeople();
+  const { assetIncomes, setFinance } = useFinance();
   const [editing, setEditing]           = useState(null);
   const [form, setForm]                 = useState(EMPTY_PERSON);
   const [openCards, setOpenCards]       = useState(new Set());
@@ -53,19 +56,19 @@ export default function People() {
     const pay = calcNetPay({ ...form, grossAnnual });
     const person = { ...form, grossAnnual, netFortnightly: pay.netFortnightly };
     if (editing === 'new') {
-      set('people', [...state.people, person]);
+      setPeople('people', [...people, person]);
     } else {
-      set('people', state.people.map(p => p.id === form.id ? person : p));
+      setPeople('people', people.map(p => p.id === form.id ? person : p));
     }
     close();
   };
 
   const remove = (id) => {
-    const person = state.people.find(p => p.id === id);
+    const person = people.find(p => p.id === id);
     if (!person) return;
-    const deps = getPersonDependents(state, id);
+    const deps = getPersonDependents({ expenses }, id);
     if (!confirm(personDeleteMessage(person.name, deps))) return;
-    cascadeDelete(cascadeDeletePerson(state, id));
+    mergePeople(cascadeDeletePerson({ people, expenses }, id));
   };
 
   const addSecondary = () => {
@@ -119,25 +122,25 @@ export default function People() {
   const saveAsset = () => {
     const asset = { ...assetForm, amount: +assetForm.amount };
     if (editingAsset === 'new') {
-      set('assetIncomes', [...(state.assetIncomes || []), asset]);
+      setFinance('assetIncomes', [...(assetIncomes || []), asset]);
     } else {
-      set('assetIncomes', (state.assetIncomes || []).map(a => a.id === assetForm.id ? asset : a));
+      setFinance('assetIncomes', (assetIncomes || []).map(a => a.id === assetForm.id ? asset : a));
     }
     closeAsset();
   };
 
   const removeAsset = (id) => {
     if (confirm('Remove this asset income source?'))
-      set('assetIncomes', (state.assetIncomes || []).filter(a => a.id !== id));
+      setFinance('assetIncomes', (assetIncomes || []).filter(a => a.id !== id));
   };
 
   const today    = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-  const totalFortnightly = calcFortnightlyIncomeAt(state.people, today);
-  const totalAssetFn     = calcFortnightlyAssetIncome(state.assetIncomes || []);
+  const totalFortnightly = calcFortnightlyIncomeAt(people, today);
+  const totalAssetFn     = calcFortnightlyAssetIncome(assetIncomes || []);
 
   // Collect all ended roles + events for the income archive
-  const incomeArchive = state.people.flatMap(p =>
+  const incomeArchive = people.flatMap(p =>
     [
       ...(p.employmentHistory || [])
         .filter(r => r.endDate && r.endDate < todayStr)
@@ -153,11 +156,11 @@ export default function People() {
 
   return (
     <div className="page-content">
-      {state.people.length > 0 && (
+      {people.length > 0 && (
         <div className="dash-section">
           <div className="section-header">
             <h3>Income Summary</h3>
-            <span className="text3" style={{ fontSize: 11 }}>{state.people.length} earner{state.people.length !== 1 ? 's' : ''}</span>
+            <span className="text3" style={{ fontSize: 11 }}>{people.length} earner{people.length !== 1 ? 's' : ''}</span>
           </div>
           <div className="fn-summary">
             <div className="fns-item">
@@ -170,7 +173,7 @@ export default function People() {
             </div>
             <div className="fns-item">
               <span>Earners</span>
-              <span className="mono">{state.people.length}</span>
+              <span className="mono">{people.length}</span>
             </div>
           </div>
         </div>
@@ -183,7 +186,7 @@ export default function People() {
         </div>
 
         <div className="cards-grid">
-        {state.people.map(p => {
+        {people.map(p => {
           const pay = calcNetPay(p);
           const isOpen = openCards.has(p.id);
           const hasSecondary = (p.secondaryIncomes || []).length > 0;
@@ -322,7 +325,7 @@ export default function People() {
           );
         })}
 
-        {state.people.length === 0 && (
+        {people.length === 0 && (
           <div className="empty-state">
             <div className="es-icon">👤</div>
             <div className="es-text">No income profiles yet</div>
@@ -339,7 +342,7 @@ export default function People() {
           <button className="btn-ghost small" onClick={openNewAsset}>+ Add Asset</button>
         </div>
 
-        {(state.assetIncomes || []).length > 0 && (
+        {(assetIncomes || []).length > 0 && (
           <div className="fn-summary">
             <div className="fns-item">
               <span>Asset Income /fn</span>
@@ -351,13 +354,13 @@ export default function People() {
             </div>
             <div className="fns-item">
               <span>Sources</span>
-              <span className="mono">{(state.assetIncomes || []).length}</span>
+              <span className="mono">{(assetIncomes || []).length}</span>
             </div>
           </div>
         )}
 
         <div className="cards-grid">
-          {(state.assetIncomes || []).map(a => (
+          {(assetIncomes || []).map(a => (
             <div key={a.id} className="asset-card">
               <div className="asset-header">
                 <div>
@@ -381,7 +384,7 @@ export default function People() {
             </div>
           ))}
 
-          {(state.assetIncomes || []).length === 0 && (
+          {(assetIncomes || []).length === 0 && (
             <div className="empty-state">
               <div className="es-icon">🏠</div>
               <div className="es-text">No asset income yet — add rental, dividend or other sources</div>

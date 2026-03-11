@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { createDividend } from '../../models/Dividend';
@@ -118,11 +118,10 @@ function DividendModal({ dividend, holdings, onSave, onClose }) {
 }
 
 export default function InvestmentDividends() {
-  const { state, set } = useApp();
-  const pid           = state.selectedPortfolioId;
-  const allDividends  = state.investmentDividends || [];
+  const { selectedPortfolioId: pid, investments, investmentDividends, setInvestment } = useInvestment();
+  const allDividends  = investmentDividends || [];
   const dividends     = allDividends.filter(d => d.portfolioId === pid);
-  const holdings      = (state.investments || []).filter(h => h.portfolioId === pid);
+  const holdings      = (investments || []).filter(h => h.portfolioId === pid);
 
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -143,9 +142,9 @@ export default function InvestmentDividends() {
 
   const handleSave = (form) => {
     if (form.id) {
-      set('investmentDividends', allDividends.map(d => d.id === form.id ? { ...form } : d));
+      setInvestment('investmentDividends', allDividends.map(d => d.id === form.id ? { ...form } : d));
     } else {
-      set('investmentDividends', [...allDividends, { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
+      setInvestment('investmentDividends', [...allDividends, { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() }]);
     }
     setShowModal(false);
     setEditTarget(null);
@@ -153,7 +152,7 @@ export default function InvestmentDividends() {
 
   const handleDelete = (id) => {
     if (window.confirm('Remove this dividend record?'))
-      set('investmentDividends', allDividends.filter(d => d.id !== id));
+      setInvestment('investmentDividends', allDividends.filter(d => d.id !== id));
   };
 
   const openEdit = (d) => { setEditTarget(d); setShowModal(true); };

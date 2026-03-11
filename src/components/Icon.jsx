@@ -33,6 +33,9 @@ const PATHS = {
   wrench:    'M12.5 2.5c.5 1.5 0 3-1 4L5 13a1.41 1.41 0 01-2-2l6.5-6.5c1-1 2.5-1.5 4-1z',
   filter:    'M2 3h12M4 8h8M6 13h4',
   sortaz:    'M3 5h6M3 8h4M3 11h2M12 2v10M9.5 9.5l2.5 2.5 2.5-2.5',
+  download:  'M8 2v8M5 7l3 3 3-3M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2',
+  upload:    'M8 14V6M5 9l3-3 3 3M2 5V3a1 1 0 011-1h10a1 1 0 011 1v2',
+  shield:    'M8 2l5 2.5v4c0 3-2.5 5-5 5.5C5.5 13.5 3 11.5 3 8.5v-4L8 2z',
 };
 
 export default function Icon({ name, size = 14, strokeWidth = 1.5 }) {

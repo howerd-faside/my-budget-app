@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useApp } from '../../store';
+import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { calcPortfolioStats } from '../../utils/finance/savings';
 import { getPortfolioActivity } from '../../utils/finance/transactions';
@@ -18,11 +18,10 @@ const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function InvestmentDashboard({ onSelectTab }) {
-  const { state } = useApp();
-  const pid           = state.selectedPortfolioId;
-  const holdings      = (state.investments             || []).filter(h => h.portfolioId === pid);
-  const contributions = (state.investmentContributions || []).filter(c => c.portfolioId === pid);
-  const dividends     = (state.investmentDividends     || []).filter(d => d.portfolioId === pid);
+  const { selectedPortfolioId: pid, investments, investmentContributions, investmentDividends, investmentPortfolios } = useInvestment();
+  const holdings      = (investments             || []).filter(h => h.portfolioId === pid);
+  const contributions = (investmentContributions || []).filter(c => c.portfolioId === pid);
+  const dividends     = (investmentDividends     || []).filter(d => d.portfolioId === pid);
 
   const stats = useMemo(
     () => calcPortfolioStats(holdings, contributions, dividends),
@@ -34,7 +33,7 @@ export default function InvestmentDashboard({ onSelectTab }) {
     [contributions, dividends, holdings]
   );
 
-  const portfolios = state.investmentPortfolios || [];
+  const portfolios = investmentPortfolios || [];
   const hasData    = holdings.length > 0 || contributions.length > 0 || dividends.length > 0;
 
   if (portfolios.length === 0) {

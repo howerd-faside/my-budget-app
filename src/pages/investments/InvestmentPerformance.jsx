@@ -3,7 +3,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { useApp } from '../../store';
+import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { fetchAllHistoricalPrices, buildPortfolioSeries, CHART_RANGES } from '../../utils/priceService';
 import { useToast } from '../../components/Toast';
@@ -210,9 +210,8 @@ function PortfolioChart({ holdings }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InvestmentPerformance() {
-  const { state } = useApp();
-  const pid      = state.selectedPortfolioId;
-  const holdings = (state.investments || []).filter(h => h.portfolioId === pid);
+  const { selectedPortfolioId: pid, investments } = useInvestment();
+  const holdings = (investments || []).filter(h => h.portfolioId === pid);
 
   const stats = useMemo(() => {
     const { totalValue, totalCost, unrealised, returnPct } = calcPortfolioStats(holdings, [], []);

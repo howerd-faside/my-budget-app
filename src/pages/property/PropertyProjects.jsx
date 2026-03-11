@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '../../store';
+import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 
@@ -34,8 +34,7 @@ const EMPTY_PROJ = {
 function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusChange }) {
   const [expanded, setExpanded] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const { set, state } = useApp();
-  const { propertyProjects = [] } = state;
+  const { propertyProjects, setProperty } = useProperty();
 
   const linkedTasks = propertyTasks.filter(t => proj.taskIds.includes(t.id));
   const projAreas   = (property?.areas || []).filter(a => proj.areas.includes(a.id));
@@ -46,7 +45,7 @@ function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusC
       ...proj,
       notes: [...(proj.notes || []), { id: crypto.randomUUID(), date: today(), text: noteText.trim() }],
     };
-    set('propertyProjects', propertyProjects.map(p => p.id === proj.id ? updated : p));
+    setProperty('propertyProjects', propertyProjects.map(p => p.id === proj.id ? updated : p));
     setNoteText('');
   };
 
@@ -155,13 +154,7 @@ function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusC
 }
 
 export default function PropertyProjects() {
-  const { state, set } = useApp();
-  const {
-    properties = [],
-    propertyProjects = [],
-    propertyTasks = [],
-    selectedPropertyId,
-  } = state;
+  const { properties, propertyProjects, propertyTasks, selectedPropertyId, setProperty } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
@@ -219,14 +212,14 @@ export default function PropertyProjects() {
     if (!form.title.trim()) return;
     const proj = { ...form };
     if (proj.status === 'Completed' && !proj.actualCompletion) proj.actualCompletion = today();
-    if (editingId === 'new') set('propertyProjects', [...propertyProjects, proj]);
-    else set('propertyProjects', propertyProjects.map(p => p.id === proj.id ? proj : p));
+    if (editingId === 'new') setProperty('propertyProjects', [...propertyProjects, proj]);
+    else setProperty('propertyProjects', propertyProjects.map(p => p.id === proj.id ? proj : p));
     close();
   };
 
   const deleteProject = (id) => {
     if (!confirm('Delete this project?')) return;
-    set('propertyProjects', propertyProjects.filter(p => p.id !== id));
+    setProperty('propertyProjects', propertyProjects.filter(p => p.id !== id));
   };
 
   const cycleStatus = (proj) => {
@@ -234,7 +227,7 @@ export default function PropertyProjects() {
     const next = active[(active.indexOf(proj.status) + 1) % active.length];
     const updates = { status: next };
     if (next === 'Completed') updates.actualCompletion = today();
-    set('propertyProjects', propertyProjects.map(p => p.id === proj.id ? { ...p, ...updates } : p));
+    setProperty('propertyProjects', propertyProjects.map(p => p.id === proj.id ? { ...p, ...updates } : p));
   };
 
   const toggleTaskLink = (taskId) => {
