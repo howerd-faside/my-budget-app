@@ -1,134 +1,21 @@
 /**
- * Compatibility bridge — preserves the legacy useApp() / AppProvider API.
+ * Derived helpers — pure functions used across multiple pages.
  *
- * @deprecated
- * All components have been migrated to domain-specific hooks (src/store/hooks/).
- * Prefer importing from there:
+ * These are not store-coupled. They live here as a stable shared home
+ * until a dedicated utils module is created.
  *
+ * For state access, import from domain hooks:
  *   import { useFinance }    from './store/hooks';
  *   import { usePeople }     from './store/hooks';
  *   import { useProperty }   from './store/hooks';
  *   import { useInvestment } from './store/hooks';
- *   import { useUI }         from './store/hooks';
- *
- * Remaining callers of useApp() / AppProvider:
- *   - App.jsx: AppProvider wrapper (no-op, safe to keep indefinitely)
- *
- * Remaining callers of derived helpers (totalBalance, calcFortnightlyIncome, …):
- *   - Dashboard.jsx, FinancialTracking.jsx, Wishlist.jsx, People.jsx, etc.
- *   These are pure functions — not store-coupled — and remain here as a
- *   stable home. Do not move them until a dedicated utils module is created.
- *
- * This file will be simplified once AppProvider is inlined and the pure
- * helpers are relocated.
  */
 
 import { calcNetPay } from './utils/tax';
 import { toFortnightly } from './utils/finance/frequency';
 import { getFortnight as _getFortnight } from './utils/finance/dates';
 
-import { useFinanceStore }    from './store/financeStore';
-import { usePeopleStore }     from './store/peopleStore';
-import { usePropertyStore }   from './store/propertyStore';
-import { useInvestmentStore } from './store/investmentStore';
-
-// ── Key → store routing ─────────────────────────────────────────────────────
-
-const KEY_STORE = {
-  // Finance
-  accounts: 'finance', transfers: 'finance', fortnightlyData: 'finance',
-  goals: 'finance', assetIncomes: 'finance', settings: 'finance',
-  // People
-  people: 'people', expenses: 'people', wishlist: 'people',
-  // Property
-  properties: 'property', propertyTasks: 'property', propertyMaintenance: 'property',
-  propertyProjects: 'property', propertyAssets: 'property', selectedPropertyId: 'property',
-  // Investment
-  investmentPortfolios: 'investment', selectedPortfolioId: 'investment',
-  investments: 'investment', investmentContributions: 'investment',
-  investmentDividends: 'investment',
-};
-
-// ── AppProvider ─────────────────────────────────────────────────────────────
-// Zustand stores are module-level singletons — no React context provider needed.
-// AppProvider is kept as a no-op wrapper so existing call sites don't break.
-
-export function AppProvider({ children }) {
-  return children;
-}
-
-// ── useApp() bridge ─────────────────────────────────────────────────────────
-
-export function useApp() {
-  // Subscribe to all domain stores
-  const finance    = useFinanceStore();
-  const people     = usePeopleStore();
-  const property   = usePropertyStore();
-  const investment = useInvestmentStore();
-
-  // Assemble the legacy flat state object expected by all existing components
-  const state = {
-    // Finance
-    accounts:        finance.accounts,
-    transfers:       finance.transfers,
-    fortnightlyData: finance.fortnightlyData,
-    goals:           finance.goals,
-    assetIncomes:    finance.assetIncomes,
-    settings:        finance.settings,
-    // People
-    people:          people.people,
-    expenses:        people.expenses,
-    wishlist:        people.wishlist,
-    // Property
-    properties:          property.properties,
-    propertyTasks:       property.propertyTasks,
-    propertyMaintenance: property.propertyMaintenance,
-    propertyProjects:    property.propertyProjects,
-    propertyAssets:      property.propertyAssets,
-    selectedPropertyId:  property.selectedPropertyId,
-    // Investment
-    investmentPortfolios:    investment.investmentPortfolios,
-    selectedPortfolioId:     investment.selectedPortfolioId,
-    investments:             investment.investments,
-    investmentContributions: investment.investmentContributions,
-    investmentDividends:     investment.investmentDividends,
-  };
-
-  // ── set(key, val) — routes to the owning store ──────────────────────────
-  const set = (key, val) => {
-    const store = KEY_STORE[key];
-    if      (store === 'finance')    useFinanceStore.getState().setSlice(key, val);
-    else if (store === 'people')     usePeopleStore.getState().setSlice(key, val);
-    else if (store === 'property')   usePropertyStore.getState().setSlice(key, val);
-    else if (store === 'investment') useInvestmentStore.getState().setSlice(key, val);
-  };
-
-  // ── cascadeDelete — applies a multi-key partial update across stores ────
-  const cascadeDelete = (slices) => {
-    const byStore = { finance: {}, people: {}, property: {}, investment: {} };
-    for (const [key, val] of Object.entries(slices)) {
-      const store = KEY_STORE[key];
-      if (store) byStore[store][key] = val;
-    }
-    if (Object.keys(byStore.finance).length)    useFinanceStore.getState().mergeSlices(byStore.finance);
-    if (Object.keys(byStore.people).length)     usePeopleStore.getState().mergeSlices(byStore.people);
-    if (Object.keys(byStore.property).length)   usePropertyStore.getState().mergeSlices(byStore.property);
-    if (Object.keys(byStore.investment).length) useInvestmentStore.getState().mergeSlices(byStore.investment);
-  };
-
-  return {
-    state,
-    set,
-    cascadeDelete,
-    updateFortnight: finance.updateFortnight,
-    updateAccount:   finance.updateAccount,
-    addTransfer:     finance.addTransfer,
-    removeTransfer:  finance.removeTransfer,
-    setYearBalance:  () => {},   // legacy no-op
-  };
-}
-
-// ── Derived helpers (unchanged — re-exported for all existing callers) ──────
+// ── Derived helpers ──────────────────────────────────────────────────────────
 
 export function totalBalance(accounts) {
   return (accounts || []).reduce((s, a) => s + (a.balance || 0), 0);

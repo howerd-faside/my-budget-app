@@ -1,6 +1,6 @@
 /**
  * Domain hooks — thin wrappers over the Zustand domain stores with stable,
- * named APIs.  Prefer these over the legacy useApp() bridge.
+ * named APIs.
  *
  * Usage:
  *   import { useFinance }    from '../store/hooks';

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { AppProvider, totalBalance } from './store';
+import { totalBalance } from './store';
 import { useFinance }    from './store/hooks';
 import { useInvestment } from './store/hooks';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -368,12 +368,10 @@ function Shell() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <ToastProvider>
-        <ErrorBoundary label="Application">
-          <Shell />
-        </ErrorBoundary>
-      </ToastProvider>
-    </AppProvider>
+    <ToastProvider>
+      <ErrorBoundary label="Application">
+        <Shell />
+      </ErrorBoundary>
+    </ToastProvider>
   );
 }

@@ -17,8 +17,6 @@
  *   import { useInvestmentStore } from './store';
  *   import { useUiStore }         from './store';
  *
- * Or import from the top-level store.jsx compatibility bridge if you need the
- * legacy useApp() / AppProvider interface.
  */
 
 // Raw domain stores
