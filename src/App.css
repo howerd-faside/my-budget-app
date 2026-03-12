@@ -1356,11 +1356,30 @@ select.input {
    PROPERTY MANAGEMENT
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Property Register layout ────────────────────────────────────────────── */
-.prop-register-layout {
-  display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start;
+/* ── Property selector row ───────────────────────────────────────────────── */
+.prop-selector { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.prop-sel-item {
+  flex-shrink: 0; min-width: 154px; max-width: 220px;
+  padding: 10px 12px; border-radius: var(--radius-xl);
+  border: 1px solid var(--sep); background: var(--card2);
+  cursor: pointer; text-align: left;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
 }
-@media (max-width: 860px) { .prop-register-layout { grid-template-columns: 1fr; } }
+.prop-sel-item:hover  { border-color: var(--sep2); }
+.prop-sel-item.selected { border-color: var(--teal); background: var(--teal-dim); }
+.prop-sel-name {
+  font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.prop-sel-item.selected .prop-sel-name { color: var(--teal); }
+.prop-sel-addr {
+  font-size: 11px; color: var(--text3); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+}
+.prop-sel-meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; align-items: center; }
+.prop-sel-del  { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+.prop-sel-item:hover .prop-sel-del,
+.prop-sel-del:focus-visible { opacity: 1; }
 
 .prop-area-chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1374,6 +1393,15 @@ select.input {
 .prop-area-chip button { padding: 0; }
 
 .prop-areas-list { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── Area group two-column layout ────────────────────────────────────────── */
+.prop-areas-group  { display: flex; align-items: flex-start; gap: 10px; }
+.prop-areas-glabel {
+  flex-shrink: 0; min-width: 68px; padding-top: 5px; text-align: right;
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.prop-areas-chips  { display: flex; flex-wrap: wrap; gap: 5px; }
 
 /* ── Insulation selector ─────────────────────────────────────────────────── */
 .prop-insul-grid { display: flex; flex-direction: column; gap: 10px; }

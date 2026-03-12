@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
+import { Card, SectionHeader, StatTile, EmptyState } from '../../components/ui';
 import {
   createProperty, createPropertyArea,
   PROPERTY_TYPES, CONSTRUCTION_TYPES, ROOF_TYPES, CLADDING_TYPES,
@@ -14,7 +15,6 @@ import {
 
 function fmtMoney(n) { return n ? `$${Number(n).toLocaleString('en-NZ')}` : null; }
 
-// Local aliases for enum names that were standardised in the Property model.
 const WATER_SUPPLY    = WATER_SUPPLY_OPTIONS;
 const WASTEWATER      = WASTEWATER_OPTIONS;
 const INSULATION_OPTS = INSULATION_OPTIONS;
@@ -27,194 +27,23 @@ const TYPE_COLOR = {
   'Investment': 'purple', 'Land/Section': '', 'Other': '',
 };
 
-// ── PropDetail ────────────────────────────────────────────────────────────────
-function PropDetail({ prop, openTasks, overdueTasks, maintenanceCount, onEdit, onAddArea, onDeleteArea }) {
-  const [areaForm,    setAreaForm]    = useState(EMPTY_AREA);
-  const [addingArea,  setAddingArea]  = useState(false);
-
-  const submitArea = () => {
-    if (!areaForm.name.trim()) return;
-    onAddArea({ ...areaForm, id: crypto.randomUUID() });
-    setAreaForm(EMPTY_AREA); setAddingArea(false);
-  };
-
-  const grouped = AREA_GROUPS.filter(g => (prop.areas || []).some(a => a.group === g));
-  const val = prop.valuation;
-
-  const buildingRows = [
-    ['Year Built',    prop.yearBuilt],
-    ['Construction',  prop.constructionType],
-    ['Roof',          prop.roofType],
-    ['Cladding',      prop.cladding],
-    ['Heating',       prop.heating],
-    ['Water Supply',  prop.waterSupply],
-    ['Wastewater',    prop.wastewater],
-  ].filter(([, v]) => v);
-
-  const insulationRows = ['ceiling', 'underfloor', 'walls']
-    .map(z => [z.charAt(0).toUpperCase() + z.slice(1), prop.insulation?.[z] || 'unknown'])
-    .filter(([, v]) => v !== 'unknown');
-
-  return (
-    <>
-      {/* ── Header card ─────────────────────────────────────────────────── */}
-      <div className="dash-section" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.4px', lineHeight: 1.2 }}>{prop.name}</div>
-            {prop.address && (
-              <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 3 }}>{prop.address}</div>
-            )}
-            <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>
-              {(prop.areas || []).length > 0 && (
-                <span className="tag">{(prop.areas || []).length} area{(prop.areas || []).length !== 1 ? 's' : ''}</span>
-              )}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            <button className="btn-ghost small" onClick={onEdit}>
-              <Icon name="pencil" size={12} /> Edit
-            </button>
-          </div>
-        </div>
-
-        {/* Key stats */}
-        <div className="fn-summary" style={{ marginBottom: 0 }}>
-          {prop.bedrooms  && <div className="fns-item"><span>Bedrooms</span><div className="fns-val-row"><span className="mono">{prop.bedrooms}</span></div></div>}
-          {prop.bathrooms && <div className="fns-item"><span>Bathrooms</span><div className="fns-val-row"><span className="mono">{prop.bathrooms}</span></div></div>}
-          {prop.floorArea && <div className="fns-item"><span>Floor Area</span><div className="fns-val-row"><span className="mono">{prop.floorArea} m²</span></div></div>}
-          {prop.landArea  && <div className="fns-item"><span>Land Area</span><div className="fns-val-row"><span className="mono">{prop.landArea} m²</span></div></div>}
-          <div className="fns-item"><span>Open Tasks</span><div className="fns-val-row"><span className={`mono ${openTasks > 0 ? '' : 'text3'}`}>{openTasks}</span>{overdueTasks > 0 && <span className="dpill red">{overdueTasks} overdue</span>}</div></div>
-          <div className="fns-item"><span>Maintenance</span><div className="fns-val-row"><span className={`mono ${maintenanceCount > 0 ? '' : 'text3'}`}>{maintenanceCount}</span></div></div>
-        </div>
-      </div>
-
-      {/* ── Valuation (stored) ───────────────────────────────────────────── */}
-      {val && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Valuation</h3>
-            {val.fetchedAt && <span style={{ fontSize: 11, color: 'var(--text3)' }}>Updated {val.fetchedAt}</span>}
-          </div>
-          <div className="fn-summary" style={{ marginBottom: 0 }}>
-            {val.rv             && <div className="fns-item"><span>RV / CV</span><div className="fns-val-row"><span className="mono">{fmtMoney(val.rv)}</span></div></div>}
-            {val.estimatedValue && <div className="fns-item"><span>Estimate</span><div className="fns-val-row"><span className="mono">{fmtMoney(val.estimatedValue)}</span></div></div>}
-            {val.landValue      && <div className="fns-item"><span>Land Value</span><div className="fns-val-row"><span className="mono">{fmtMoney(val.landValue)}</span></div></div>}
-            {val.improvementsValue && <div className="fns-item"><span>Improvements</span><div className="fns-val-row"><span className="mono">{fmtMoney(val.improvementsValue)}</span></div></div>}
-          </div>
-          {val.valuationDate && (
-            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>Valuation date: {val.valuationDate}</div>
-          )}
-        </div>
-      )}
-
-      {/* ── Building details ─────────────────────────────────────────────── */}
-      {(buildingRows.length > 0 || insulationRows.length > 0 || prop.notes) && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Building Details</h3>
-            <button className="btn-ghost small" onClick={onEdit}><Icon name="pencil" size={12} /> Edit</button>
-          </div>
-          {buildingRows.length > 0 && (
-            <div className="person-numbers" style={{ marginBottom: insulationRows.length > 0 ? 14 : 0 }}>
-              {buildingRows.map(([label, value]) => (
-                <div key={label} className="pn-item">
-                  <span>{label}</span>
-                  <span className="mono">{value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {insulationRows.length > 0 && (
-            <>
-              <div className="form-section-label" style={{ marginBottom: 6 }}>Insulation</div>
-              <div className="person-numbers">
-                {insulationRows.map(([label, value]) => (
-                  <div key={label} className="pn-item">
-                    <span>{label}</span>
-                    <span className={`mono ${value === 'yes' ? 'green' : value === 'no' ? 'red' : 'text3'}`}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-          {prop.notes && (
-            <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--card2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
-              {prop.notes}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Areas ───────────────────────────────────────────────────────── */}
-      <div className="dash-section">
-        <div className="section-header">
-          <h3>Areas &amp; Zones</h3>
-          <button className="btn-icon" onClick={() => setAddingArea(true)} title="Add area">
-            <Icon name="plus" size={13} />
-          </button>
-        </div>
-
-        {addingArea && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
-            <input
-              className="input small"
-              style={{ flex: '1 1 180px' }}
-              placeholder="Area name (e.g. Kitchen, Deck, Garage)"
-              value={areaForm.name}
-              onChange={e => setAreaForm(f => ({ ...f, name: e.target.value }))}
-              onKeyDown={e => { if (e.key === 'Enter') submitArea(); if (e.key === 'Escape') setAddingArea(false); }}
-              autoFocus
-            />
-            <select className="input small" style={{ flex: '0 0 130px' }} value={areaForm.group} onChange={e => setAreaForm(f => ({ ...f, group: e.target.value }))}>
-              {AREA_GROUPS.map(g => <option key={g}>{g}</option>)}
-            </select>
-            <button className="btn-primary small" onClick={submitArea}>Add</button>
-            <button className="btn-ghost small" onClick={() => { setAddingArea(false); setAreaForm(EMPTY_AREA); }}>Cancel</button>
-          </div>
-        )}
-
-        {(prop.areas || []).length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text3)' }}>No areas defined. Add areas to tag tasks, maintenance, and assets.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {grouped.map(group => (
-              <div key={group}>
-                <div className="form-section-label" style={{ marginBottom: 6 }}>{group}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(prop.areas || []).filter(a => a.group === group).map(area => (
-                    <span key={area.id} className="prop-area-chip">
-                      {area.name}
-                      <button className="btn-icon small danger" style={{ marginLeft: 2 }} onClick={() => onDeleteArea(area.id)}>
-                        <Icon name="close" size={10} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function PropertyRegister() {
+export default function PropertyRegister({ onSelectTab = () => {} }) {
   const {
     properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets,
     selectedPropertyId, setProperty, mergeProperty,
   } = useProperty();
 
-  const [showModal,    setShowModal]    = useState(false);
-  const [form,         setForm]         = useState(EMPTY_PROP);
-  const [editingId,    setEditingId]    = useState(null);
-  const [modalTab,     setModalTab]     = useState('profile');
-  const [areaForm,     setAreaForm]     = useState(EMPTY_AREA);
+  const [showModal,      setShowModal]      = useState(false);
+  const [form,           setForm]           = useState(EMPTY_PROP);
+  const [editingId,      setEditingId]      = useState(null);
+  const [modalTab,       setModalTab]       = useState('profile');
+  const [areaForm,       setAreaForm]       = useState(EMPTY_AREA);   // modal areas tab
+  const [addingArea,     setAddingArea]     = useState(false);         // inline add area
+  const [detailAreaForm, setDetailAreaForm] = useState(EMPTY_AREA);   // inline add area form
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
+  const today   = new Date().toISOString().slice(0, 10);
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setInsul = (k, v) => setForm(f => ({ ...f, insulation: { ...f.insulation, [k]: v } }));
@@ -253,10 +82,13 @@ export default function PropertyRegister() {
     mergeProperty(cascadeDeleteProperty(propState, id));
   };
 
-  const addAreaToSelected = (area) => {
+  const submitDetailArea = () => {
+    if (!detailAreaForm.name.trim() || !selProp) return;
     setProperty('properties', properties.map(p =>
-      p.id === selProp.id ? { ...p, areas: [...(p.areas || []), area] } : p
+      p.id === selProp.id ? { ...p, areas: [...(p.areas || []), { ...detailAreaForm, id: crypto.randomUUID() }] } : p
     ));
+    setDetailAreaForm(EMPTY_AREA);
+    setAddingArea(false);
   };
 
   const deleteAreaFromSelected = (areaId) => {
@@ -268,105 +100,46 @@ export default function PropertyRegister() {
     mergeProperty(cascadeDeleteArea(areaState, selProp.id, areaId));
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  // ── Derived stats for selected property ──────────────────────────────────
+  const detail = useMemo(() => {
+    if (!selProp) return null;
+    const id       = selProp.id;
+    const open     = propertyTasks.filter(t => t.propertyId === id && t.status !== 'Done' && t.status !== 'Cancelled');
+    const overdue  = open.filter(t => t.dueDate && t.dueDate < today);
+    const maint    = propertyMaintenance.filter(m => m.propertyId === id).length;
+    const projects = propertyProjects.filter(p => p.propertyId === id && p.status !== 'Completed' && p.status !== 'Cancelled').length;
+    const alerts   = propertyAssets.filter(a => {
+      if (a.propertyId !== id) return false;
+      if (a.condition === 'Poor' || a.condition === 'Critical') return true;
+      const w = a.warrantyExpiry ? Math.round((new Date(a.warrantyExpiry) - new Date(today)) / 86400000) : null;
+      return w !== null && w >= 0 && w <= 90;
+    }).length;
+    return { openTasks: open.length, overdue: overdue.length, maint, projects, alerts };
+  }, [selProp, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, today]);
 
-  return (
-    <div className="page-content">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn-primary" onClick={openNew}>
-          <Icon name="plus" size={14} /> Add Property
-        </button>
-      </div>
+  // ── Building detail rows for selected property ────────────────────────────
+  const buildingRows = selProp ? [
+    ['Year Built',   selProp.yearBuilt],
+    ['Construction', selProp.constructionType],
+    ['Roof',         selProp.roofType],
+    ['Cladding',     selProp.cladding],
+    ['Heating',      selProp.heating],
+    ['Water Supply', selProp.waterSupply],
+    ['Wastewater',   selProp.wastewater],
+  ].filter(([, v]) => v) : [];
 
-      {properties.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="building" size={38} /></div>
-          <div className="es-text">Add your first property to begin tracking maintenance, tasks, and improvements.</div>
-          <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Property</button>
-        </div>
-      ) : (
-        <div className="prop-register-layout">
-          {/* ── Left: property list ─────────────────────────────────────── */}
-          <div>
-            <div className="dash-section">
-              <div className="section-header"><h3>Your Properties</h3></div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {properties.map(prop => {
-                  const isSelected = prop.id === selectedPropertyId;
-                  const tasks   = propertyTasks.filter(t => t.propertyId === prop.id && t.status !== 'Done' && t.status !== 'Cancelled');
-                  const overdue = tasks.filter(t => t.dueDate && t.dueDate < today);
-                  const hasStats = prop.bedrooms || prop.bathrooms || prop.floorArea;
-                  return (
-                    <div
-                      key={prop.id}
-                      className="income-card"
-                      style={{
-                        cursor: 'pointer', marginBottom: 0,
-                        border: isSelected ? '1px solid var(--teal)' : '1px solid transparent',
-                        background: isSelected ? 'rgba(0,113,227,0.04)' : undefined,
-                      }}
-                      onClick={() => setProperty('selectedPropertyId', prop.id)}
-                    >
-                      <div className="ic-header">
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div className="ic-name">{prop.name}</div>
-                          {prop.address && <div className="ic-employer-line">{prop.address}</div>}
-                        </div>
-                        <div className="ic-tags">
-                          <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>
-                        </div>
-                      </div>
+  const insulationRows = selProp ? ['ceiling', 'underfloor', 'walls']
+    .map(z => [z.charAt(0).toUpperCase() + z.slice(1), selProp.insulation?.[z] || 'unknown'])
+    .filter(([, v]) => v !== 'unknown') : [];
 
-                      {hasStats && (
-                        <div className="ic-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginTop: 8 }}>
-                          {prop.bedrooms  && <div className="ic-stat"><span className="ic-stat-label">Bed</span><span className="mono ic-stat-val">{prop.bedrooms}</span></div>}
-                          {prop.bathrooms && <div className="ic-stat"><span className="ic-stat-label">Bath</span><span className="mono ic-stat-val">{prop.bathrooms}</span></div>}
-                          {prop.floorArea && <div className="ic-stat"><span className="ic-stat-label">Floor</span><span className="mono ic-stat-val">{prop.floorArea}m²</span></div>}
-                        </div>
-                      )}
+  const areaGroups = selProp
+    ? AREA_GROUPS.filter(g => (selProp.areas || []).some(a => a.group === g))
+    : [];
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {prop.valuation?.rv && (
-                            <span className="tag" style={{ color: 'var(--teal)' }}>RV {fmtMoney(prop.valuation.rv)}</span>
-                          )}
-                          {tasks.length  > 0 && <span className="tag">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>}
-                          {overdue.length > 0 && <span className="dpill red">{overdue.length} overdue</span>}
-                        </div>
-                        <div className="person-actions" onClick={e => e.stopPropagation()}>
-                          <button className="btn-icon small" onClick={() => openEdit(prop)}><Icon name="pencil" size={12} /></button>
-                          <button className="btn-icon small danger" onClick={() => deleteProp(prop.id)}><Icon name="trash" size={12} /></button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Right: detail ───────────────────────────────────────────── */}
-          {selProp ? (
-            <PropDetail
-              prop={selProp}
-              openTasks={propertyTasks.filter(t => t.propertyId === selProp.id && t.status !== 'Done' && t.status !== 'Cancelled').length}
-              overdueTasks={propertyTasks.filter(t => t.propertyId === selProp.id && t.status !== 'Done' && t.status !== 'Cancelled' && t.dueDate && t.dueDate < today).length}
-              maintenanceCount={propertyMaintenance.filter(m => m.propertyId === selProp.id).length}
-              onEdit={() => openEdit(selProp)}
-              onAddArea={addAreaToSelected}
-              onDeleteArea={deleteAreaFromSelected}
-            />
-          ) : (
-            <div className="dash-section">
-              <p style={{ fontSize: 13, color: 'var(--text3)' }}>Select a property to view details.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Modal ─────────────────────────────────────────────────────────── */}
-      {showModal && (
-        <Portal>
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  function renderModal() {
+    return (
+      <Portal>
         <div className="modal-overlay" onClick={close}>
           <div className="modal wide" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
@@ -397,7 +170,6 @@ export default function PropertyRegister() {
                     <label>Address</label>
                     <input className="input" placeholder="Street address" value={form.address} onChange={e => setField('address', e.target.value)} />
                   </div>
-
                   <div className="form-group">
                     <label>Bedrooms</label>
                     <input className="input" type="number" min="0" value={form.bedrooms} onChange={e => setField('bedrooms', e.target.value)} />
@@ -534,8 +306,279 @@ export default function PropertyRegister() {
             </div>
           </div>
         </div>
-        </Portal>
+      </Portal>
+    );
+  }
+
+  // ── Empty state ───────────────────────────────────────────────────────────
+  if (properties.length === 0) {
+    return (
+      <div className="page-content">
+        <EmptyState
+          icon={<Icon name="building" size={38} />}
+          title="Add your first property to begin tracking maintenance, tasks, and improvements."
+          action={
+            <button className="btn-primary" onClick={openNew}>
+              <Icon name="plus" size={14} /> Add Property
+            </button>
+          }
+        />
+        {showModal && renderModal()}
+      </div>
+    );
+  }
+
+  return (
+    <div className="page-content">
+
+      {/* ── Tier 1: Property Selector ────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="building" size={15} /> Properties</>}
+          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
+          actions={
+            <button className="btn-ghost small" onClick={openNew}>
+              <Icon name="plus" size={12} /> Add Property
+            </button>
+          }
+        />
+        <div className="prop-selector">
+          {properties.map(prop => {
+            const isSelected = prop.id === selectedPropertyId;
+            const overdue = propertyTasks.filter(t =>
+              t.propertyId === prop.id && t.status !== 'Done' && t.status !== 'Cancelled' && t.dueDate && t.dueDate < today
+            ).length;
+            return (
+              <div
+                key={prop.id}
+                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
+                onClick={() => setProperty('selectedPropertyId', prop.id)}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                  <span className="prop-sel-name">{prop.name}</span>
+                  <button
+                    className="btn-icon small danger prop-sel-del"
+                    onClick={e => { e.stopPropagation(); deleteProp(prop.id); }}
+                    title="Delete property"
+                  >
+                    <Icon name="trash" size={11} />
+                  </button>
+                </div>
+                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
+                <div className="prop-sel-meta">
+                  <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>
+                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
+                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
+                  {overdue > 0    && <span className="dpill red">{overdue} due</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ── Tier 2 + 3: Selected property detail ─────────────────────────── */}
+      {selProp && detail && (
+        <>
+          {/* ── Tier 2: Snapshot stat row ───────────────────────────────── */}
+          <Card variant="section">
+            <SectionHeader
+              title={<><Icon name="building" size={15} /> Property Snapshot</>}
+              subtitle={selProp.address ? `${selProp.name} · ${selProp.address}` : selProp.name}
+              actions={
+                <button className="btn-ghost small" onClick={() => openEdit(selProp)}>
+                  <Icon name="pencil" size={12} /> Edit
+                </button>
+              }
+            />
+            <div className="fn-summary">
+              {selProp.bedrooms  && <StatTile label="Bedrooms"   value={selProp.bedrooms} />}
+              {selProp.bathrooms && <StatTile label="Bathrooms"  value={selProp.bathrooms} />}
+              {selProp.floorArea && <StatTile label="Floor Area" value={`${selProp.floorArea} m²`} />}
+              {selProp.landArea  && <StatTile label="Land Area"  value={`${selProp.landArea} m²`} />}
+              <StatTile
+                label="Open Tasks"
+                value={detail.openTasks}
+                valueClassName={detail.openTasks > 0 ? '' : 'text3'}
+                meta={detail.overdue > 0 ? <span className="dpill red">{detail.overdue} overdue</span> : null}
+              />
+              <StatTile label="Maintenance" value={detail.maint} valueClassName={detail.maint > 0 ? '' : 'text3'} />
+            </div>
+          </Card>
+
+          {/* ── Tier 3: Two-column detail grid ──────────────────────────── */}
+          <div className="dash-grid">
+
+            {/* Left — Building Details + Areas */}
+            <div className="dash-col-8" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {(buildingRows.length > 0 || insulationRows.length > 0 || selProp.notes) && (
+                <Card variant="section">
+                  <SectionHeader
+                    title="Building Details"
+                    actions={
+                      <button className="btn-ghost small" onClick={() => openEdit(selProp)}>
+                        <Icon name="pencil" size={12} /> Edit
+                      </button>
+                    }
+                  />
+                  {(buildingRows.length > 0 || insulationRows.length > 0) && (
+                    <div className="exp-detail-grid">
+                      {buildingRows.map(([label, value]) => (
+                        <div key={label} className="edg-item">
+                          <span className="edg-label">{label}</span>
+                          <span className="edg-val">{value}</span>
+                        </div>
+                      ))}
+                      {insulationRows.map(([label, value]) => (
+                        <div key={label} className="edg-item">
+                          <span className="edg-label">{label} Insulation</span>
+                          <span className="edg-val" style={{
+                            color: value === 'yes' ? 'var(--green)' : value === 'no' ? 'var(--red)' : 'var(--text3)',
+                          }}>{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {selProp.notes && (
+                    <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--card2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
+                      {selProp.notes}
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              <Card variant="section">
+                <SectionHeader
+                  title="Areas & Zones"
+                  actions={
+                    <button className="btn-icon" onClick={() => setAddingArea(true)} title="Add area">
+                      <Icon name="plus" size={13} />
+                    </button>
+                  }
+                />
+
+                {addingArea && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center' }}>
+                    <input
+                      className="input small"
+                      style={{ flex: '1 1 180px' }}
+                      placeholder="Area name (e.g. Kitchen, Deck, Garage)"
+                      value={detailAreaForm.name}
+                      onChange={e => setDetailAreaForm(f => ({ ...f, name: e.target.value }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') submitDetailArea();
+                        if (e.key === 'Escape') { setAddingArea(false); setDetailAreaForm(EMPTY_AREA); }
+                      }}
+                      autoFocus
+                    />
+                    <select className="input small" style={{ flex: '0 0 130px' }} value={detailAreaForm.group} onChange={e => setDetailAreaForm(f => ({ ...f, group: e.target.value }))}>
+                      {AREA_GROUPS.map(g => <option key={g}>{g}</option>)}
+                    </select>
+                    <button className="btn-primary small" onClick={submitDetailArea}>Add</button>
+                    <button className="btn-ghost small" onClick={() => { setAddingArea(false); setDetailAreaForm(EMPTY_AREA); }}>Cancel</button>
+                  </div>
+                )}
+
+                {(selProp.areas || []).length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text3)' }}>No areas defined. Add areas to tag tasks, maintenance, and assets.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {areaGroups.map(group => (
+                      <div key={group} className="prop-areas-group">
+                        <span className="prop-areas-glabel">{group}</span>
+                        <div className="prop-areas-chips">
+                          {(selProp.areas || []).filter(a => a.group === group).map(area => (
+                            <span key={area.id} className="prop-area-chip">
+                              {area.name}
+                              <button className="btn-icon small danger" onClick={() => deleteAreaFromSelected(area.id)}>
+                                <Icon name="close" size={10} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Right — Status + Quick Actions + Valuation */}
+            <div className="dash-col-4" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              <Card variant="section">
+                <SectionHeader title="Status" />
+                <div className="fn-list">
+                  {[
+                    { label: 'Open Tasks',      value: detail.openTasks, cls: detail.openTasks > 0 ? '' : 'text3', badge: detail.overdue > 0 && <span className="dpill red">{detail.overdue} overdue</span> },
+                    { label: 'Asset Alerts',     value: detail.alerts,    cls: detail.alerts > 0 ? 'amber' : 'text3' },
+                    { label: 'Active Projects',  value: detail.projects,  cls: detail.projects > 0 ? '' : 'text3' },
+                    { label: 'Maintenance Logs', value: detail.maint,     cls: detail.maint > 0 ? '' : 'text3' },
+                  ].map(({ label, value, cls, badge }) => (
+                    <div key={label} className="fn-row">
+                      <div className="fn-main" style={{ cursor: 'default' }}>
+                        <div className="fn-left">
+                          <div className="fn-label">{label}</div>
+                        </div>
+                        <div className="fn-right">
+                          {badge}
+                          <span className={`mono ${cls}`} style={{ fontSize: 13 }}>{value}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card variant="section">
+                <SectionHeader title="Quick Actions" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <button className="btn-ghost small" onClick={() => onSelectTab('prop-tasks')}>
+                    <Icon name="clipboard" size={12} /> Add Task
+                  </button>
+                  <button className="btn-ghost small" onClick={() => onSelectTab('prop-maint')}>
+                    <Icon name="wrench" size={12} /> Add Maintenance
+                  </button>
+                  <button className="btn-ghost small" onClick={() => onSelectTab('prop-assets')}>
+                    <Icon name="tag" size={12} /> Add Asset
+                  </button>
+                  <button className="btn-ghost small" onClick={() => openEdit(selProp)}>
+                    <Icon name="pencil" size={12} /> Edit Property
+                  </button>
+                </div>
+              </Card>
+
+              {selProp.valuation && (
+                <Card variant="section">
+                  <SectionHeader
+                    title="Valuation"
+                    subtitle={selProp.valuation.fetchedAt ? `Updated ${selProp.valuation.fetchedAt}` : undefined}
+                  />
+                  <div className="exp-detail-grid">
+                    {[
+                      ['RV / CV',      selProp.valuation.rv],
+                      ['Estimate',     selProp.valuation.estimatedValue],
+                      ['Land Value',   selProp.valuation.landValue],
+                      ['Improvements', selProp.valuation.improvementsValue],
+                    ].filter(([, v]) => v).map(([label, value]) => (
+                      <div key={label} className="edg-item">
+                        <span className="edg-label">{label}</span>
+                        <span className="edg-val mono">{fmtMoney(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {selProp.valuation.valuationDate && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>Valuation date: {selProp.valuation.valuationDate}</div>
+                  )}
+                </Card>
+              )}
+            </div>
+          </div>
+        </>
       )}
+
+      {showModal && renderModal()}
     </div>
   );
 }

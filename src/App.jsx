@@ -246,7 +246,7 @@ function Shell() {
       case 'mortgage':       return <MortgageOverview />;
       case 'wishlist':       return <Wishlist />;
       case 'prop-overview':  return <PropertyOverview onSelectTab={goTab} />;
-      case 'prop-register':  return <PropertyRegister />;
+      case 'prop-register':  return <PropertyRegister onSelectTab={goTab} />;
       case 'prop-tasks':     return <PropertyTasks />;
       case 'prop-maint':     return <PropertyMaintenance />;
       case 'prop-projects':  return <PropertyProjects />;
