@@ -289,7 +289,7 @@ export default function InvestmentPerformance() {
         {/* Category breakdown */}
         {stats.categories.length > 1 && (
           <Card variant="section">
-            <SectionHeader title="By Category" />
+            <SectionHeader title={<><Icon name="layers" size={15} /> By Category</>} />
             <div className="perf-cat-list">
               {stats.categories.map(c => {
                 const color = CAT_COLOR[c.cat] || '#86868B';
@@ -327,7 +327,7 @@ export default function InvestmentPerformance() {
         {/* Rankings */}
         {stats.ranked.length > 0 && (
           <Card variant="section">
-            <SectionHeader title="Ranked by Return" />
+            <SectionHeader title={<><Icon name="sortaz" size={15} /> Ranked by Return</>} />
             <div className="perf-rank-list">
               {stats.ranked.map((h, i) => {
                 const color   = CAT_COLOR[h.category] || '#86868B';
@@ -368,7 +368,7 @@ export default function InvestmentPerformance() {
 
       {/* ── Holdings detail table ── */}
       <Card variant="section">
-        <SectionHeader title="Holdings Detail" />
+        <SectionHeader title={<><Icon name="tag" size={15} /> Holdings Detail</>} />
         <div className="perf-table-wrap">
           <table className="perf-table">
             <thead>

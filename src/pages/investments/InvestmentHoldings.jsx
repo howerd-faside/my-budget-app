@@ -374,7 +374,7 @@ export default function InvestmentHoldings() {
       {holdings.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Filter by Category"
+            title={<><Icon name="filter" size={15} /> Filter by Category</>}
             actions={
               <>
                 {refreshMsg && (

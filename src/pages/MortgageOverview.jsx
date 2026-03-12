@@ -38,7 +38,7 @@ function CurrentPositionSection() {
   if (!hasLoans) {
     return (
       <Card variant="section">
-        <SectionHeader title="Current Position" />
+        <SectionHeader title={<><Icon name="mortgage" size={15} /> Current Position</>} />
         <div style={{ color: 'var(--text3)', fontSize: 13, padding: '4px 0' }}>
           {loanExpenses.length === 0
             ? 'No loans set up yet — add a loan expense with facilities in the Expenses tab.'
@@ -51,7 +51,7 @@ function CurrentPositionSection() {
   return (
     <Card variant="section">
       <SectionHeader
-        title="Current Position"
+        title={<><Icon name="mortgage" size={15} /> Current Position</>}
         subtitle={payoffYear ? `Estimated payoff ${payoffYear}` : undefined}
       />
 
@@ -83,7 +83,7 @@ function AmortisationSection() {
   return (
     <Card variant="section">
       <SectionHeader
-        title="Amortisation"
+        title={<><Icon name="mortgage" size={15} /> Amortisation</>}
         actions={<div className="filter-tabs">
           <button
             className={`filter-tab ${mode === 'balance' ? 'active' : ''}`}
@@ -245,7 +245,7 @@ function FacilitiesSection() {
 
   return (
     <Card variant="section">
-      <SectionHeader title="Facilities" />
+      <SectionHeader title={<><Icon name="building" size={15} /> Facilities</>} />
 
       {loanGroups.map(({ loan, facilities: loanFacilities }) => {
         const loanBal = loanFacilities.reduce((s, f) => s + (+f.balance || 0), 0);
@@ -451,7 +451,7 @@ function EarlyRepaymentSection() {
 
   return (
     <Card variant="section">
-      <SectionHeader title="Early Repayment" />
+      <SectionHeader title={<><Icon name="arrow-up" size={15} /> Early Repayment</>} />
 
       {/* Input */}
       <div className="mc-early-repay" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>

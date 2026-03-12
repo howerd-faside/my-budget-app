@@ -160,7 +160,7 @@ export default function People() {
       {people.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Income Summary"
+            title={<><Icon name="arrow-up" size={15} /> Income Summary</>}
             actions={<span className="text3" style={{ fontSize: 11 }}>{people.length} earner{people.length !== 1 ? 's' : ''}</span>}
           />
           <div className="fn-summary">
@@ -173,7 +173,7 @@ export default function People() {
 
       <Card variant="section">
         <SectionHeader
-          title="Income Profiles"
+          title={<><Icon name="arrow-up" size={15} /> Income Profiles</>}
           actions={<button className="btn-ghost small" onClick={openNew}>+ Add Person</button>}
         />
 
@@ -330,7 +330,7 @@ export default function People() {
       {/* ── ASSET INCOME ─────────────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
-          title="Asset Income"
+          title={<><Icon name="bank" size={15} /> Asset Income</>}
           actions={<button className="btn-ghost small" onClick={openNewAsset}>+ Add Asset</button>}
         />
 

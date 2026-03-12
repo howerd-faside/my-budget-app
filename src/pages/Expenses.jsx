@@ -318,7 +318,7 @@ export default function Expenses() {
       {activeExpenses.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Spending Breakdown"
+            title={<><Icon name="tag" size={15} /> Spending Breakdown</>}
             actions={
               <>
                 <span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(totalFn * 26)}/yr</span>

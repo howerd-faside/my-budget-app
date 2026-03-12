@@ -469,7 +469,7 @@ export default function Dashboard() {
       {/* ── ACCOUNTS ────────────────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
-          title="Accounts"
+          title={<><Icon name="bank" size={15} /> Accounts</>}
           actions={accounts.length > 1 && (
             <button className="btn-ghost small" onClick={() => setShowTransfer(true)}>
               <Icon name="swap" size={12} /> Transfer
@@ -511,7 +511,7 @@ export default function Dashboard() {
       {people.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Income"
+            title={<><Icon name="arrow-up" size={15} /> Income</>}
             actions={<span className="text3" style={{ fontSize: 11 }}>{people.length} earner{people.length !== 1 ? 's' : ''}</span>}
           />
 
@@ -539,7 +539,7 @@ export default function Dashboard() {
       {/* ── SAVINGS TRAJECTORY ──────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
-          title="Savings Trajectory"
+          title={<><Icon name="wallet" size={15} /> Savings Trajectory</>}
           actions={goalsWithDates.length > 0 && (
             <span className="text3" style={{ fontSize: 11 }}>
               {goalsWithDates.filter(g => g._hitDate).length}/{goalsWithDates.length} goals achievable
@@ -746,7 +746,7 @@ export default function Dashboard() {
       {expenses.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Expenses"
+            title={<><Icon name="tag" size={15} /> Expenses</>}
             actions={<span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(fnExpenses * 26)}/yr</span>}
           />
 
@@ -788,7 +788,7 @@ export default function Dashboard() {
       {loanExpenses.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Home Loans"
+            title={<><Icon name="mortgage" size={15} /> Home Loans</>}
             actions={
               <span className="text3" style={{ fontSize: 11 }}>
                 {loanExpenses.length} loan{loanExpenses.length !== 1 ? 's' : ''} · {allFacilities.length} facilit{allFacilities.length !== 1 ? 'ies' : 'y'}

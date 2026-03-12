@@ -220,7 +220,6 @@ export default function PropertyTasks() {
   if (!selProp && propScope === 'current') {
     return (
       <div className="page-content">
-        <div className="page-header"><div className="page-title">Tasks</div></div>
         <EmptyState
           icon={<Icon name="clipboard" size={38} />}
           title="Select a property from the Overview or Properties tab first."
@@ -231,25 +230,16 @@ export default function PropertyTasks() {
 
   return (
     <div className="page-content">
-      <div className="page-header">
-        <div>
-          <div className="page-title">Tasks</div>
-          <div className="page-sub">
-            {selProp ? selProp.name : 'All properties'} · {visible.length} task{visible.length !== 1 ? 's' : ''}
-            {overdueCount > 0 && <span className="red" style={{ marginLeft: 8 }}>· {overdueCount} overdue</span>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
+        {properties.length > 1 && (
+          <div className="exp-type-sel">
+            <button className={`ets-btn ${propScope === 'current' ? 'active' : ''}`} onClick={() => setPropScope('current')}>This property</button>
+            <button className={`ets-btn ${propScope === 'all' ? 'active' : ''}`} onClick={() => setPropScope('all')}>All</button>
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {properties.length > 1 && (
-            <div className="exp-type-sel">
-              <button className={`ets-btn ${propScope === 'current' ? 'active' : ''}`} onClick={() => setPropScope('current')}>This property</button>
-              <button className={`ets-btn ${propScope === 'all' ? 'active' : ''}`} onClick={() => setPropScope('all')}>All</button>
-            </div>
-          )}
-          <button className="btn-primary" onClick={openNew} disabled={!selProp}>
-            <Icon name="plus" size={14} /> Add Task
-          </button>
-        </div>
+        )}
+        <button className="btn-primary" onClick={openNew} disabled={!selProp}>
+          <Icon name="plus" size={14} /> Add Task
+        </button>
       </div>
 
       {/* Filters */}

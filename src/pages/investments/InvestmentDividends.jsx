@@ -173,7 +173,7 @@ export default function InvestmentDividends() {
       ) : (
         <Card variant="section">
           <SectionHeader
-            title="History"
+            title={<><Icon name="arrow-down" size={15} /> History</>}
             actions={<button className="btn-ghost small" onClick={openAdd}>+ Add Dividend</button>}
           />
           <div className="fn-list">

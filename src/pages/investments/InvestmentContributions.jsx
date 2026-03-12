@@ -161,7 +161,7 @@ export default function InvestmentContributions() {
       ) : (
         <Card variant="section">
           <SectionHeader
-            title="History"
+            title={<><Icon name="arrow-up" size={15} /> History</>}
             actions={<button className="btn-ghost small" onClick={openAdd}>+ Add Contribution</button>}
           />
           <div className="fn-list">

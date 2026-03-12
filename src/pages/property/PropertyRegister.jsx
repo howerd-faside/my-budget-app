@@ -272,11 +272,7 @@ export default function PropertyRegister() {
 
   return (
     <div className="page-content">
-      <div className="page-header">
-        <div>
-          <div className="page-title">Properties</div>
-          <div className="page-sub">{properties.length} {properties.length === 1 ? 'property' : 'properties'} registered</div>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <button className="btn-primary" onClick={openNew}>
           <Icon name="plus" size={14} /> Add Property
         </button>

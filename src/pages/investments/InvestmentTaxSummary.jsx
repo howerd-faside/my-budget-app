@@ -121,7 +121,7 @@ export default function InvestmentTaxSummary() {
             {/* Contributions by type */}
             {summary.yearContribs.length > 0 && (
               <Card variant="section">
-                <SectionHeader title={`Contributions — ${year}`} />
+                <SectionHeader title={<><Icon name="arrow-up" size={15} /> Contributions — {year}</>} />
 
                 {Object.keys(summary.contribByType).length > 1 && (
                   <div style={{ marginBottom: 16 }}>
@@ -174,7 +174,7 @@ export default function InvestmentTaxSummary() {
             {/* Dividends */}
             {summary.yearDivs.length > 0 && (
               <Card variant="section">
-                <SectionHeader title={`Dividends — ${year}`} />
+                <SectionHeader title={<><Icon name="arrow-down" size={15} /> Dividends — {year}</>} />
 
                 <div style={{ marginBottom: 16 }}>
                   <div className="tax-breakdown">

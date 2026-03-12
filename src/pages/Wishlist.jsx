@@ -190,7 +190,7 @@ export default function Wishlist() {
       {wishlist.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Wishlist"
+            title={<><Icon name="tag" size={15} /> Wishlist</>}
             actions={
               <>
                 <span className="text3" style={{ fontSize: 11 }}>{pending.length} pending</span>
@@ -210,7 +210,7 @@ export default function Wishlist() {
       {pending.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Pending"
+            title={<><Icon name="alertcir" size={15} /> Pending</>}
             actions={<span className="text3" style={{ fontSize: 11 }}>{pending.length} item{pending.length !== 1 ? 's' : ''}</span>}
           />
           <div className="wl-grid">
@@ -233,7 +233,7 @@ export default function Wishlist() {
       {purchased.length > 0 && (
         <Card variant="section">
           <SectionHeader
-            title="Purchased"
+            title={<><Icon name="wallet" size={15} /> Purchased</>}
             actions={<span className="text3" style={{ fontSize: 11 }}>{purchased.length} item{purchased.length !== 1 ? 's' : ''}</span>}
           />
           <div className="wl-grid">

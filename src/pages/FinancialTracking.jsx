@@ -239,7 +239,7 @@ export default function FinancialTracking() {
       {/* Overview section */}
       <Card variant="section">
         <SectionHeader
-          title={`Overview — ${year}`}
+          title={<><Icon name="wallet" size={15} /> Overview — {year}</>}
           actions={<span className="text3" style={{ fontSize: 11 }}>26 fortnights</span>}
         />
 
@@ -454,7 +454,7 @@ export default function FinancialTracking() {
       {/* Fortnight list */}
       <Card variant="section">
         <SectionHeader
-          title={`Pay Periods — ${year}`}
+          title={<><Icon name="clipboard" size={15} /> Pay Periods — {year}</>}
           actions={<span className="text3" style={{ fontSize: 11 }}>26 fortnights</span>}
         />
       <div className="fn-list">
