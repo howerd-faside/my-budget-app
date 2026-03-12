@@ -8,6 +8,7 @@ import Icon from '../../components/Icon';
 import { fetchAllHistoricalPrices, buildPortfolioSeries, CHART_RANGES } from '../../utils/priceService';
 import { useToast } from '../../components/Toast';
 import { calcPortfolioStats, enrichHoldings } from '../../utils/finance/savings';
+import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 
 const CAT_COLOR = {
   'Shares':       '#0071E3',
@@ -106,7 +107,7 @@ function PortfolioChart({ holdings }) {
   const tickInterval  = Math.max(1, Math.floor(series.length / 6));
 
   return (
-    <div className="dash-section perf-chart-card">
+    <Card variant="section" className="perf-chart-card">
 
       {/* Top bar: title + load button */}
       <div className="perf-chart-topbar">
@@ -203,7 +204,7 @@ function PortfolioChart({ holdings }) {
           <span>No data for this range. Try a wider range or check purchase dates.</span>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -247,10 +248,10 @@ export default function InvestmentPerformance() {
   if (holdings.length === 0) {
     return (
       <div className="page-content">
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="trend" size={38} /></div>
-          <div className="es-text">Add holdings with cost and current price to see performance.</div>
-        </div>
+        <EmptyState
+          icon={<Icon name="trend" size={38} />}
+          title="Add holdings with cost and current price to see performance."
+        />
       </div>
     );
   }
@@ -265,26 +266,13 @@ export default function InvestmentPerformance() {
 
       {/* ── 4-stat snapshot strip ── */}
       <div className="fn-summary">
-        <div className="fns-item">
-          <span>Portfolio Value</span>
-          <div className="fns-val-row">
-            <span className="mono">{fmt(stats.totalValue)}</span>
-          </div>
-        </div>
-        <div className="fns-item">
-          <span>Cost Basis</span>
-          <div className="fns-val-row">
-            <span className="mono">{fmt(stats.totalCost)}</span>
-          </div>
-        </div>
-        <div className="fns-item">
-          <span>Unrealised G/L</span>
-          <div className="fns-val-row">
-            <span className="mono" style={{ color: isGain ? 'var(--green)' : 'var(--red)' }}>
-              {isGain ? '+' : '−'}{fmt(Math.abs(stats.unrealised))}
-            </span>
-          </div>
-        </div>
+        <StatTile label="Portfolio Value" value={fmt(stats.totalValue)} />
+        <StatTile label="Cost Basis"      value={fmt(stats.totalCost)} />
+        <StatTile
+          label="Unrealised G/L"
+          value={`${isGain ? '+' : '−'}${fmt(Math.abs(stats.unrealised))}`}
+          valueClassName={isGain ? 'green' : 'red'}
+        />
         <div className="fns-item">
           <span>Total Return{stats.lastUpdated ? <span style={{ fontWeight: 400, color: 'var(--text3)' }}> · {timeAgo(stats.lastUpdated)}</span> : ''}</span>
           <div className="fns-val-row">
@@ -300,8 +288,8 @@ export default function InvestmentPerformance() {
 
         {/* Category breakdown */}
         {stats.categories.length > 1 && (
-          <div className="dash-section">
-            <div className="section-header"><h3>By Category</h3></div>
+          <Card variant="section">
+            <SectionHeader title="By Category" />
             <div className="perf-cat-list">
               {stats.categories.map(c => {
                 const color = CAT_COLOR[c.cat] || '#86868B';
@@ -333,13 +321,13 @@ export default function InvestmentPerformance() {
                 );
               })}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Rankings */}
         {stats.ranked.length > 0 && (
-          <div className="dash-section">
-            <div className="section-header"><h3>Ranked by Return</h3></div>
+          <Card variant="section">
+            <SectionHeader title="Ranked by Return" />
             <div className="perf-rank-list">
               {stats.ranked.map((h, i) => {
                 const color   = CAT_COLOR[h.category] || '#86868B';
@@ -374,13 +362,13 @@ export default function InvestmentPerformance() {
                 );
               })}
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
       {/* ── Holdings detail table ── */}
-      <div className="dash-section">
-        <div className="section-header"><h3>Holdings Detail</h3></div>
+      <Card variant="section">
+        <SectionHeader title="Holdings Detail" />
         <div className="perf-table-wrap">
           <table className="perf-table">
             <thead>
@@ -441,7 +429,7 @@ export default function InvestmentPerformance() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
     </div>
   );

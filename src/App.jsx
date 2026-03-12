@@ -4,12 +4,12 @@ import { useFinance }    from './store/hooks';
 import { useInvestment } from './store/hooks';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
-import Dashboard from './pages/Dashboard';
+import FinancesOverview from './pages/FinancesOverview';
 import People from './pages/People';
 import Expenses from './pages/Expenses';
 import FinancialTracking from './pages/FinancialTracking';
 import Wishlist from './pages/Wishlist';
-import Mortgage from './pages/Mortgage';
+import MortgageOverview from './pages/MortgageOverview';
 import PropertyOverview from './pages/property/PropertyOverview';
 import PropertyRegister from './pages/property/PropertyRegister';
 import PropertyTasks from './pages/property/PropertyTasks';
@@ -239,11 +239,11 @@ function Shell() {
 
   const renderPage = () => {
     switch (tab) {
-      case 'overview':       return <Dashboard />;
+      case 'overview':       return <FinancesOverview onSelectTab={goTab} />;
       case 'tracking':       return <FinancialTracking />;
       case 'income':         return <People />;
       case 'expenses':       return <Expenses />;
-      case 'mortgage':       return <Mortgage />;
+      case 'mortgage':       return <MortgageOverview />;
       case 'wishlist':       return <Wishlist />;
       case 'prop-overview':  return <PropertyOverview onSelectTab={goTab} />;
       case 'prop-register':  return <PropertyRegister />;

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import Portal from '../../components/Portal';
+import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../../components/ui';
 import { createDividend } from '../../models/Dividend';
 import { transactionFromDividend } from '../../models/Transaction';
 import { sumTransactions, sumField } from '../../utils/finance/transactions';
@@ -22,98 +22,94 @@ function DividendModal({ dividend, holdings, onSave, onClose }) {
   const canSave = form.date && (+form.grossAmount || 0) > 0;
 
   return (
-    <Portal>
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal wide">
-        <div className="modal-header">
-          <h3>{dividend?.id ? 'Edit Dividend' : 'Add Dividend'}</h3>
-          <button className="btn-icon" onClick={onClose}><Icon name="close" size={14} /></button>
-        </div>
-        <div className="modal-body">
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Date</label>
-              <input
-                className="input mono" type="date"
-                value={form.date} onChange={e => set('date', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Gross Amount ($)</label>
-              <input
-                className="input mono" type="number" step="0.01" placeholder="0.00"
-                value={form.grossAmount} onChange={e => set('grossAmount', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Tax Withheld ($)</label>
-              <input
-                className="input mono" type="number" step="0.01" placeholder="0.00"
-                value={form.taxAmount} onChange={e => set('taxAmount', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Net Amount ($)</label>
-              <input
-                className="input mono" type="number" step="0.01"
-                placeholder={autoNet > 0 ? autoNet.toFixed(2) : '0.00'}
-                value={form.netAmount} onChange={e => set('netAmount', e.target.value)}
-              />
-            </div>
-            <div className="form-group full">
-              <label>Holding {holdings.length > 0 ? '(optional)' : ''}</label>
-              {holdings.length > 0 ? (
-                <select className="input" value={form.holdingId} onChange={e => set('holdingId', e.target.value)}>
-                  <option value="">— Unlinked / Other —</option>
-                  {holdings.map(h => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}{h.ticker ? ` (${h.ticker})` : ''}{h.platform ? ` · ${h.platform}` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input className="input" placeholder="No holdings added yet" disabled value="" />
-              )}
-            </div>
-            <div className="form-group full">
-              <label>Platform / Broker</label>
-              <input
-                className="input" placeholder="e.g. Sharesies, ASB Securities"
-                value={form.platform} onChange={e => set('platform', e.target.value)}
-              />
-            </div>
-            <div className="form-group full">
-              <label>Notes</label>
-              <input
-                className="input" placeholder="Optional notes"
-                value={form.notes} onChange={e => set('notes', e.target.value)}
-              />
-            </div>
-          </div>
-          {form.grossAmount && (
-            <div className="calc-preview">
-              <span>Gross: <strong>{fmt(form.grossAmount)}</strong></span>
-              <span style={{ color: 'var(--red)' }}>Tax: <strong>{form.taxAmount ? fmt(form.taxAmount) : '$0.00'}</strong></span>
-              <span style={{ color: 'var(--green)' }}>
-                Net: <strong>{form.netAmount ? fmt(form.netAmount) : fmt(autoNet)}</strong>
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
+    <Modal
+      isOpen
+      onClose={onClose}
+      wide
+      title={dividend?.id ? 'Edit Dividend' : 'Add Dividend'}
+      footer={
+        <>
           <button className="btn-ghost small" onClick={onClose}>Cancel</button>
           <button className="btn-primary small" disabled={!canSave} onClick={() => {
-            // If netAmount blank, auto-fill from gross - tax
             const saved = { ...form };
             if (!saved.netAmount) saved.netAmount = String(autoNet > 0 ? autoNet : +saved.grossAmount || 0);
             onSave(saved);
           }}>
             {dividend?.id ? 'Save Changes' : 'Add Dividend'}
           </button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <div className="form-group">
+          <label>Date</label>
+          <input
+            className="input mono" type="date"
+            value={form.date} onChange={e => set('date', e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label>Gross Amount ($)</label>
+          <input
+            className="input mono" type="number" step="0.01" placeholder="0.00"
+            value={form.grossAmount} onChange={e => set('grossAmount', e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label>Tax Withheld ($)</label>
+          <input
+            className="input mono" type="number" step="0.01" placeholder="0.00"
+            value={form.taxAmount} onChange={e => set('taxAmount', e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label>Net Amount ($)</label>
+          <input
+            className="input mono" type="number" step="0.01"
+            placeholder={autoNet > 0 ? autoNet.toFixed(2) : '0.00'}
+            value={form.netAmount} onChange={e => set('netAmount', e.target.value)}
+          />
+        </div>
+        <div className="form-group full">
+          <label>Holding {holdings.length > 0 ? '(optional)' : ''}</label>
+          {holdings.length > 0 ? (
+            <select className="input" value={form.holdingId} onChange={e => set('holdingId', e.target.value)}>
+              <option value="">— Unlinked / Other —</option>
+              {holdings.map(h => (
+                <option key={h.id} value={h.id}>
+                  {h.name}{h.ticker ? ` (${h.ticker})` : ''}{h.platform ? ` · ${h.platform}` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input className="input" placeholder="No holdings added yet" disabled value="" />
+          )}
+        </div>
+        <div className="form-group full">
+          <label>Platform / Broker</label>
+          <input
+            className="input" placeholder="e.g. Sharesies, ASB Securities"
+            value={form.platform} onChange={e => set('platform', e.target.value)}
+          />
+        </div>
+        <div className="form-group full">
+          <label>Notes</label>
+          <input
+            className="input" placeholder="Optional notes"
+            value={form.notes} onChange={e => set('notes', e.target.value)}
+          />
         </div>
       </div>
-    </div>
-    </Portal>
+      {form.grossAmount && (
+        <div className="calc-preview">
+          <span>Gross: <strong>{fmt(form.grossAmount)}</strong></span>
+          <span style={{ color: 'var(--red)' }}>Tax: <strong>{form.taxAmount ? fmt(form.taxAmount) : '$0.00'}</strong></span>
+          <span style={{ color: 'var(--green)' }}>
+            Net: <strong>{form.netAmount ? fmt(form.netAmount) : fmt(autoNet)}</strong>
+          </span>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -162,37 +158,24 @@ export default function InvestmentDividends() {
     <div className="page-content">
       {dividends.length > 0 && (
         <div className="fn-summary">
-          <div className="fns-item">
-            <span>Gross Total</span>
-            <div className="fns-val-row"><span className="mono">{fmt(stats.totalGross)}</span></div>
-          </div>
-          <div className="fns-item">
-            <span>Tax Withheld</span>
-            <div className="fns-val-row">
-              <span className="mono" style={{ color: 'var(--red)' }}>{fmt(stats.totalTax)}</span>
-            </div>
-          </div>
-          <div className="fns-item">
-            <span>Net Received</span>
-            <div className="fns-val-row">
-              <span className="mono" style={{ color: 'var(--green)' }}>{fmt(stats.totalNet)}</span>
-            </div>
-          </div>
+          <StatTile label="Gross Total"   value={fmt(stats.totalGross)} />
+          <StatTile label="Tax Withheld"  value={fmt(stats.totalTax)} valueClassName="red" />
+          <StatTile label="Net Received"  value={fmt(stats.totalNet)} valueClassName="green" />
         </div>
       )}
 
       {sorted.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="money" size={38} /></div>
-          <div className="es-text">No dividends recorded yet. Log income payments from your investments here.</div>
-          <button className="btn-ghost small" onClick={openAdd}>+ Add Dividend</button>
-        </div>
+        <EmptyState
+          icon={<Icon name="money" size={38} />}
+          title="No dividends recorded yet. Log income payments from your investments here."
+          action={<button className="btn-ghost small" onClick={openAdd}>+ Add Dividend</button>}
+        />
       ) : (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>History</h3>
-            <button className="btn-ghost small" onClick={openAdd}>+ Add Dividend</button>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="History"
+            actions={<button className="btn-ghost small" onClick={openAdd}>+ Add Dividend</button>}
+          />
           <div className="fn-list">
           {sorted.map(d => {
             const holding = holdings.find(h => h.id === d.holdingId);
@@ -244,7 +227,7 @@ export default function InvestmentDividends() {
             );
           })}
           </div>
-        </div>
+        </Card>
       )}
 
       {showModal && (

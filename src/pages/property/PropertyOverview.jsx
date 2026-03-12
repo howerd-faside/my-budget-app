@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
+import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -60,13 +61,15 @@ export default function PropertyOverview({ onSelectTab }) {
             <div className="page-sub">Manage your properties, tasks, and maintenance</div>
           </div>
         </div>
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="building" size={38} /></div>
-          <div className="es-text">No properties yet. Add your first property to start tracking tasks, maintenance, and improvements.</div>
-          <button className="btn-primary" onClick={() => onSelectTab('prop-register')}>
-            <Icon name="plus" size={14} /> Add Property
-          </button>
-        </div>
+        <EmptyState
+          icon={<Icon name="building" size={38} />}
+          title="No properties yet. Add your first property to start tracking tasks, maintenance, and improvements."
+          action={
+            <button className="btn-primary" onClick={() => onSelectTab('prop-register')}>
+              <Icon name="plus" size={14} /> Add Property
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -84,11 +87,11 @@ export default function PropertyOverview({ onSelectTab }) {
       </div>
 
       {/* ── Properties ─────────────────────────────────────────────────── */}
-      <div className="dash-section">
-        <div className="section-header">
-          <h3>Properties</h3>
-          <span className="text3" style={{ fontSize: 11 }}>Click to select</span>
-        </div>
+      <Card variant="section">
+        <SectionHeader
+          title="Properties"
+          actions={<span className="text3" style={{ fontSize: 11 }}>Click to select</span>}
+        />
         <div className="income-grid">
           {crossStats.map(({ prop, openTasks, overdueTasks }) => {
             const isSelected = prop.id === selectedPropertyId;
@@ -133,52 +136,28 @@ export default function PropertyOverview({ onSelectTab }) {
             );
           })}
         </div>
-      </div>
+      </Card>
 
       {/* ── Per-property detail ─────────────────────────────────────────── */}
       {selProp && detail && (
         <>
           {/* At a Glance */}
-          <div className="dash-section">
-            <div className="section-header">
-              <h3>{selProp.name} — At a Glance</h3>
-            </div>
+          <Card variant="section">
+            <SectionHeader title={`${selProp.name} — At a Glance`} />
             <div className="fn-summary">
-              <div className="fns-item">
-                <span>Open Tasks</span>
-                <div className="fns-val-row">
-                  <span className={`mono ${detail.open.length > 0 ? '' : 'text3'}`}>{detail.open.length}</span>
-                </div>
-              </div>
-              <div className="fns-item">
-                <span>Overdue</span>
-                <div className="fns-val-row">
-                  <span className={`mono ${detail.overdue.length > 0 ? 'red' : 'text3'}`}>{detail.overdue.length}</span>
-                </div>
-              </div>
-              <div className="fns-item">
-                <span>Urgent</span>
-                <div className="fns-val-row">
-                  <span className={`mono ${detail.urgent > 0 ? 'amber' : 'text3'}`}>{detail.urgent}</span>
-                </div>
-              </div>
-              <div className="fns-item">
-                <span>Active Projects</span>
-                <div className="fns-val-row">
-                  <span className="mono">{detail.projects.length}</span>
-                </div>
-              </div>
+              <StatTile label="Open Tasks"     value={detail.open.length}    valueClassName={detail.open.length > 0 ? '' : 'text3'} />
+              <StatTile label="Overdue"        value={detail.overdue.length} valueClassName={detail.overdue.length > 0 ? 'red' : 'text3'} />
+              <StatTile label="Urgent"         value={detail.urgent}         valueClassName={detail.urgent > 0 ? 'amber' : 'text3'} />
+              <StatTile label="Active Projects" value={detail.projects.length} />
             </div>
-          </div>
+          </Card>
 
           {/* Upcoming tasks */}
-          <div className="dash-section">
-            <div className="section-header">
-              <h3>Upcoming &amp; Overdue Tasks</h3>
-              <button className="btn-ghost small" onClick={() => onSelectTab('prop-tasks')}>
-                View all
-              </button>
-            </div>
+          <Card variant="section">
+            <SectionHeader
+              title="Upcoming & Overdue Tasks"
+              actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-tasks')}>View all</button>}
+            />
 
             {detail.overdue.length === 0 && detail.upcoming.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text3)', padding: '4px 0' }}>No upcoming tasks in the next 30 days.</p>
@@ -229,16 +208,14 @@ export default function PropertyOverview({ onSelectTab }) {
                 })}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Recent maintenance */}
-          <div className="dash-section">
-            <div className="section-header">
-              <h3>Recent Maintenance</h3>
-              <button className="btn-ghost small" onClick={() => onSelectTab('prop-maint')}>
-                View all
-              </button>
-            </div>
+          <Card variant="section">
+            <SectionHeader
+              title="Recent Maintenance"
+              actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-maint')}>View all</button>}
+            />
             {detail.recentM.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--text3)', padding: '4px 0' }}>No maintenance records yet.</p>
             ) : (
@@ -263,15 +240,15 @@ export default function PropertyOverview({ onSelectTab }) {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Active projects */}
           {detail.projects.length > 0 && (
-            <div className="dash-section">
-              <div className="section-header">
-                <h3>Active Projects</h3>
-                <button className="btn-ghost small" onClick={() => onSelectTab('prop-projects')}>View all</button>
-              </div>
+            <Card variant="section">
+              <SectionHeader
+                title="Active Projects"
+                actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-projects')}>View all</button>}
+              />
               <div className="fn-list">
                 {detail.projects.map(proj => (
                   <div key={proj.id} className="fn-row">
@@ -294,13 +271,13 @@ export default function PropertyOverview({ onSelectTab }) {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Alerts */}
           {detail.assetAlerts.length > 0 && (
-            <div className="dash-section">
-              <div className="section-header"><h3>Asset Alerts</h3></div>
+            <Card variant="section">
+              <SectionHeader title="Asset Alerts" />
               <div className="fn-list">
                 {detail.assetAlerts.map(a => {
                   const wDays = a.warrantyExpiry ? daysBetween(TODAY, a.warrantyExpiry) : null;
@@ -327,7 +304,7 @@ export default function PropertyOverview({ onSelectTab }) {
                   );
                 })}
               </div>
-            </div>
+            </Card>
           )}
         </>
       )}

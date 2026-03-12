@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { calcFortnightlyExpenses } from '../store';
+import { calcFortnightlyExpensesAt } from '../store';
 import { usePeople } from '../store/hooks';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { toFortnightly, annualInterestToFortnightly } from '../utils/finance/frequency';
@@ -8,6 +8,7 @@ import { EXPENSE_GROUPS, CATEGORIES, getCatColor, getCatGroup } from '../utils/c
 import Icon from '../components/Icon';
 import Portal from '../components/Portal';
 import { validate, expenseSchema, loanExpenseSchema } from '../utils/validation';
+import { SectionHeader, StatTile, EmptyState, Card } from '../components/ui';
 
 // FREQUENCIES and PAYMENT_METHODS now imported from the Expense model.
 const PAYMENT_TYPES = PAYMENT_METHODS; // local alias kept for backward compat with JSX below
@@ -64,12 +65,15 @@ export default function Expenses() {
     [expenses]
   );
 
-  const totalFn  = calcFortnightlyExpenses(activeExpenses);
+  const totalFn  = calcFortnightlyExpensesAt(activeExpenses, TODAY_STR);
 
-  // Per-category fortnightly totals (active only)
+  // Per-category fortnightly totals (active only, date-aware)
   const catTotals = useMemo(() => {
     const t = {};
-    activeExpenses.forEach(e => { t[e.category] = (t[e.category] || 0) + toFn(e); });
+    activeExpenses.forEach(e => {
+      if (e.startDate && e.startDate > TODAY_STR) return;
+      t[e.category] = (t[e.category] || 0) + toFn(e);
+    });
     return t;
   }, [activeExpenses]);
 
@@ -312,29 +316,22 @@ export default function Expenses() {
   return (
     <div className="page-content">
       {activeExpenses.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Spending Breakdown</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(totalFn * 26)}/yr</span>
-              <button className="btn-ghost small" onClick={openNew}>+ Add Expense</button>
-            </div>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Spending Breakdown"
+            actions={
+              <>
+                <span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(totalFn * 26)}/yr</span>
+                <button className="btn-ghost small" onClick={openNew}>+ Add Expense</button>
+              </>
+            }
+          />
 
           {/* Summary tiles */}
           <div className="fn-summary">
-            <div className="fns-item">
-              <span>Fortnightly</span>
-              <span className="mono red">{fmtMoneyRound(totalFn)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Monthly</span>
-              <span className="mono">{fmtMoneyRound(totalFn * 26 / 12)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Annual</span>
-              <span className="mono">{fmtMoneyRound(totalFn * 26)}</span>
-            </div>
+            <StatTile label="Fortnightly" value={fmtMoneyRound(totalFn)} valueClassName="red" />
+            <StatTile label="Monthly"     value={fmtMoneyRound(totalFn * 26 / 12)} />
+            <StatTile label="Annual"      value={fmtMoneyRound(totalFn * 26)} />
           </div>
 
           {/* Proportion bar */}
@@ -366,7 +363,7 @@ export default function Expenses() {
               })}
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Group filter tabs */}
@@ -413,16 +410,16 @@ export default function Expenses() {
       )}
 
       {expenses.length === 0 && (
-        <div className="empty-state">
-          <div className="es-icon">💸</div>
-          <div className="es-text">No expenses yet — add bills, loans and regular costs</div>
-          <button className="btn-primary" onClick={openNew}>Add your first expense</button>
-        </div>
+        <EmptyState
+          icon="💸"
+          title="No expenses yet — add bills, loans and regular costs"
+          action={<button className="btn-primary" onClick={openNew}>Add your first expense</button>}
+        />
       )}
 
       {/* ── ARCHIVED EXPENSES ── */}
       {archivedExpenses.length > 0 && (
-        <div className="dash-section" style={{ marginTop: 16 }}>
+        <Card variant="section" style={{ marginTop: 16 }}>
           <div className="section-header"
             style={{ cursor: 'pointer' }}
             onClick={() => setArchiveOpen(o => !o)}>
@@ -441,7 +438,7 @@ export default function Expenses() {
               {archivedExpenses.map(e => renderExpenseRow(e, { archived: true }))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ── Add Expense button when empty ── */}

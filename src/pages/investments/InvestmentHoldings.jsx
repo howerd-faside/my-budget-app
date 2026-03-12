@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import Portal from '../../components/Portal';
+import { SectionHeader, EmptyState, Card, Modal } from '../../components/ui';
 import { refreshAllPrices } from '../../utils/priceService';
 import { useToast } from '../../components/Toast';
 import { createHolding, HOLDING_CATEGORIES, CATEGORY_COLORS } from '../../models/Holding';
@@ -181,14 +181,21 @@ function HoldingModal({ holding, onSave, onClose }) {
   };
 
   return (
-    <Portal>
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal wide">
-        <div className="modal-header">
-          <h3>{holding?.id ? 'Edit Holding' : 'Add Holding'}</h3>
-          <button className="btn-icon" onClick={onClose}><Icon name="close" size={14} /></button>
-        </div>
-        <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+    <Modal
+      isOpen
+      onClose={onClose}
+      wide
+      title={holding?.id ? 'Edit Holding' : 'Add Holding'}
+      bodyStyle={{ maxHeight: '70vh', overflowY: 'auto' }}
+      footer={
+        <>
+          <button className="btn-ghost small" onClick={onClose}>Cancel</button>
+          <button className="btn-primary small" onClick={handleSave}>
+            {holding?.id ? 'Save Changes' : 'Add Holding'}
+          </button>
+        </>
+      }
+    >
 
           {/* Asset details */}
           <div className="form-grid">
@@ -285,16 +292,7 @@ function HoldingModal({ holding, onSave, onClose }) {
               value={form.notes} onChange={e => setField('notes', e.target.value)} />
           </div>
 
-        </div>
-        <div className="modal-footer">
-          <button className="btn-ghost small" onClick={onClose}>Cancel</button>
-          <button className="btn-primary small" onClick={handleSave}>
-            {holding?.id ? 'Save Changes' : 'Add Holding'}
-          </button>
-        </div>
-      </div>
-    </div>
-    </Portal>
+    </Modal>
   );
 }
 
@@ -374,27 +372,29 @@ export default function InvestmentHoldings() {
   return (
     <div className="page-content">
       {holdings.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Filter by Category</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {refreshMsg && (
-                <span
-                  style={{ fontSize: 11, color: refreshMsg.failedTickers?.length > 0 ? 'var(--red)' : 'var(--green)' }}
-                  title={refreshMsg.failedTickers?.length > 0 ? `Failed: ${refreshMsg.failedTickers.join(', ')}` : undefined}
-                >
-                  {refreshMsg.updated > 0 && `↑ ${refreshMsg.updated} updated`}
-                  {refreshMsg.failedTickers?.length > 0 && ` · ${refreshMsg.failedTickers.join(', ')} failed`}
-                </span>
-              )}
-              {tickerCount > 0 && (
-                <button className="btn-ghost small" onClick={handleRefresh} disabled={refreshing} style={{ minWidth: 110 }}>
-                  {refreshing ? 'Refreshing…' : '↻ Refresh Prices'}
-                </button>
-              )}
-              <button className="btn-ghost small" onClick={openAdd}>+ Add Holding</button>
-            </div>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Filter by Category"
+            actions={
+              <>
+                {refreshMsg && (
+                  <span
+                    style={{ fontSize: 11, color: refreshMsg.failedTickers?.length > 0 ? 'var(--red)' : 'var(--green)' }}
+                    title={refreshMsg.failedTickers?.length > 0 ? `Failed: ${refreshMsg.failedTickers.join(', ')}` : undefined}
+                  >
+                    {refreshMsg.updated > 0 && `↑ ${refreshMsg.updated} updated`}
+                    {refreshMsg.failedTickers?.length > 0 && ` · ${refreshMsg.failedTickers.join(', ')} failed`}
+                  </span>
+                )}
+                {tickerCount > 0 && (
+                  <button className="btn-ghost small" onClick={handleRefresh} disabled={refreshing} style={{ minWidth: 110 }}>
+                    {refreshing ? 'Refreshing…' : '↻ Refresh Prices'}
+                  </button>
+                )}
+                <button className="btn-ghost small" onClick={openAdd}>+ Add Holding</button>
+              </>
+            }
+          />
           <div className="filter-tabs">
             {CAT_FILTER.map(c => (
               <button key={c} className={`filter-tab ${catFilter === c ? 'active' : ''}`} onClick={() => setCatFilter(c)}>
@@ -402,21 +402,15 @@ export default function InvestmentHoldings() {
               </button>
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="trend" size={38} /></div>
-          <div className="es-text">
-            {holdings.length === 0
-              ? 'No holdings yet. Add your first investment to start tracking.'
-              : 'No holdings in this category.'}
-          </div>
-          {holdings.length === 0 && (
-            <button className="btn-ghost small" onClick={openAdd}>+ Add Holding</button>
-          )}
-        </div>
+        <EmptyState
+          icon={<Icon name="trend" size={38} />}
+          title={holdings.length === 0 ? 'No holdings yet. Add your first investment to start tracking.' : 'No holdings in this category.'}
+          action={holdings.length === 0 && <button className="btn-ghost small" onClick={openAdd}>+ Add Holding</button>}
+        />
       ) : (
         <div className="fn-list">
           {filtered.map(h => (

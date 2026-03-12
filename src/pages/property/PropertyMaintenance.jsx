@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
+import { EmptyState, Card } from '../../components/ui';
 import {
   createPropertyMaintenance,
   MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
@@ -93,10 +94,10 @@ export default function PropertyMaintenance() {
     return (
       <div className="page-content">
         <div className="page-header"><div className="page-title">Maintenance Log</div></div>
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="tool" size={38} /></div>
-          <div className="es-text">Select a property from the Overview or Properties tab first.</div>
-        </div>
+        <EmptyState
+          icon={<Icon name="tool" size={38} />}
+          title="Select a property from the Overview or Properties tab first."
+        />
       </div>
     );
   }
@@ -124,7 +125,7 @@ export default function PropertyMaintenance() {
       </div>
 
       {/* Filters */}
-      <div className="dash-section" style={{ padding: '16px 20px' }}>
+      <Card variant="section" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="form-section-label" style={{ minWidth: 70 }}>Category</span>
@@ -155,18 +156,16 @@ export default function PropertyMaintenance() {
             />
           </div>
         </div>
-      </div>
+      </Card>
 
       {records.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="tool" size={38} /></div>
-          <div className="es-text">
-            {propertyMaintenance.length === 0
-              ? 'No maintenance records yet. Log your first piece of work to start building a history.'
-              : 'No records match the current filters.'}
-          </div>
-          {selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Log Work</button>}
-        </div>
+        <EmptyState
+          icon={<Icon name="tool" size={38} />}
+          title={propertyMaintenance.length === 0
+            ? 'No maintenance records yet. Log your first piece of work to start building a history.'
+            : 'No records match the current filters.'}
+          action={selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Log Work</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {groups.map(({ month, items }) => (

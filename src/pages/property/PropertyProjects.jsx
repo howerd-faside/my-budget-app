@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
+import { EmptyState, Card } from '../../components/ui';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
@@ -248,10 +249,10 @@ export default function PropertyProjects() {
     return (
       <div className="page-content">
         <div className="page-header"><div className="page-title">Projects</div></div>
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="layers" size={38} /></div>
-          <div className="es-text">Select a property from the Overview or Properties tab first.</div>
-        </div>
+        <EmptyState
+          icon={<Icon name="layers" size={38} />}
+          title="Select a property from the Overview or Properties tab first."
+        />
       </div>
     );
   }
@@ -279,7 +280,7 @@ export default function PropertyProjects() {
       </div>
 
       {/* Filters */}
-      <div className="dash-section" style={{ padding: '16px 20px' }}>
+      <Card variant="section" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span className="form-section-label" style={{ minWidth: 70 }}>Status</span>
           <div className="filter-tabs">
@@ -288,18 +289,16 @@ export default function PropertyProjects() {
             ))}
           </div>
         </div>
-      </div>
+      </Card>
 
       {visibleProjs.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="layers" size={38} /></div>
-          <div className="es-text">
-            {propertyProjects.length === 0
-              ? 'No projects yet. Plan your first improvement project.'
-              : 'No projects match the current filters.'}
-          </div>
-          {selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Project</button>}
-        </div>
+        <EmptyState
+          icon={<Icon name="layers" size={38} />}
+          title={propertyProjects.length === 0
+            ? 'No projects yet. Plan your first improvement project.'
+            : 'No projects match the current filters.'}
+          action={selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Project</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {groupedByStatus.map(({ status, items }) => (

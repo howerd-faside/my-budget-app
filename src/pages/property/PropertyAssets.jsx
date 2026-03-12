@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
+import { EmptyState, Card } from '../../components/ui';
 import {
   createPropertyAsset,
   ASSET_TYPES, ASSET_CONDITIONS, CONDITION_PILL,
@@ -164,10 +165,10 @@ export default function PropertyAssets() {
     return (
       <div className="page-content">
         <div className="page-header"><div className="page-title">Assets & Appliances</div></div>
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="wrench" size={38} /></div>
-          <div className="es-text">Select a property from the Overview or Properties tab first.</div>
-        </div>
+        <EmptyState
+          icon={<Icon name="wrench" size={38} />}
+          title="Select a property from the Overview or Properties tab first."
+        />
       </div>
     );
   }
@@ -196,7 +197,7 @@ export default function PropertyAssets() {
       </div>
 
       {/* Filters */}
-      <div className="dash-section" style={{ padding: '16px 20px' }}>
+      <Card variant="section" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="form-section-label" style={{ minWidth: 70 }}>Type</span>
@@ -215,18 +216,16 @@ export default function PropertyAssets() {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {visibleAssets.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="wrench" size={38} /></div>
-          <div className="es-text">
-            {propertyAssets.length === 0
-              ? 'No assets registered yet. Track your appliances, systems, and fixtures here.'
-              : 'No assets match the current filters.'}
-          </div>
-          {selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Asset</button>}
-        </div>
+        <EmptyState
+          icon={<Icon name="wrench" size={38} />}
+          title={propertyAssets.length === 0
+            ? 'No assets registered yet. Track your appliances, systems, and fixtures here.'
+            : 'No assets match the current filters.'}
+          action={selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Asset</button>}
+        />
       ) : (
         <div className="fn-list">
           {visibleAssets.map(asset => {

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
+import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { transactionFromContribution, transactionFromDividend } from '../../models/Transaction';
 import { filterByYear, sumTransactions, sumField, groupSumByCategory } from '../../utils/finance/transactions';
 
@@ -103,40 +104,24 @@ export default function InvestmentTaxSummary() {
       <div key={yearAnimKey} className={`year-content ${yearAnimClass}`}>
 
         {!hasData ? (
-          <div className="empty-state">
-            <div className="es-icon"><Icon name="clipboard" size={38} /></div>
-            <div className="es-text">No investment activity recorded for {year}.</div>
-          </div>
+          <EmptyState
+            icon={<Icon name="clipboard" size={38} />}
+            title={`No investment activity recorded for ${year}.`}
+          />
         ) : (
           <>
             {/* Summary tiles */}
             <div className="fn-summary">
-              <div className="fns-item">
-                <span>Contributions</span>
-                <div className="fns-val-row"><span className="mono">{fmt(summary.totalContrib)}</span></div>
-              </div>
-              <div className="fns-item">
-                <span>Dividend Income</span>
-                <div className="fns-val-row"><span className="mono">{fmt(summary.totalDivGross)}</span></div>
-              </div>
-              <div className="fns-item">
-                <span>Tax Withheld</span>
-                <div className="fns-val-row">
-                  <span className="mono" style={{ color: 'var(--red)' }}>{fmt(summary.totalDivTax)}</span>
-                </div>
-              </div>
-              <div className="fns-item">
-                <span>Net Dividends</span>
-                <div className="fns-val-row">
-                  <span className="mono" style={{ color: 'var(--green)' }}>{fmt(summary.totalDivNet)}</span>
-                </div>
-              </div>
+              <StatTile label="Contributions"   value={fmt(summary.totalContrib)} />
+              <StatTile label="Dividend Income" value={fmt(summary.totalDivGross)} />
+              <StatTile label="Tax Withheld"    value={fmt(summary.totalDivTax)} valueClassName="red" />
+              <StatTile label="Net Dividends"   value={fmt(summary.totalDivNet)} valueClassName="green" />
             </div>
 
             {/* Contributions by type */}
             {summary.yearContribs.length > 0 && (
-              <div className="dash-section">
-                <div className="section-header"><h3>Contributions — {year}</h3></div>
+              <Card variant="section">
+                <SectionHeader title={`Contributions — ${year}`} />
 
                 {Object.keys(summary.contribByType).length > 1 && (
                   <div style={{ marginBottom: 16 }}>
@@ -183,13 +168,13 @@ export default function InvestmentTaxSummary() {
                     );
                   })}
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Dividends */}
             {summary.yearDivs.length > 0 && (
-              <div className="dash-section">
-                <div className="section-header"><h3>Dividends — {year}</h3></div>
+              <Card variant="section">
+                <SectionHeader title={`Dividends — ${year}`} />
 
                 <div style={{ marginBottom: 16 }}>
                   <div className="tax-breakdown">
@@ -248,7 +233,7 @@ export default function InvestmentTaxSummary() {
                   Note: This is a personal summary only. Consult a tax professional for advice on FIF rules,
                   portfolio investment entities, or overseas tax obligations.
                 </div>
-              </div>
+              </Card>
             )}
           </>
         )}

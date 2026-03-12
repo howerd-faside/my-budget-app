@@ -8,6 +8,7 @@ import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymen
 import { getPersonDependents, cascadeDeletePerson, personDeleteMessage } from '../utils/cascade';
 import Icon from '../components/Icon';
 import Portal from '../components/Portal';
+import { SectionHeader, StatTile, EmptyState, Card } from '../components/ui';
 
 const EMPTY_PERSON    = createPerson();
 const EMPTY_SECONDARY = createSecondaryIncome();
@@ -157,33 +158,24 @@ export default function People() {
   return (
     <div className="page-content">
       {people.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Income Summary</h3>
-            <span className="text3" style={{ fontSize: 11 }}>{people.length} earner{people.length !== 1 ? 's' : ''}</span>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Income Summary"
+            actions={<span className="text3" style={{ fontSize: 11 }}>{people.length} earner{people.length !== 1 ? 's' : ''}</span>}
+          />
           <div className="fn-summary">
-            <div className="fns-item">
-              <span>Combined Net /fn</span>
-              <span className="mono teal">{fmtMoneyRound(totalFortnightly)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Combined Annual</span>
-              <span className="mono">{fmtMoneyRound(totalFortnightly * 26)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Earners</span>
-              <span className="mono">{people.length}</span>
-            </div>
+            <StatTile label="Combined Net /fn" value={fmtMoneyRound(totalFortnightly)} valueClassName="teal" />
+            <StatTile label="Combined Annual"  value={fmtMoneyRound(totalFortnightly * 26)} />
+            <StatTile label="Earners"          value={people.length} />
           </div>
-        </div>
+        </Card>
       )}
 
-      <div className="dash-section">
-        <div className="section-header">
-          <h3>Income Profiles</h3>
-          <button className="btn-ghost small" onClick={openNew}>+ Add Person</button>
-        </div>
+      <Card variant="section">
+        <SectionHeader
+          title="Income Profiles"
+          actions={<button className="btn-ghost small" onClick={openNew}>+ Add Person</button>}
+        />
 
         <div className="cards-grid">
         {people.map(p => {
@@ -326,36 +318,27 @@ export default function People() {
         })}
 
         {people.length === 0 && (
-          <div className="empty-state">
-            <div className="es-icon">👤</div>
-            <div className="es-text">No income profiles yet</div>
-            <button className="btn-primary" onClick={openNew}>Add your first person</button>
-          </div>
+          <EmptyState
+            icon="👤"
+            title="No income profiles yet"
+            action={<button className="btn-primary" onClick={openNew}>Add your first person</button>}
+          />
         )}
         </div>
-      </div>
+      </Card>
 
       {/* ── ASSET INCOME ─────────────────────────────────────────────────── */}
-      <div className="dash-section">
-        <div className="section-header">
-          <h3>Asset Income</h3>
-          <button className="btn-ghost small" onClick={openNewAsset}>+ Add Asset</button>
-        </div>
+      <Card variant="section">
+        <SectionHeader
+          title="Asset Income"
+          actions={<button className="btn-ghost small" onClick={openNewAsset}>+ Add Asset</button>}
+        />
 
         {(assetIncomes || []).length > 0 && (
           <div className="fn-summary">
-            <div className="fns-item">
-              <span>Asset Income /fn</span>
-              <span className="mono teal">{fmtMoneyRound(totalAssetFn)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Annual</span>
-              <span className="mono">{fmtMoneyRound(totalAssetFn * 26)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Sources</span>
-              <span className="mono">{(assetIncomes || []).length}</span>
-            </div>
+            <StatTile label="Asset Income /fn" value={fmtMoneyRound(totalAssetFn)} valueClassName="teal" />
+            <StatTile label="Annual"           value={fmtMoneyRound(totalAssetFn * 26)} />
+            <StatTile label="Sources"          value={(assetIncomes || []).length} />
           </div>
         )}
 
@@ -385,14 +368,14 @@ export default function People() {
           ))}
 
           {(assetIncomes || []).length === 0 && (
-            <div className="empty-state">
-              <div className="es-icon">🏠</div>
-              <div className="es-text">No asset income yet — add rental, dividend or other sources</div>
-              <button className="btn-primary" onClick={openNewAsset}>Add your first asset</button>
-            </div>
+            <EmptyState
+              icon="🏠"
+              title="No asset income yet — add rental, dividend or other sources"
+              action={<button className="btn-primary" onClick={openNewAsset}>Add your first asset</button>}
+            />
           )}
         </div>
-      </div>
+      </Card>
 
       {/* ── MODAL ── */}
       {editing && (
@@ -595,7 +578,7 @@ export default function People() {
 
       {/* ── INCOME HISTORY ARCHIVE ── */}
       {incomeArchive.length > 0 && (
-        <div className="dash-section">
+        <Card variant="section">
           <div className="section-header"
             style={{ cursor: 'pointer' }}
             onClick={() => setIncomeArchiveOpen(o => !o)}>
@@ -634,7 +617,7 @@ export default function People() {
               })}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ── ASSET MODAL ── */}

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
+import { EmptyState, Card } from '../../components/ui';
 import {
   createPropertyTask,
   TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, TASK_EFFORTS, RECUR_UNITS,
@@ -220,10 +221,10 @@ export default function PropertyTasks() {
     return (
       <div className="page-content">
         <div className="page-header"><div className="page-title">Tasks</div></div>
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="clipboard" size={38} /></div>
-          <div className="es-text">Select a property from the Overview or Properties tab first.</div>
-        </div>
+        <EmptyState
+          icon={<Icon name="clipboard" size={38} />}
+          title="Select a property from the Overview or Properties tab first."
+        />
       </div>
     );
   }
@@ -252,7 +253,7 @@ export default function PropertyTasks() {
       </div>
 
       {/* Filters */}
-      <div className="dash-section" style={{ padding: '16px 20px' }}>
+      <Card variant="section" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="form-section-label" style={{ minWidth: 60 }}>Status</span>
@@ -281,16 +282,14 @@ export default function PropertyTasks() {
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {visible.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="clipboard" size={38} /></div>
-          <div className="es-text">
-            {propertyTasks.length === 0 ? 'No tasks yet. Create your first task to track what needs doing.' : 'No tasks match the current filters.'}
-          </div>
-          {selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Task</button>}
-        </div>
+        <EmptyState
+          icon={<Icon name="clipboard" size={38} />}
+          title={propertyTasks.length === 0 ? 'No tasks yet. Create your first task to track what needs doing.' : 'No tasks match the current filters.'}
+          action={selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Task</button>}
+        />
       ) : (
         <div className="expense-list">
           {visible.map(task => {

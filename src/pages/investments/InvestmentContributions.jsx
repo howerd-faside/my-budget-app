@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import Portal from '../../components/Portal';
+import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../../components/ui';
 import { createInvestmentContribution, CONTRIBUTION_TYPES, CONTRIBUTION_TYPE_PILL } from '../../models/InvestmentContribution';
 import { transactionFromContribution } from '../../models/Transaction';
 import { filterByYear, filterByYearMonth, sumTransactions } from '../../utils/finance/transactions';
@@ -25,80 +25,77 @@ function ContribModal({ contrib, holdings, onSave, onClose }) {
   const canSave = form.date && (+form.amount || 0) > 0;
 
   return (
-    <Portal>
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal wide">
-        <div className="modal-header">
-          <h3>{contrib?.id ? 'Edit Contribution' : 'Add Contribution'}</h3>
-          <button className="btn-icon" onClick={onClose}><Icon name="close" size={14} /></button>
-        </div>
-        <div className="modal-body">
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Date</label>
-              <input
-                className="input mono" type="date"
-                value={form.date} onChange={e => set('date', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Type</label>
-              <select className="input" value={form.type} onChange={e => set('type', e.target.value)}>
-                {CONTRIB_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="form-group full">
-              <label>Amount ($)</label>
-              <input
-                className="input mono" type="number" step="0.01" placeholder="0.00"
-                value={form.amount} onChange={e => set('amount', e.target.value)}
-              />
-            </div>
-            <div className="form-group full">
-              <label>Holding {holdings.length > 0 ? '(optional)' : ''}</label>
-              {holdings.length > 0 ? (
-                <select className="input" value={form.holdingId} onChange={e => set('holdingId', e.target.value)}>
-                  <option value="">— Unlinked / Other —</option>
-                  {holdings.map(h => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}{h.ticker ? ` (${h.ticker})` : ''}{h.platform ? ` · ${h.platform}` : ''}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  className="input" placeholder="No holdings added yet"
-                  disabled value=""
-                />
-              )}
-            </div>
-            <div className="form-group full">
-              <label>Platform / Broker</label>
-              <input
-                className="input"
-                placeholder={linkedHolding?.platform || 'e.g. Sharesies, InvestNow'}
-                value={form.platform}
-                onChange={e => set('platform', e.target.value)}
-              />
-            </div>
-            <div className="form-group full">
-              <label>Notes</label>
-              <input
-                className="input" placeholder="Optional notes"
-                value={form.notes} onChange={e => set('notes', e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="modal-footer">
+    <Modal
+      isOpen
+      onClose={onClose}
+      wide
+      title={contrib?.id ? 'Edit Contribution' : 'Add Contribution'}
+      footer={
+        <>
           <button className="btn-ghost small" onClick={onClose}>Cancel</button>
           <button className="btn-primary small" disabled={!canSave} onClick={() => onSave(form)}>
             {contrib?.id ? 'Save Changes' : 'Add Contribution'}
           </button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <div className="form-group">
+          <label>Date</label>
+          <input
+            className="input mono" type="date"
+            value={form.date} onChange={e => set('date', e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <label>Type</label>
+          <select className="input" value={form.type} onChange={e => set('type', e.target.value)}>
+            {CONTRIB_TYPES.map(t => <option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="form-group full">
+          <label>Amount ($)</label>
+          <input
+            className="input mono" type="number" step="0.01" placeholder="0.00"
+            value={form.amount} onChange={e => set('amount', e.target.value)}
+          />
+        </div>
+        <div className="form-group full">
+          <label>Holding {holdings.length > 0 ? '(optional)' : ''}</label>
+          {holdings.length > 0 ? (
+            <select className="input" value={form.holdingId} onChange={e => set('holdingId', e.target.value)}>
+              <option value="">— Unlinked / Other —</option>
+              {holdings.map(h => (
+                <option key={h.id} value={h.id}>
+                  {h.name}{h.ticker ? ` (${h.ticker})` : ''}{h.platform ? ` · ${h.platform}` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="input" placeholder="No holdings added yet"
+              disabled value=""
+            />
+          )}
+        </div>
+        <div className="form-group full">
+          <label>Platform / Broker</label>
+          <input
+            className="input"
+            placeholder={linkedHolding?.platform || 'e.g. Sharesies, InvestNow'}
+            value={form.platform}
+            onChange={e => set('platform', e.target.value)}
+          />
+        </div>
+        <div className="form-group full">
+          <label>Notes</label>
+          <input
+            className="input" placeholder="Optional notes"
+            value={form.notes} onChange={e => set('notes', e.target.value)}
+          />
         </div>
       </div>
-    </div>
-    </Portal>
+    </Modal>
   );
 }
 
@@ -149,33 +146,24 @@ export default function InvestmentContributions() {
     <div className="page-content">
       {contributions.length > 0 && (
         <div className="fn-summary">
-          <div className="fns-item">
-            <span>All Time</span>
-            <div className="fns-val-row"><span className="mono">{fmt(stats.total)}</span></div>
-          </div>
-          <div className="fns-item">
-            <span>This Year</span>
-            <div className="fns-val-row"><span className="mono">{fmt(stats.thisYear)}</span></div>
-          </div>
-          <div className="fns-item">
-            <span>This Month</span>
-            <div className="fns-val-row"><span className="mono">{fmt(stats.thisMonth)}</span></div>
-          </div>
+          <StatTile label="All Time"   value={fmt(stats.total)} />
+          <StatTile label="This Year"  value={fmt(stats.thisYear)} />
+          <StatTile label="This Month" value={fmt(stats.thisMonth)} />
         </div>
       )}
 
       {sorted.length === 0 ? (
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="arrow-up" size={38} /></div>
-          <div className="es-text">No contributions recorded yet. Log money added to your investments here.</div>
-          <button className="btn-ghost small" onClick={openAdd}>+ Add Contribution</button>
-        </div>
+        <EmptyState
+          icon={<Icon name="arrow-up" size={38} />}
+          title="No contributions recorded yet. Log money added to your investments here."
+          action={<button className="btn-ghost small" onClick={openAdd}>+ Add Contribution</button>}
+        />
       ) : (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>History</h3>
-            <button className="btn-ghost small" onClick={openAdd}>+ Add Contribution</button>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="History"
+            actions={<button className="btn-ghost small" onClick={openAdd}>+ Add Contribution</button>}
+          />
           <div className="fn-list">
           {sorted.map(c => {
             const holding = holdings.find(h => h.id === c.holdingId);
@@ -221,7 +209,7 @@ export default function InvestmentContributions() {
             );
           })}
           </div>
-        </div>
+        </Card>
       )}
 
       {showModal && (

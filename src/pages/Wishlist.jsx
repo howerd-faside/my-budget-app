@@ -6,8 +6,8 @@ import { fmtMoneyRound } from '../utils/tax';
 import { affordabilityStatus, affordabilityDate, findGoalHit } from '../utils/finance/savings';
 import { createWishlistItem } from '../models/WishlistItem';
 import Icon from '../components/Icon';
-import Portal from '../components/Portal';
 import { validate, wishlistItemSchema } from '../utils/validation';
+import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../components/ui';
 
 
 const EMPTY = createWishlistItem();
@@ -41,59 +41,46 @@ function PurchaseSimulator({ item, currentBalance, trajectory, goals, onClose })
   }).filter(g => g.orig || g.shifted);
 
   return (
-    <Portal>
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Buy Now Simulator</h3>
-          <button className="btn-icon" onClick={onClose}><Icon name="close" /></button>
+    <Modal isOpen onClose={onClose} title="Buy Now Simulator" footer={<button className="btn-ghost" onClick={onClose}>Close</button>}>
+      <div className="sim-item-name">{item.name}</div>
+      <div className="sim-cost">{fmtMoneyRound(+item.estimatedCost || 0)}</div>
+
+      <div className="sim-balance-row">
+        <div className="sim-bal-item">
+          <span className="text3">Current Balance</span>
+          <span className="mono teal">{fmtMoneyRound(currentBalance)}</span>
         </div>
-        <div className="modal-body">
-          <div className="sim-item-name">{item.name}</div>
-          <div className="sim-cost">{fmtMoneyRound(+item.estimatedCost || 0)}</div>
-
-          <div className="sim-balance-row">
-            <div className="sim-bal-item">
-              <span className="text3">Current Balance</span>
-              <span className="mono teal">{fmtMoneyRound(currentBalance)}</span>
-            </div>
-            <Icon name="arrow-down" size={14} />
-            <div className="sim-bal-item">
-              <span className="text3">After Purchase</span>
-              <span className={`mono ${newBalance < 0 ? 'red' : 'amber'}`}>{fmtMoneyRound(newBalance)}</span>
-            </div>
-          </div>
-
-          {newBalance < 0 && (
-            <div style={{ color: 'var(--red)', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
-              Insufficient savings — would put you {fmtMoneyRound(Math.abs(newBalance))} short
-            </div>
-          )}
-
-          {impactedGoals.length > 0 && (
-            <>
-              <div className="form-section-label" style={{ marginTop: 16, marginBottom: 10 }}>Goal Impact</div>
-              {impactedGoals.map(g => (
-                <div key={g.id} className="sim-goal-row">
-                  <span className="sim-goal-name">{g.name} ({fmtMoneyRound(g.amount)})</span>
-                  <span>
-                    {g.shifted ? (
-                      g.delay && g.delay > 0
-                        ? <span className="red">delayed {g.delay} month{g.delay !== 1 ? 's' : ''} → {g.shifted}</span>
-                        : <span className="green">on track → {g.shifted}</span>
-                    ) : <span className="red">no longer achievable by 2030</span>}
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-        <div className="modal-footer">
-          <button className="btn-ghost" onClick={onClose}>Close</button>
+        <Icon name="arrow-down" size={14} />
+        <div className="sim-bal-item">
+          <span className="text3">After Purchase</span>
+          <span className={`mono ${newBalance < 0 ? 'red' : 'amber'}`}>{fmtMoneyRound(newBalance)}</span>
         </div>
       </div>
-    </div>
-    </Portal>
+
+      {newBalance < 0 && (
+        <div style={{ color: 'var(--red)', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
+          Insufficient savings — would put you {fmtMoneyRound(Math.abs(newBalance))} short
+        </div>
+      )}
+
+      {impactedGoals.length > 0 && (
+        <>
+          <div className="form-section-label" style={{ marginTop: 16, marginBottom: 10 }}>Goal Impact</div>
+          {impactedGoals.map(g => (
+            <div key={g.id} className="sim-goal-row">
+              <span className="sim-goal-name">{g.name} ({fmtMoneyRound(g.amount)})</span>
+              <span>
+                {g.shifted ? (
+                  g.delay && g.delay > 0
+                    ? <span className="red">delayed {g.delay} month{g.delay !== 1 ? 's' : ''} → {g.shifted}</span>
+                    : <span className="green">on track → {g.shifted}</span>
+                ) : <span className="red">no longer achievable by 2030</span>}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+    </Modal>
   );
 }
 
@@ -201,41 +188,31 @@ export default function Wishlist() {
   return (
     <div className="page-content">
       {wishlist.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Wishlist</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="text3" style={{ fontSize: 11 }}>{pending.length} pending</span>
-              <button className="btn-ghost small" onClick={openNew}>+ Add Item</button>
-            </div>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Wishlist"
+            actions={
+              <>
+                <span className="text3" style={{ fontSize: 11 }}>{pending.length} pending</span>
+                <button className="btn-ghost small" onClick={openNew}>+ Add Item</button>
+              </>
+            }
+          />
           <div className="fn-summary">
-            <div className="fns-item">
-              <span>Total Pending</span>
-              <span className="mono red">{fmtMoneyRound(totalCost)}</span>
-            </div>
-            <div className="fns-item">
-              <span>Can Buy Now</span>
-              <span className="mono green">{canBuyNow}</span>
-            </div>
-            <div className="fns-item">
-              <span>Next Affordable</span>
-              <span className="mono amber">{nextLabel || '—'}</span>
-            </div>
-            <div className="fns-item">
-              <span>Purchased</span>
-              <span className="mono">{purchased.length}</span>
-            </div>
+            <StatTile label="Total Pending"   value={fmtMoneyRound(totalCost)} valueClassName="red" />
+            <StatTile label="Can Buy Now"     value={canBuyNow} valueClassName="green" />
+            <StatTile label="Next Affordable" value={nextLabel || '—'} valueClassName="amber" />
+            <StatTile label="Purchased"       value={purchased.length} />
           </div>
-        </div>
+        </Card>
       )}
 
       {pending.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Pending</h3>
-            <span className="text3" style={{ fontSize: 11 }}>{pending.length} item{pending.length !== 1 ? 's' : ''}</span>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Pending"
+            actions={<span className="text3" style={{ fontSize: 11 }}>{pending.length} item{pending.length !== 1 ? 's' : ''}</span>}
+          />
           <div className="wl-grid">
             {pending.map(item => (
               <WishCard
@@ -250,15 +227,15 @@ export default function Wishlist() {
               />
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {purchased.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Purchased</h3>
-            <span className="text3" style={{ fontSize: 11 }}>{purchased.length} item{purchased.length !== 1 ? 's' : ''}</span>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Purchased"
+            actions={<span className="text3" style={{ fontSize: 11 }}>{purchased.length} item{purchased.length !== 1 ? 's' : ''}</span>}
+          />
           <div className="wl-grid">
             {purchased.map(item => (
               <WishCard
@@ -273,15 +250,15 @@ export default function Wishlist() {
               />
             ))}
           </div>
-        </div>
+        </Card>
       )}
 
       {wishlist.length === 0 && (
-        <div className="empty-state">
-          <div className="es-icon">🛒</div>
-          <div className="es-text">Nothing on your wishlist yet — add items to track affordability and plan purchases</div>
-          <button className="btn-primary" onClick={openNew}>Add your first item</button>
-        </div>
+        <EmptyState
+          icon="🛒"
+          title="Nothing on your wishlist yet — add items to track affordability and plan purchases"
+          action={<button className="btn-primary" onClick={openNew}>Add your first item</button>}
+        />
       )}
 
       {simItem && (
@@ -294,43 +271,37 @@ export default function Wishlist() {
         />
       )}
 
-      {editing && (
-        <Portal>
-        <div className="modal-overlay" onClick={close}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{editing === 'new' ? 'Add Item' : 'Edit Item'}</h3>
-              <button className="btn-icon" onClick={close}><Icon name="close" /></button>
-            </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group full">
-                  <label>Item Name</label>
-                  <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. New TV" value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
-                  {errors.name && <span className="field-error">{errors.name}</span>}
-                </div>
-                <div className="form-group">
-                  <label>Estimated Cost ($)</label>
-                  <input className={`input mono${errors.estimatedCost ? ' input-error' : ''}`} type="number" placeholder="0" value={form.estimatedCost}
-                    onChange={e => setForm(f => ({ ...f, estimatedCost: e.target.value }))} />
-                  {errors.estimatedCost && <span className="field-error">{errors.estimatedCost}</span>}
-                </div>
-                <div className="form-group full">
-                  <label>Notes</label>
-                  <input className="input" placeholder="Optional details" value={form.notes}
-                    onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save}>Save</button>
-            </div>
+      <Modal
+        isOpen={!!editing}
+        onClose={close}
+        title={editing === 'new' ? 'Add Item' : 'Edit Item'}
+        footer={
+          <>
+            <button className="btn-ghost" onClick={close}>Cancel</button>
+            <button className="btn-primary" onClick={save}>Save</button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <div className="form-group full">
+            <label>Item Name</label>
+            <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. New TV" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+            {errors.name && <span className="field-error">{errors.name}</span>}
+          </div>
+          <div className="form-group">
+            <label>Estimated Cost ($)</label>
+            <input className={`input mono${errors.estimatedCost ? ' input-error' : ''}`} type="number" placeholder="0" value={form.estimatedCost}
+              onChange={e => setForm(f => ({ ...f, estimatedCost: e.target.value }))} />
+            {errors.estimatedCost && <span className="field-error">{errors.estimatedCost}</span>}
+          </div>
+          <div className="form-group full">
+            <label>Notes</label>
+            <input className="input" placeholder="Optional details" value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           </div>
         </div>
-        </Portal>
-      )}
+      </Modal>
     </div>
   );
 }

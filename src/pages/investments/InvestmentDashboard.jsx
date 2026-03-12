@@ -3,6 +3,7 @@ import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { calcPortfolioStats } from '../../utils/finance/savings';
 import { getPortfolioActivity } from '../../utils/finance/transactions';
+import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 
 const CAT_COLOR = {
   'Shares':       '#0071E3',
@@ -39,10 +40,10 @@ export default function InvestmentDashboard({ onSelectTab }) {
   if (portfolios.length === 0) {
     return (
       <div className="page-content">
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="trend" size={38} /></div>
-          <div className="es-text">Create a portfolio to start tracking your investments.</div>
-        </div>
+        <EmptyState
+          icon={<Icon name="trend" size={38} />}
+          title="Create a portfolio to start tracking your investments."
+        />
       </div>
     );
   }
@@ -50,13 +51,15 @@ export default function InvestmentDashboard({ onSelectTab }) {
   if (!hasData) {
     return (
       <div className="page-content">
-        <div className="empty-state">
-          <div className="es-icon"><Icon name="trend" size={38} /></div>
-          <div className="es-text">No investment data yet. Start by adding your first holding.</div>
-          <button className="btn-ghost small" onClick={() => onSelectTab('inv-holdings')}>
-            + Add Holding
-          </button>
-        </div>
+        <EmptyState
+          icon={<Icon name="trend" size={38} />}
+          title="No investment data yet. Start by adding your first holding."
+          action={
+            <button className="btn-ghost small" onClick={() => onSelectTab('inv-holdings')}>
+              + Add Holding
+            </button>
+          }
+        />
       </div>
     );
   }
@@ -66,38 +69,20 @@ export default function InvestmentDashboard({ onSelectTab }) {
 
       {/* Summary tiles */}
       <div className="fn-summary">
-        <div className="fns-item">
-          <span>Portfolio Value</span>
-          <div className="fns-val-row">
-            <span className="mono">{fmt(stats.totalValue)}</span>
-          </div>
-        </div>
-        <div className="fns-item">
-          <span>Total Contributed</span>
-          <div className="fns-val-row">
-            <span className="mono">{fmt(stats.totalContrib)}</span>
-          </div>
-        </div>
-        <div className="fns-item">
-          <span>Unrealised Gain/Loss</span>
-          <div className="fns-val-row">
-            <span className="mono" style={{ color: stats.unrealised >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {stats.unrealised >= 0 ? '+' : '−'}{fmt(stats.unrealised)}
-            </span>
-          </div>
-        </div>
-        <div className="fns-item">
-          <span>Total Dividends</span>
-          <div className="fns-val-row">
-            <span className="mono">{fmt(stats.totalDivNet)}</span>
-          </div>
-        </div>
+        <StatTile label="Portfolio Value"   value={fmt(stats.totalValue)} />
+        <StatTile label="Total Contributed" value={fmt(stats.totalContrib)} />
+        <StatTile
+          label="Unrealised Gain/Loss"
+          value={`${stats.unrealised >= 0 ? '+' : '−'}${fmt(stats.unrealised)}`}
+          valueClassName={stats.unrealised >= 0 ? 'green' : 'red'}
+        />
+        <StatTile label="Total Dividends"   value={fmt(stats.totalDivNet)} />
       </div>
 
       {/* Allocation */}
       {stats.allocation.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header"><h3>Allocation</h3></div>
+        <Card variant="section">
+          <SectionHeader title="Allocation" />
           <div className="cat-proportion-wrap">
             <div className="cat-proportion">
               {stats.allocation.map(({ cat, pct }) => (
@@ -122,16 +107,16 @@ export default function InvestmentDashboard({ onSelectTab }) {
               ))}
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Top holdings */}
       {holdings.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header">
-            <h3>Holdings</h3>
-            <button className="btn-ghost small" onClick={() => onSelectTab('inv-holdings')}>View all →</button>
-          </div>
+        <Card variant="section">
+          <SectionHeader
+            title="Holdings"
+            actions={<button className="btn-ghost small" onClick={() => onSelectTab('inv-holdings')}>View all →</button>}
+          />
           <div className="fn-list">
             {[...holdings]
               .sort((a, b) => ((+b.units * +b.currentPrice) || 0) - ((+a.units * +a.currentPrice) || 0))
@@ -173,13 +158,13 @@ export default function InvestmentDashboard({ onSelectTab }) {
                 );
               })}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Recent activity */}
       {recentActivity.length > 0 && (
-        <div className="dash-section">
-          <div className="section-header"><h3>Recent Activity</h3></div>
+        <Card variant="section">
+          <SectionHeader title="Recent Activity" />
           <div className="fn-list">
             {recentActivity.map(item => (
               <div key={`${item.type}-${item.id}`} className="fn-row">
@@ -200,7 +185,7 @@ export default function InvestmentDashboard({ onSelectTab }) {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

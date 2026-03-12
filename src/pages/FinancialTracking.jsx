@@ -5,7 +5,7 @@ import { usePeople }  from '../store/hooks';
 import { fmtMoney, fmtMoneyRound } from '../utils/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
-import Portal from '../components/Portal';
+import { SectionHeader, StatTile, Card, Modal } from '../components/ui';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
 
 const EXPENSE_CATS  = ADHOC_EXPENSE_CATS;
@@ -237,43 +237,38 @@ export default function FinancialTracking() {
 
       <div key={yearAnimKey} className={`year-content ${yearAnimClass}`}>
       {/* Overview section */}
-      <div className="dash-section">
-        <div className="section-header">
-          <h3>Overview — {year}</h3>
-          <span className="text3" style={{ fontSize: 11 }}>26 fortnights</span>
-        </div>
+      <Card variant="section">
+        <SectionHeader
+          title={`Overview — ${year}`}
+          actions={<span className="text3" style={{ fontSize: 11 }}>26 fortnights</span>}
+        />
 
       {/* Year summary */}
       <div className="fn-summary">
-        <div className="fns-item">
-          <span>Current Balance</span>
-          <span className="mono teal">{fmtMoneyRound(startBal)}</span>
-        </div>
-        <div className="fns-item">
-          <span>Net /fn</span>
-          <span className={`mono ${fnNetForYear >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(fnNetForYear)}</span>
-          {incomeEventInYear && (
-            <span className="text3" style={{ fontSize: 10 }}>base {fmtMoneyRound(fnNetBase)}</span>
-          )}
-        </div>
-        <div className="fns-item">
-          <span>Ad-hoc {year}</span>
-          <span className={`mono ${yearAdhoc >= 0 ? 'green' : 'red'}`}>
-            {yearAdhoc < 0 ? '−' : '+'}{fmtMoneyRound(Math.abs(yearAdhoc))}
-          </span>
-        </div>
-        <div className="fns-item">
-          <span>Net Saved {year}</span>
-          <span className={`mono ${yearTotal >= 0 ? 'green' : 'red'}`}>{fmtMoneyRound(yearTotal)}</span>
-        </div>
+        <StatTile label="Current Balance" value={fmtMoneyRound(startBal)} valueClassName="teal" />
+        <StatTile
+          label="Net /fn"
+          value={fmtMoneyRound(fnNetForYear)}
+          valueClassName={fnNetForYear >= 0 ? 'green' : 'red'}
+          meta={incomeEventInYear ? `base ${fmtMoneyRound(fnNetBase)}` : undefined}
+        />
+        <StatTile
+          label={`Ad-hoc ${year}`}
+          value={`${yearAdhoc < 0 ? '−' : '+'}${fmtMoneyRound(Math.abs(yearAdhoc))}`}
+          valueClassName={yearAdhoc >= 0 ? 'green' : 'red'}
+        />
+        <StatTile
+          label={`Net Saved ${year}`}
+          value={fmtMoneyRound(yearTotal)}
+          valueClassName={yearTotal >= 0 ? 'green' : 'red'}
+        />
         {!isPastYear && (
-          <div className="fns-item">
-            <span>Projected Dec {year}</span>
-            <span className="mono teal">{fmtMoneyRound(closingBal)}</span>
-            <span className={`trend-indicator ${balDelta >= 0 ? 'up' : 'down'}`}>
-              {balDelta >= 0 ? '▲' : '▼'} {fmtMoneyRound(Math.abs(balDelta))}
-            </span>
-          </div>
+          <StatTile
+            label={`Projected Dec ${year}`}
+            value={fmtMoneyRound(closingBal)}
+            valueClassName="teal"
+            icon={<span className={`trend-indicator ${balDelta >= 0 ? 'up' : 'down'}`}>{balDelta >= 0 ? '▲' : '▼'} {fmtMoneyRound(Math.abs(balDelta))}</span>}
+          />
         )}
       </div>
 
@@ -454,14 +449,14 @@ export default function FinancialTracking() {
         );
       })()}
 
-      </div>{/* end overview dash-section */}
+      </Card>{/* end overview */}
 
       {/* Fortnight list */}
-      <div className="dash-section">
-        <div className="section-header">
-          <h3>Pay Periods — {year}</h3>
-          <span className="text3" style={{ fontSize: 11 }}>26 fortnights</span>
-        </div>
+      <Card variant="section">
+        <SectionHeader
+          title={`Pay Periods — ${year}`}
+          actions={<span className="text3" style={{ fontSize: 11 }}>26 fortnights</span>}
+        />
       <div className="fn-list">
         {fortnights.map(f => {
           const isCurrent = f.i === currentFnIdx;
@@ -529,75 +524,68 @@ export default function FinancialTracking() {
           );
         })}
       </div>
-      </div>{/* end pay-periods dash-section */}
+      </Card>{/* end pay-periods */}
       </div>{/* end year-content */}
 
       {/* Add transaction modal */}
-      {txModal !== null && (
-        <Portal>
-        <div className="modal-overlay" onClick={() => setTxModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Log Ad-hoc Transaction</h3>
-              <button className="btn-icon" onClick={() => setTxModal(null)}><Icon name="close" /></button>
-            </div>
-            <div className="modal-body">
-              {/* Expense / Income toggle */}
-              <div className="tx-type-toggle">
-                <button
-                  className={`ttog-btn ${txType === 'expense' ? 'active red' : ''}`}
-                  onClick={() => { setTxType('expense'); setTxForm(t => ({ ...t, category: 'Other' })); }}
-                >
-                  Expense
-                </button>
-                <button
-                  className={`ttog-btn ${txType === 'income' ? 'active green' : ''}`}
-                  onClick={() => { setTxType('income'); setTxForm(t => ({ ...t, category: 'Bonus' })); }}
-                >
-                  Income
-                </button>
-              </div>
+      <Modal
+        isOpen={txModal !== null}
+        onClose={() => setTxModal(null)}
+        title="Log Ad-hoc Transaction"
+        footer={
+          <>
+            <button className="btn-ghost" onClick={() => setTxModal(null)}>Cancel</button>
+            <button
+              className={`btn-primary ${txType === 'income' ? 'btn-green' : ''}`}
+              onClick={addTransaction}
+              disabled={!txForm.description || !txForm.amount}
+            >
+              {txType === 'income' ? 'Add Income' : 'Add Expense'}
+            </button>
+          </>
+        }
+      >
+        <div className="tx-type-toggle">
+          <button
+            className={`ttog-btn ${txType === 'expense' ? 'active red' : ''}`}
+            onClick={() => { setTxType('expense'); setTxForm(t => ({ ...t, category: 'Other' })); }}
+          >
+            Expense
+          </button>
+          <button
+            className={`ttog-btn ${txType === 'income' ? 'active green' : ''}`}
+            onClick={() => { setTxType('income'); setTxForm(t => ({ ...t, category: 'Bonus' })); }}
+          >
+            Income
+          </button>
+        </div>
 
-              <div className="form-grid">
-                <div className="form-group full">
-                  <label>Description</label>
-                  <input className="input" placeholder={txType === 'income' ? 'e.g. Year-end bonus' : 'e.g. Petrol'} autoFocus value={txForm.description}
-                    onChange={e => setTxForm(t => ({ ...t, description: e.target.value }))}
-                    onKeyDown={e => e.key === 'Enter' && addTransaction()} />
-                </div>
-                <div className="form-group">
-                  <label>Amount ($)</label>
-                  <input className="input mono" type="number" step="0.01" placeholder="0.00" value={txForm.amount}
-                    onChange={e => setTxForm(t => ({ ...t, amount: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label>Category</label>
-                  <select className="input" value={txForm.category}
-                    onChange={e => setTxForm(t => ({ ...t, category: e.target.value }))}>
-                    {cats.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="form-group full">
-                  <label>Note (optional)</label>
-                  <input className="input" placeholder="Optional note" value={txForm.note}
-                    onChange={e => setTxForm(t => ({ ...t, note: e.target.value }))} />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={() => setTxModal(null)}>Cancel</button>
-              <button
-                className={`btn-primary ${txType === 'income' ? 'btn-green' : ''}`}
-                onClick={addTransaction}
-                disabled={!txForm.description || !txForm.amount}
-              >
-                {txType === 'income' ? 'Add Income' : 'Add Expense'}
-              </button>
-            </div>
+        <div className="form-grid">
+          <div className="form-group full">
+            <label>Description</label>
+            <input className="input" placeholder={txType === 'income' ? 'e.g. Year-end bonus' : 'e.g. Petrol'} autoFocus value={txForm.description}
+              onChange={e => setTxForm(t => ({ ...t, description: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && addTransaction()} />
+          </div>
+          <div className="form-group">
+            <label>Amount ($)</label>
+            <input className="input mono" type="number" step="0.01" placeholder="0.00" value={txForm.amount}
+              onChange={e => setTxForm(t => ({ ...t, amount: e.target.value }))} />
+          </div>
+          <div className="form-group">
+            <label>Category</label>
+            <select className="input" value={txForm.category}
+              onChange={e => setTxForm(t => ({ ...t, category: e.target.value }))}>
+              {cats.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-group full">
+            <label>Note (optional)</label>
+            <input className="input" placeholder="Optional note" value={txForm.note}
+              onChange={e => setTxForm(t => ({ ...t, note: e.target.value }))} />
           </div>
         </div>
-        </Portal>
-      )}
+      </Modal>
     </div>
   );
 }
