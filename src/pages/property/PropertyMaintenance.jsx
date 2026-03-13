@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import Portal from '../../components/Portal';
-import { EmptyState, Card } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal } from '../../components/ui';
 import {
   createPropertyMaintenance,
   MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
@@ -12,6 +11,21 @@ function today() { return new Date().toISOString().slice(0, 10); }
 
 const CATEGORIES   = MAINTENANCE_CATEGORIES;
 const PERFORMED_BY = PERFORMED_BY_OPTIONS;
+
+const TYPE_COLOR = {
+  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
+  'Investment': 'purple', 'Land/Section': '', 'Other': '',
+};
+
+const CATEGORY_BAR = {
+  Repair:      'var(--red)',
+  Maintenance: 'var(--teal)',
+  Improvement: 'var(--green)',
+  Inspection:  'var(--teal)',
+  Cleaning:    'var(--sep2)',
+  Compliance:  'var(--amber)',
+  General:     'var(--sep2)',
+};
 
 const EMPTY_RECORD = createPropertyMaintenance();
 
@@ -27,6 +41,75 @@ function groupByMonth(records) {
     .map(([month, items]) => ({ month, items }));
 }
 
+// ── MaintenanceRow ────────────────────────────────────────────────────────────
+
+function MaintenanceRow({ rec, areas, propName, showProp, propertyAssets, onEdit, onDelete }) {
+  const [open, setOpen] = useState(false);
+
+  const area      = areas.find(a => a.id === rec.areaId);
+  const asset     = propertyAssets.find(a => a.id === rec.assetId);
+  const byLabel   = rec.performedBy === 'Other' ? (rec.performedByCustom || 'Other') : rec.performedBy;
+  const showBy    = byLabel && byLabel !== 'Self';
+  const hasDetail = !!rec.description;
+
+  return (
+    <div
+      className={`expense-row${open ? ' expanded' : ''}`}
+      onClick={hasDetail ? () => setOpen(o => !o) : undefined}
+      style={hasDetail ? undefined : { cursor: 'default' }}
+    >
+      <div className="exp-cat-bar" style={{ background: CATEGORY_BAR[rec.category] || 'var(--sep2)' }} />
+      <div className="exp-main">
+        <div className="exp-top">
+          <div className="exp-info">
+            <span className="exp-name">{rec.title}</span>
+            <span className="exp-tags">
+              <span className="tag">{rec.category}</span>
+              {area  && <span className="tag teal">{area.name}</span>}
+              {asset && <span className="tag amber">{asset.name}</span>}
+              {showProp && propName && <span className="tag">{propName}</span>}
+            </span>
+            {!open && rec.description && (
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {rec.description}
+              </span>
+            )}
+          </div>
+          <div className="exp-right">
+            <div className="exp-amounts">
+              <span className="exp-amount" style={{ fontSize: 12, color: 'var(--text3)' }}>{rec.date}</span>
+              {showBy && <span className="dpill">{byLabel}</span>}
+            </div>
+            <div className="exp-actions" onClick={e => e.stopPropagation()}>
+              <button className="btn-icon" onClick={() => onEdit(rec)}><Icon name="pencil" /></button>
+              <button className="btn-icon danger" onClick={() => onDelete(rec.id)}><Icon name="trash" /></button>
+            </div>
+          </div>
+        </div>
+
+        {open && rec.description && (
+          <div className="exp-detail" onClick={e => e.stopPropagation()}>
+            <div className="exp-detail-notes">{rec.description}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActiveChip({ label, onClear }) {
+  return (
+    <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {label}
+      <button
+        onClick={onClear}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--text3)', fontSize: 13 }}
+        aria-label="Remove filter"
+      >×</button>
+    </span>
+  );
+}
+
 function fmtMonth(ym) {
   if (!ym || ym === 'Unknown') return 'Unknown';
   const [y, m] = ym.split('-');
@@ -36,36 +119,103 @@ function fmtMonth(ym) {
 export default function PropertyMaintenance() {
   const { properties, propertyMaintenance, propertyTasks, propertyAssets, selectedPropertyId, setProperty } = useProperty();
 
-  const selProp  = properties.find(p => p.id === selectedPropertyId) || null;
-  const areas    = selProp?.areas || [];
+  const selProp = properties.find(p => p.id === selectedPropertyId) || null;
+  const areas   = selProp?.areas || [];
 
-  const [showModal,  setShowModal]  = useState(false);
-  const [form,       setForm]       = useState(EMPTY_RECORD);
-  const [editingId,  setEditingId]  = useState(null);
-  const [filterCat,  setFilterCat]  = useState('All');
-  const [filterArea, setFilterArea] = useState('All');
-  const [search,     setSearch]     = useState('');
-  const [propScope,  setPropScope]  = useState('current');
+  const [showModal,       setShowModal]       = useState(false);
+  const [form,            setForm]            = useState(EMPTY_RECORD);
+  const [editingId,       setEditingId]       = useState(null);
+  const [propScope,       setPropScope]       = useState('current');
+  // ── Filters ─────────────────────────────────────────────────────────────────
+  const [search,          setSearch]          = useState('');
+  const [filterCat,       setFilterCat]       = useState('All');
+  const [filterArea,      setFilterArea]      = useState('All');
+  const [filterBy,        setFilterBy]        = useState('All');
+  const [sortBy,          setSortBy]          = useState('date-desc');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [filterDateFrom,  setFilterDateFrom]  = useState('');
+  const [filterDateTo,    setFilterDateTo]    = useState('');
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // ── Scope helpers ───────────────────────────────────────────────────────────
+  const selectProperty = (id) => {
+    setProperty('selectedPropertyId', id);
+    setPropScope('current');
+    setFilterArea('All');
+  };
+
+  const selectAll = () => {
+    setPropScope('all');
+    setFilterArea('All');
+  };
+
+  const scopeLabel = propScope === 'all' ? 'All properties' : (selProp?.name ?? 'No property selected');
+
+  // ── Snapshot metrics ────────────────────────────────────────────────────────
+  const snap = useMemo(() => {
+    const todayStr = today();
+    const d30 = new Date(todayStr); d30.setDate(d30.getDate() - 30);
+    const last30 = d30.toISOString().slice(0, 10);
+    const ym = todayStr.slice(0, 7);
+
+    const scoped = propScope === 'all'
+      ? propertyMaintenance
+      : propertyMaintenance.filter(r => r.propertyId === selectedPropertyId);
+
+    const scopedTasks = propScope === 'all'
+      ? propertyTasks
+      : propertyTasks.filter(t => t.propertyId === selectedPropertyId);
+
+    const lastDate  = [...scoped].sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null;
+    const openTasks = scopedTasks.filter(t => t.status !== 'Done' && t.status !== 'Cancelled').length;
+
+    return {
+      total:     scoped.length,
+      last30:    scoped.filter(r => r.date >= last30).length,
+      thisMonth: scoped.filter(r => r.date?.startsWith(ym)).length,
+      openTasks,
+      lastDate,
+    };
+  }, [propertyMaintenance, propertyTasks, propScope, selectedPropertyId]);
+
+  // ── Filtered + grouped records ──────────────────────────────────────────────
   const records = useMemo(() => {
     let list = propertyMaintenance;
     if (propScope === 'current' && selectedPropertyId) list = list.filter(r => r.propertyId === selectedPropertyId);
-    if (filterCat  !== 'All') list = list.filter(r => r.category === filterCat);
-    if (filterArea !== 'All') list = list.filter(r => r.areaId   === filterArea);
+    if (filterCat  !== 'All') list = list.filter(r => r.category  === filterCat);
+    if (filterArea !== 'All') list = list.filter(r => r.areaId    === filterArea);
+    if (filterBy   !== 'All') list = list.filter(r => {
+      const label = r.performedBy === 'Other' ? (r.performedByCustom || 'Other') : r.performedBy;
+      return label === filterBy || r.performedBy === filterBy;
+    });
+    if (filterDateFrom) list = list.filter(r => r.date >= filterDateFrom);
+    if (filterDateTo)   list = list.filter(r => r.date <= filterDateTo);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(r => r.title.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
     }
-    return list.sort((a, b) => b.date.localeCompare(a.date));
-  }, [propertyMaintenance, propScope, selectedPropertyId, filterCat, filterArea, search]);
+    list = [...list];
+    if (sortBy === 'date-asc')  list.sort((a, b) => a.date.localeCompare(b.date));
+    else if (sortBy === 'title')    list.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === 'category') list.sort((a, b) => a.category.localeCompare(b.category));
+    else list.sort((a, b) => b.date.localeCompare(a.date)); // date-desc default
+    return list;
+  }, [propertyMaintenance, propScope, selectedPropertyId, filterCat, filterArea, filterBy, filterDateFrom, filterDateTo, search, sortBy]);
 
-  const groups = useMemo(() => groupByMonth(records), [records]);
+  const groups     = useMemo(() => groupByMonth(records), [records]);
+  const isFiltered = filterCat !== 'All' || filterArea !== 'All' || filterBy !== 'All'
+                  || !!search.trim() || !!filterDateFrom || !!filterDateTo;
+
+  const clearAllFilters = () => {
+    setSearch(''); setFilterCat('All'); setFilterArea('All');
+    setFilterBy('All'); setFilterDateFrom(''); setFilterDateTo('');
+  };
 
   const propTasks  = selProp ? propertyTasks.filter(t => t.propertyId === selProp.id && t.status !== 'Cancelled') : [];
   const propAssets = selProp ? propertyAssets.filter(a => a.propertyId === selProp.id) : [];
 
+  // ── Modal actions ───────────────────────────────────────────────────────────
   const openNew = () => {
     setForm({ ...EMPTY_RECORD, id: crypto.randomUUID(), propertyId: selectedPropertyId || '', date: today(), createdAt: today() });
     setEditingId('new'); setShowModal(true);
@@ -90,12 +240,13 @@ export default function PropertyMaintenance() {
     setProperty('propertyMaintenance', propertyMaintenance.filter(r => r.id !== id));
   };
 
-  if (!selProp && propScope === 'current') {
+  // ── Render ──────────────────────────────────────────────────────────────────
+  if (properties.length === 0) {
     return (
       <div className="page-content">
         <EmptyState
           icon={<Icon name="tool" size={38} />}
-          title="Select a property from the Overview or Properties tab first."
+          title="No properties yet. Add a property first to start tracking maintenance."
         />
       </div>
     );
@@ -103,196 +254,279 @@ export default function PropertyMaintenance() {
 
   return (
     <div className="page-content">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
-        {properties.length > 1 && (
-          <div className="exp-type-sel">
-            <button className={`ets-btn ${propScope === 'current' ? 'active' : ''}`} onClick={() => setPropScope('current')}>This property</button>
-            <button className={`ets-btn ${propScope === 'all' ? 'active' : ''}`} onClick={() => setPropScope('all')}>All</button>
-          </div>
-        )}
-        <button className="btn-primary" onClick={openNew} disabled={!selProp}>
-          <Icon name="plus" size={14} /> Log Work
-        </button>
-      </div>
 
-      {/* Filters */}
-      <Card variant="section" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="form-section-label" style={{ minWidth: 70 }}>Category</span>
-            <div className="filter-tabs">
-              {['All', ...CATEGORIES].map(c => (
-                <button key={c} className={`filter-tab ${filterCat === c ? 'active' : ''}`} onClick={() => setFilterCat(c)}>{c}</button>
-              ))}
+      {/* ── 1. Property selector ─────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="building" size={15} /> Properties</>}
+          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
+        />
+        <div className="prop-selector">
+          <div
+            className={`prop-sel-item${propScope === 'all' ? ' selected' : ''}`}
+            onClick={selectAll}
+          >
+            <span className="prop-sel-name">All Properties</span>
+            <div className="prop-sel-meta">
+              <span className="tag">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
             </div>
           </div>
-          {areas.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span className="form-section-label" style={{ minWidth: 70 }}>Area</span>
-              <div className="filter-tabs">
-                {[{ id: 'All', name: 'All' }, ...areas].map(a => (
-                  <button key={a.id} className={`filter-tab ${filterArea === a.id ? 'active' : ''}`} onClick={() => setFilterArea(a.id)}>{a.name}</button>
-                ))}
+          {properties.map(prop => {
+            const maintCount = propertyMaintenance.filter(r => r.propertyId === prop.id).length;
+            const isSelected = propScope === 'current' && prop.id === selectedPropertyId;
+            return (
+              <div
+                key={prop.id}
+                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
+                onClick={() => selectProperty(prop.id)}
+              >
+                <span className="prop-sel-name">{prop.name}</span>
+                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
+                <div className="prop-sel-meta">
+                  {prop.type      && <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>}
+                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
+                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
+                  {maintCount > 0 && <span className="tag">{maintCount} record{maintCount !== 1 ? 's' : ''}</span>}
+                </div>
               </div>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="form-section-label" style={{ minWidth: 70 }}>Search</span>
-            <input
-              className="input small"
-              style={{ width: 240 }}
-              placeholder="Search title or description…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+            );
+          })}
         </div>
       </Card>
 
-      {records.length === 0 ? (
-        <EmptyState
-          icon={<Icon name="tool" size={38} />}
-          title={propertyMaintenance.length === 0
-            ? 'No maintenance records yet. Log your first piece of work to start building a history.'
-            : 'No records match the current filters.'}
-          action={selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Log Work</button>}
+      {/* ── 2. Maintenance snapshot ──────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="tool" size={15} /> Maintenance Snapshot</>}
+          subtitle={scopeLabel}
         />
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {groups.map(({ month, items }) => (
-            <div key={month}>
-              <div className="section-subheader" style={{ marginBottom: 8 }}>
+        <div className="fn-summary">
+          <StatTile label="Total Records" value={snap.total}     valueClassName={snap.total > 0 ? '' : 'text3'} />
+          <StatTile label="Last 30 Days"  value={snap.last30}    valueClassName={snap.last30 > 0 ? 'teal' : 'text3'} meta="recent activity" />
+          <StatTile label="This Month"    value={snap.thisMonth} valueClassName={snap.thisMonth > 0 ? '' : 'text3'} />
+          <StatTile label="Open Tasks"    value={snap.openTasks} valueClassName={snap.openTasks > 0 ? 'amber' : 'text3'} />
+          <StatTile label="Last Logged"   value={snap.lastDate ?? '—'} valueClassName="text3" />
+        </div>
+      </Card>
+
+      {/* ── 3. Filters ───────────────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="filter" size={15} /> Filters</>}
+          actions={
+            <button className="btn-ghost small" onClick={() => setShowMoreFilters(m => !m)}>
+              {showMoreFilters ? 'Fewer' : 'More'}
+            </button>
+          }
+        />
+
+        {/* Primary toolbar */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            className="input small"
+            style={{ flex: '1 1 160px', minWidth: 140 }}
+            placeholder="Search title or description…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <select className="input small" value={filterCat} onChange={e => setFilterCat(e.target.value)}>
+            <option value="All">All categories</option>
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+          {propScope === 'current' && areas.length > 0 && (
+            <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
+              <option value="All">All areas</option>
+              {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
+          <select className="input small" value={filterBy} onChange={e => setFilterBy(e.target.value)}>
+            <option value="All">All contractors</option>
+            {PERFORMED_BY.map(p => <option key={p}>{p}</option>)}
+          </select>
+          <select className="input small" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="date-desc">Sort: Newest</option>
+            <option value="date-asc">Sort: Oldest</option>
+            <option value="title">Sort: Title</option>
+            <option value="category">Sort: Category</option>
+          </select>
+        </div>
+
+        {/* Secondary filters */}
+        {showMoreFilters && (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--sep)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>From</span>
+              <input
+                className="input small"
+                type="date"
+                style={{ width: 140 }}
+                value={filterDateFrom}
+                onChange={e => setFilterDateFrom(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>To</span>
+              <input
+                className="input small"
+                type="date"
+                style={{ width: 140 }}
+                value={filterDateTo}
+                onChange={e => setFilterDateTo(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Active filter chips */}
+        {isFiltered && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)' }}>
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Active:</span>
+            {search        && <ActiveChip label={`"${search}"`}                                              onClear={() => setSearch('')} />}
+            {filterCat  !== 'All' && <ActiveChip label={filterCat}                                           onClear={() => setFilterCat('All')} />}
+            {filterArea !== 'All' && <ActiveChip label={areas.find(a => a.id === filterArea)?.name ?? filterArea} onClear={() => setFilterArea('All')} />}
+            {filterBy   !== 'All' && <ActiveChip label={filterBy}                                            onClear={() => setFilterBy('All')} />}
+            {filterDateFrom       && <ActiveChip label={`From ${filterDateFrom}`}                            onClear={() => setFilterDateFrom('')} />}
+            {filterDateTo         && <ActiveChip label={`To ${filterDateTo}`}                                onClear={() => setFilterDateTo('')} />}
+            <button className="btn-ghost small" onClick={clearAllFilters} style={{ fontSize: 11, padding: '2px 8px' }}>Clear all</button>
+          </div>
+        )}
+      </Card>
+
+      {/* ── 4. Maintenance log ───────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="tool" size={15} /> Maintenance Log</>}
+          subtitle={`${records.length} record${records.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`}
+          actions={
+            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && propScope !== 'all'}>
+              <Icon name="plus" size={14} /> Log Work
+            </button>
+          }
+        />
+
+        {groups.length === 0 ? (
+          <EmptyState
+            icon={<Icon name="tool" size={38} />}
+            title={
+              !selProp && propScope === 'current'
+                ? 'Select a property above to view its maintenance history.'
+                : propertyMaintenance.length === 0
+                ? 'No maintenance records yet. Log your first piece of work to start building a history.'
+                : 'No records match the current filters.'
+            }
+            action={selProp && <button className="btn-ghost" onClick={openNew}><Icon name="plus" size={14} /> Log Work</button>}
+          />
+        ) : (
+          groups.map(({ month, items }, gi) => (
+            <Fragment key={month}>
+              <div className="section-subheader" style={{ marginTop: gi === 0 ? 4 : undefined }}>
                 <span>{fmtMonth(month)}</span>
+                <span className="dpill">{items.length}</span>
               </div>
-              <div className="fn-list">
+              <div className="expense-list">
                 {items.map(rec => {
-                  const propAreas = (properties.find(p => p.id === rec.propertyId)?.areas || []);
-                  const area      = propAreas.find(a => a.id === rec.areaId);
-                  const asset     = propertyAssets.find(a => a.id === rec.assetId);
-                  const property  = properties.find(p => p.id === rec.propertyId);
-                  const byLabel   = rec.performedBy === 'Other' ? (rec.performedByCustom || 'Other') : rec.performedBy;
+                  const prop = properties.find(p => p.id === rec.propertyId);
                   return (
-                    <div key={rec.id} className="fn-row">
-                      <div className="fn-main" style={{ cursor: 'default' }}>
-                        <div className="fn-left">
-                          <div className="fn-dates">
-                            <div className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{rec.title}</div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                              <span className="tag">{rec.category}</span>
-                              {area  && <span className="tag teal">{area.name}</span>}
-                              {asset && <span className="tag amber">{asset.name}</span>}
-                              {propScope === 'all' && property && <span className="tag">{property.name}</span>}
-                              {byLabel && byLabel !== 'Self' && <span className="tag">{byLabel}</span>}
-                            </div>
-                            {rec.description && (
-                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{rec.description}</div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
-                          <span className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>{rec.date}</span>
-                          <div className="exp-actions">
-                            <button className="btn-icon small" onClick={() => openEdit(rec)}><Icon name="pencil" size={12} /></button>
-                            <button className="btn-icon small danger" onClick={() => deleteRecord(rec.id)}><Icon name="trash" size={12} /></button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <MaintenanceRow
+                      key={rec.id}
+                      rec={rec}
+                      areas={prop?.areas || []}
+                      propName={prop?.name}
+                      showProp={propScope === 'all' && properties.length > 1}
+                      propertyAssets={propertyAssets}
+                      onEdit={openEdit}
+                      onDelete={deleteRecord}
+                    />
                   );
                 })}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            </Fragment>
+          ))
+        )}
+      </Card>
 
       {/* ── Modal ─────────────────────────────────────────────────────────── */}
-      {showModal && (
-        <Portal>
-        <div className="modal-overlay" onClick={close}>
-          <div className="modal wide" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{editingId === 'new' ? 'Log Maintenance Work' : 'Edit Record'}</h3>
-              <button className="btn-icon" onClick={close}><Icon name="close" size={14} /></button>
+      <Modal
+        isOpen={showModal}
+        onClose={close}
+        title={editingId === 'new' ? 'Log Maintenance Work' : 'Edit Record'}
+        wide
+        footer={
+          <>
+            <button className="btn-ghost" onClick={close}>Cancel</button>
+            <button className="btn-primary" onClick={save} disabled={!form.title.trim() || !form.date}>
+              {editingId === 'new' ? 'Log Record' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <div className="form-group full">
+            <label>Title / Summary *</label>
+            <input className="input" placeholder="What was done?" value={form.title} onChange={e => setField('title', e.target.value)} autoFocus />
+          </div>
+          <div className="form-group">
+            <label>Date *</label>
+            <input className="input" type="date" value={form.date} onChange={e => setField('date', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Category</label>
+            <select className="input" value={form.category} onChange={e => setField('category', e.target.value)}>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Property</label>
+            <select className="input" value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
+              <option value="">— Select —</option>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Area</label>
+            <select className="input" value={form.areaId} onChange={e => setField('areaId', e.target.value)}>
+              <option value="">— None —</option>
+              {(properties.find(p => p.id === form.propertyId)?.areas || []).map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Who Performed Work</label>
+            <select className="input" value={form.performedBy} onChange={e => setField('performedBy', e.target.value)}>
+              {PERFORMED_BY.map(p => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+          {form.performedBy === 'Other' && (
+            <div className="form-group">
+              <label>Specify</label>
+              <input className="input" placeholder="e.g. John Smith Plumbing" value={form.performedByCustom} onChange={e => setField('performedByCustom', e.target.value)} />
             </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group full">
-                  <label>Title / Summary *</label>
-                  <input className="input" placeholder="What was done?" value={form.title} onChange={e => setField('title', e.target.value)} autoFocus />
-                </div>
-                <div className="form-group">
-                  <label>Date *</label>
-                  <input className="input" type="date" value={form.date} onChange={e => setField('date', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Category</label>
-                  <select className="input" value={form.category} onChange={e => setField('category', e.target.value)}>
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Property</label>
-                  <select className="input" value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
-                    <option value="">— Select —</option>
-                    {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Area</label>
-                  <select className="input" value={form.areaId} onChange={e => setField('areaId', e.target.value)}>
-                    <option value="">— None —</option>
-                    {(properties.find(p => p.id === form.propertyId)?.areas || []).map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Who Performed Work</label>
-                  <select className="input" value={form.performedBy} onChange={e => setField('performedBy', e.target.value)}>
-                    {PERFORMED_BY.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
-                {form.performedBy === 'Other' && (
-                  <div className="form-group">
-                    <label>Specify</label>
-                    <input className="input" placeholder="e.g. John Smith Plumbing" value={form.performedByCustom} onChange={e => setField('performedByCustom', e.target.value)} />
-                  </div>
-                )}
-                {propAssets.length > 0 && (
-                  <div className="form-group">
-                    <label>Asset / Appliance</label>
-                    <select className="input" value={form.assetId} onChange={e => setField('assetId', e.target.value)}>
-                      <option value="">— None —</option>
-                      {propAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </div>
-                )}
-                {propTasks.length > 0 && (
-                  <div className="form-group">
-                    <label>Linked Task</label>
-                    <select className="input" value={form.linkedTaskId} onChange={e => setField('linkedTaskId', e.target.value)}>
-                      <option value="">— None —</option>
-                      {propTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-                    </select>
-                  </div>
-                )}
-                <div className="form-group full">
-                  <label>Description</label>
-                  <textarea className="input" rows={3} style={{ resize: 'vertical' }} placeholder="What was found, what was done, any observations…" value={form.description} onChange={e => setField('description', e.target.value)} />
-                </div>
-              </div>
+          )}
+          {propAssets.length > 0 && (
+            <div className="form-group">
+              <label>Asset / Appliance</label>
+              <select className="input" value={form.assetId} onChange={e => setField('assetId', e.target.value)}>
+                <option value="">— None —</option>
+                {propAssets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
             </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={!form.title.trim() || !form.date}>
-                {editingId === 'new' ? 'Log Record' : 'Save'}
-              </button>
+          )}
+          {propTasks.length > 0 && (
+            <div className="form-group">
+              <label>Linked Task</label>
+              <select className="input" value={form.linkedTaskId} onChange={e => setField('linkedTaskId', e.target.value)}>
+                <option value="">— None —</option>
+                {propTasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+              </select>
             </div>
+          )}
+          <div className="form-group full">
+            <label>Description</label>
+            <textarea className="input" rows={3} style={{ resize: 'vertical' }} placeholder="What was found, what was done, any observations…" value={form.description} onChange={e => setField('description', e.target.value)} />
           </div>
         </div>
-        </Portal>
-      )}
+      </Modal>
     </div>
   );
 }
