@@ -246,47 +246,46 @@ export default function PropertyOverview({ onSelectTab }) {
               )}
             </Card>
 
-            <Card variant="section" className="dash-col-4">
-              <SectionHeader
-                title={<><Icon name="tool" size={15} /> Recent Maintenance</>}
-                actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-maint')}>View all</button>}
-              />
-              {detail.recentM.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--text3)', padding: '4px 0' }}>No maintenance records yet.</p>
-              ) : (
-                <div className="fn-list">
-                  {detail.recentM.map(m => (
-                    <div key={m.id} className="fn-row">
-                      <div className="fn-main" style={{ cursor: 'default' }}>
-                        <div className="fn-left">
-                          <div className="fn-dates">
-                            <div className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{m.title}</div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                              <span className="tag">{m.category}</span>
-                              {m.performedBy && m.performedBy !== 'Self' && <span className="tag">{m.performedBy}</span>}
+            <div className="dash-col-4" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <Card variant="section">
+                <SectionHeader
+                  title={<><Icon name="tool" size={15} /> Recent Maintenance</>}
+                  actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-maint')}>View all</button>}
+                />
+                {detail.recentM.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text3)', padding: '4px 0' }}>No maintenance records yet.</p>
+                ) : (
+                  <div className="fn-list">
+                    {detail.recentM.map(m => (
+                      <div key={m.id} className="fn-row">
+                        <div className="fn-main" style={{ cursor: 'default' }}>
+                          <div className="fn-left">
+                            <div className="fn-dates">
+                              <div className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{m.title}</div>
+                              <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                                <span className="tag">{m.category}</span>
+                                {m.performedBy && m.performedBy !== 'Self' && <span className="tag">{m.performedBy}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="fn-right">
-                          <span className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>{m.date}</span>
+                          <div className="fn-right">
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>{m.date}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
 
-          {/* Secondary data row: projects + alerts */}
-          {(detail.projects.length > 0 || detail.assetAlerts.length > 0) && (
-            <div className="dash-grid">
-              {detail.projects.length > 0 && (
-                <Card variant="section" className={detail.assetAlerts.length > 0 ? 'dash-col-6' : 'dash-col-12'}>
-                  <SectionHeader
-                    title={<><Icon name="layers" size={15} /> Active Projects</>}
-                    actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-projects')}>View all</button>}
-                  />
+              <Card variant="section">
+                <SectionHeader
+                  title={<><Icon name="layers" size={15} /> Active Projects</>}
+                  actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-projects')}>View all</button>}
+                />
+                {detail.projects.length === 0 ? (
+                  <p style={{ fontSize: 13, color: 'var(--text3)', padding: '4px 0' }}>No active projects.</p>
+                ) : (
                   <div className="fn-list">
                     {detail.projects.map(proj => (
                       <div key={proj.id} className="fn-row">
@@ -309,41 +308,42 @@ export default function PropertyOverview({ onSelectTab }) {
                       </div>
                     ))}
                   </div>
-                </Card>
-              )}
+                )}
+              </Card>
+            </div>
+          </div>
 
-              {detail.assetAlerts.length > 0 && (
-                <Card variant="section" className={detail.projects.length > 0 ? 'dash-col-6' : 'dash-col-12'}>
-                  <SectionHeader title={<><Icon name="alertcir" size={15} /> Asset Alerts</>} />
-                  <div className="fn-list">
-                    {detail.assetAlerts.map(a => {
-                      const wDays = a.warrantyExpiry ? daysBetween(TODAY, a.warrantyExpiry) : null;
-                      const isCond = a.condition === 'Poor' || a.condition === 'Critical';
-                      return (
-                        <div key={a.id} className="fn-row">
-                          <div className="fn-main" style={{ cursor: 'default' }}>
-                            <div className="fn-left">
-                              <div className="fn-dates">
-                                <div className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{a.name}</div>
-                                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                                  {isCond && <span className={`dpill ${a.condition === 'Critical' ? 'red' : 'amber'}`}>{a.condition} condition</span>}
-                                  {wDays !== null && wDays >= 0 && wDays <= 90 && (
-                                    <span className={`dpill ${wDays <= 30 ? 'red' : 'amber'}`}>Warranty expires in {wDays}d</span>
-                                  )}
-                                  {wDays !== null && wDays < 0 && (
-                                    <span className="dpill red">Warranty expired</span>
-                                  )}
-                                </div>
-                              </div>
+          {/* Asset alerts row */}
+          {detail.assetAlerts.length > 0 && (
+            <Card variant="section">
+              <SectionHeader title={<><Icon name="alertcir" size={15} /> Asset Alerts</>} />
+              <div className="fn-list">
+                {detail.assetAlerts.map(a => {
+                  const wDays = a.warrantyExpiry ? daysBetween(TODAY, a.warrantyExpiry) : null;
+                  const isCond = a.condition === 'Poor' || a.condition === 'Critical';
+                  return (
+                    <div key={a.id} className="fn-row">
+                      <div className="fn-main" style={{ cursor: 'default' }}>
+                        <div className="fn-left">
+                          <div className="fn-dates">
+                            <div className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{a.name}</div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                              {isCond && <span className={`dpill ${a.condition === 'Critical' ? 'red' : 'amber'}`}>{a.condition} condition</span>}
+                              {wDays !== null && wDays >= 0 && wDays <= 90 && (
+                                <span className={`dpill ${wDays <= 30 ? 'red' : 'amber'}`}>Warranty expires in {wDays}d</span>
+                              )}
+                              {wDays !== null && wDays < 0 && (
+                                <span className="dpill red">Warranty expired</span>
+                              )}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </Card>
-              )}
-            </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
           )}
         </>
       )}

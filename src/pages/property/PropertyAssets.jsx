@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import Portal from '../../components/Portal';
-import { EmptyState, Card } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal } from '../../components/ui';
 import {
   createPropertyAsset,
   ASSET_TYPES, ASSET_CONDITIONS, CONDITION_PILL,
@@ -12,65 +11,108 @@ import { validate, propertyAssetSchema } from '../../utils/validation';
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
-const CONDITIONS      = ASSET_CONDITIONS;
-const CONDITION_DPILL = CONDITION_PILL;
+const TYPE_COLOR = {
+  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
+  'Investment': 'purple', 'Land/Section': '', 'Other': '',
+};
 
 function warrantyStatus(warrantyExpiry) {
   if (!warrantyExpiry) return null;
   const days = Math.round((new Date(warrantyExpiry) - new Date(today())) / 86400000);
-  if (days < 0)    return { label: 'Warranty expired', pill: 'red', days };
-  if (days <= 30)  return { label: `Warranty expires in ${days}d`, pill: 'red', days };
-  if (days <= 90)  return { label: `Warranty expires in ${days}d`, pill: 'amber', days };
+  if (days < 0)   return { label: 'Warranty expired',            pill: 'red'   };
+  if (days <= 30) return { label: `Warranty expires in ${days}d`, pill: 'red'   };
+  if (days <= 90) return { label: `Warranty expires in ${days}d`, pill: 'amber' };
   return null;
 }
 
 function lifespanAlert(dateInstalled, expectedLifespan) {
   if (!dateInstalled || !expectedLifespan) return null;
   const yearsLeft = (new Date(dateInstalled).getFullYear() + parseInt(expectedLifespan, 10)) - new Date().getFullYear();
-  if (yearsLeft < 0)  return { label: 'Past expected lifespan', pill: 'red' };
+  if (yearsLeft < 0)  return { label: 'Past expected lifespan',          pill: 'red'   };
   if (yearsLeft <= 2) return { label: `${yearsLeft}yr left of expected life`, pill: 'amber' };
   return null;
 }
 
 const EMPTY_ASSET = createPropertyAsset();
 
-function AssetRow({ asset, area, maintenanceRecords, onEdit, onDelete }) {
+// ── ActiveChip ────────────────────────────────────────────────────────────────
+
+function ActiveChip({ label, onClear }) {
+  return (
+    <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {label}
+      <button
+        onClick={onClear}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--text3)', fontSize: 13 }}
+        aria-label="Remove filter"
+      >×</button>
+    </span>
+  );
+}
+
+// ── AssetRow ──────────────────────────────────────────────────────────────────
+
+function AssetRow({ asset, area, propName, showProp, maintenanceRecords, onEdit, onDelete }) {
   const [expanded, setExpanded] = useState(false);
-  const warranty  = warrantyStatus(asset.warrantyExpiry);
-  const lifespan  = lifespanAlert(asset.dateInstalled, asset.expectedLifespan);
-  const hasAlerts = warranty || lifespan || asset.condition === 'Poor' || asset.condition === 'Critical';
-  const history   = maintenanceRecords
+  const warranty    = warrantyStatus(asset.warrantyExpiry);
+  const lifespan    = lifespanAlert(asset.dateInstalled, asset.expectedLifespan);
+  const history     = maintenanceRecords
     .filter(m => m.assetId === asset.id)
     .sort((a, b) => b.date.localeCompare(a.date));
+  const lastService = history[0] ?? null;
+  const hasDetail   = history.length > 0 || !!asset.notes;
 
   return (
     <div className="fn-row">
-      <div className="fn-main" style={{ cursor: history.length > 0 ? 'pointer' : 'default' }} onClick={() => history.length > 0 && setExpanded(e => !e)}>
+      <div
+        className="fn-main"
+        style={{ cursor: hasDetail ? 'pointer' : 'default' }}
+        onClick={() => hasDetail && setExpanded(e => !e)}
+      >
         <div className="fn-left">
           <div className="fn-dates">
-            <div className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{asset.name}</div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+
+            {/* Title — fn-label already provides font-size/weight via CSS */}
+            <div className="fn-label">{asset.name}</div>
+
+            {/* Primary classification chips */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {showProp && propName && <span className="tag">{propName}</span>}
               <span className="tag">{asset.type}</span>
               {area && <span className="tag teal">{area.name}</span>}
-              <span className={`dpill ${CONDITION_DPILL[asset.condition] || ''}`}>{asset.condition}</span>
+              <span className={`dpill ${CONDITION_PILL[asset.condition] || ''}`}>{asset.condition}</span>
               {warranty && <span className={`dpill ${warranty.pill}`}>{warranty.label}</span>}
               {lifespan && <span className={`dpill ${lifespan.pill}`}>{lifespan.label}</span>}
-              {asset.brand && <span className="tag">{asset.brand}{asset.model ? ` ${asset.model}` : ''}</span>}
             </div>
-            {asset.notes && (
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{asset.notes}</div>
+
+            {/* Lifecycle line */}
+            {(asset.dateInstalled || lastService) && (
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {asset.dateInstalled && (
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>Installed {asset.dateInstalled}</span>
+                )}
+                {lastService && (
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>Last service {lastService.date}</span>
+                )}
+              </div>
             )}
+
+            {/* Notes preview — only when collapsed */}
+            {!expanded && asset.notes && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {asset.notes}
+              </div>
+            )}
+
           </div>
         </div>
-        <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-            {asset.dateInstalled && (
-              <span className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>Installed {asset.dateInstalled}</span>
-            )}
-            {history.length > 0 && (
-              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{history.length} maint. record{history.length !== 1 ? 's' : ''}</span>
-            )}
-          </div>
+
+        <div className="fn-right" style={{ alignItems: 'flex-end', gap: 'var(--space-2)' }}>
+          {asset.brand && (
+            <span style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>
+              {asset.brand}{asset.model ? ` ${asset.model}` : ''}
+            </span>
+          )}
           <div className="exp-actions">
             <button className="btn-icon small" onClick={e => { e.stopPropagation(); onEdit(asset); }}><Icon name="pencil" size={12} /></button>
             <button className="btn-icon small danger" onClick={e => { e.stopPropagation(); onDelete(asset.id); }}><Icon name="trash" size={12} /></button>
@@ -78,60 +120,116 @@ function AssetRow({ asset, area, maintenanceRecords, onEdit, onDelete }) {
         </div>
       </div>
 
-      {expanded && history.length > 0 && (
-        <div className="exp-detail" style={{ paddingBottom: 12 }}>
-          <div className="form-section-label" style={{ marginBottom: 6 }}>Maintenance History</div>
-          <div className="change-history">
-            {history.slice(0, 5).map(m => (
-              <div key={m.id} className="ch-row">
-                <span className="ch-date mono">{m.date}</span>
-                <span className="ch-text" style={{ flex: 1 }}>{m.title}</span>
-                {m.performedBy && m.performedBy !== 'Self' && (
-                  <span className="tag" style={{ fontSize: 10 }}>{m.performedBy}</span>
+      {expanded && (
+        <div className="exp-detail">
+          {asset.notes && (
+            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: history.length > 0 ? 'var(--space-3)' : 0 }}>
+              {asset.notes}
+            </div>
+          )}
+          {history.length > 0 && (
+            <>
+              <div className="form-section-label" style={{ marginBottom: 'var(--space-2)' }}>Maintenance History</div>
+              <div className="change-history">
+                {history.slice(0, 5).map(m => (
+                  <div key={m.id} className="ch-row">
+                    <span className="ch-date mono">{m.date}</span>
+                    <span className="ch-text" style={{ flex: 1 }}>{m.title}</span>
+                    {m.performedBy && m.performedBy !== 'Self' && (
+                      <span className="tag" style={{ fontSize: 10 }}>{m.performedBy}</span>
+                    )}
+                  </div>
+                ))}
+                {history.length > 5 && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>+{history.length - 5} more records</div>
                 )}
               </div>
-            ))}
-            {history.length > 5 && (
-              <div style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>+{history.length - 5} more records</div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function PropertyAssets() {
   const { properties, propertyAssets, propertyMaintenance, selectedPropertyId, setProperty, mergeProperty } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
-  const [showModal,  setShowModal]  = useState(false);
-  const [form,       setForm]       = useState(EMPTY_ASSET);
-  const [editingId,  setEditingId]  = useState(null);
-  const [errors,     setErrors]     = useState({});
-  const [filterType, setFilterType] = useState('All');
-  const [filterCond, setFilterCond] = useState('All');
-  const [propScope,  setPropScope]  = useState('current');
+  const [showModal,    setShowModal]    = useState(false);
+  const [form,         setForm]         = useState(EMPTY_ASSET);
+  const [editingId,    setEditingId]    = useState(null);
+  const [errors,       setErrors]       = useState({});
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterType,   setFilterType]   = useState('All');
+  const [filterCond,   setFilterCond]   = useState('All');
+  const [filterArea,   setFilterArea]   = useState('All');
+  const [sortBy,       setSortBy]       = useState('condition');
+  const [propScope,    setPropScope]    = useState('current');
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // ── Scope helpers ───────────────────────────────────────────────────────────
+  const selectProperty = (id) => {
+    setProperty('selectedPropertyId', id);
+    setPropScope('current');
+    setFilterArea('All');
+  };
+  const selectAll  = () => { setPropScope('all'); setFilterArea('All'); };
+  const scopeLabel = propScope === 'all' ? 'All properties' : (selProp?.name ?? 'No property selected');
+
+  // ── Scoped assets (pre-filter) — used for snapshot ─────────────────────────
+  const scopedAssets = useMemo(() => {
+    if (propScope === 'all') return propertyAssets;
+    return selectedPropertyId ? propertyAssets.filter(a => a.propertyId === selectedPropertyId) : [];
+  }, [propertyAssets, propScope, selectedPropertyId]);
+
+  // ── Filtered + sorted assets — used for the register ───────────────────────
   const visibleAssets = useMemo(() => {
-    let list = propertyAssets;
-    if (propScope === 'current' && selectedPropertyId) {
-      list = list.filter(a => a.propertyId === selectedPropertyId);
+    let list = scopedAssets;
+    if (filterSearch.trim()) {
+      const q = filterSearch.toLowerCase();
+      list = list.filter(a => a.name.toLowerCase().includes(q) || (a.brand || '').toLowerCase().includes(q));
     }
-    if (filterType !== 'All') list = list.filter(a => a.type === filterType);
+    if (filterType !== 'All') list = list.filter(a => a.type      === filterType);
     if (filterCond !== 'All') list = list.filter(a => a.condition === filterCond);
+    if (filterArea !== 'All') list = list.filter(a => a.areaId    === filterArea);
     const condOrder = { Critical: 0, Poor: 1, Fair: 2, Good: 3, Excellent: 4 };
-    return [...list].sort((a, b) => (condOrder[a.condition] ?? 5) - (condOrder[b.condition] ?? 5));
-  }, [propertyAssets, propScope, selectedPropertyId, filterType, filterCond]);
+    const out = [...list];
+    if (sortBy === 'name')      out.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortBy === 'type') out.sort((a, b) => a.type.localeCompare(b.type));
+    else out.sort((a, b) => (condOrder[a.condition] ?? 5) - (condOrder[b.condition] ?? 5));
+    return out;
+  }, [scopedAssets, filterSearch, filterType, filterCond, filterArea, sortBy]);
 
-  const alertCount = useMemo(() => visibleAssets.filter(a => {
-    if (a.condition === 'Poor' || a.condition === 'Critical') return true;
-    return !!warrantyStatus(a.warrantyExpiry) || !!lifespanAlert(a.dateInstalled, a.expectedLifespan);
-  }).length, [visibleAssets]);
+  // ── Assets grouped by type — preserves ASSET_TYPES order ───────────────────
+  const groupedAssets = useMemo(() => (
+    ASSET_TYPES
+      .map(type => ({ type, items: visibleAssets.filter(a => a.type === type) }))
+      .filter(g => g.items.length > 0)
+  ), [visibleAssets]);
 
+  // ── Snapshot stats ──────────────────────────────────────────────────────────
+  const snap = useMemo(() => {
+    const count = (cond) => scopedAssets.filter(a => a.condition === cond).length;
+    return {
+      total:    scopedAssets.length,
+      excellent: count('Excellent'),
+      good:      count('Good'),
+      fair:      count('Fair'),
+      poorCrit:  count('Poor') + count('Critical'),
+    };
+  }, [scopedAssets]);
+
+  const areas      = selProp?.areas || [];
+  const isFiltered = !!(filterSearch || filterType !== 'All' || filterCond !== 'All' || filterArea !== 'All');
+
+  const clearFilters = () => { setFilterSearch(''); setFilterType('All'); setFilterCond('All'); setFilterArea('All'); };
+
+  // ── CRUD handlers ───────────────────────────────────────────────────────────
   const openNew = () => {
     setForm({ ...EMPTY_ASSET, id: crypto.randomUUID(), propertyId: selectedPropertyId || '', createdAt: today() });
     setErrors({}); setEditingId('new'); setShowModal(true);
@@ -161,163 +259,250 @@ export default function PropertyAssets() {
     mergeProperty(cascadeDeleteAsset({ propertyAssets, propertyMaintenance }, id));
   };
 
-  if (!selProp && propScope === 'current') {
+  // ── No properties guard ─────────────────────────────────────────────────────
+  if (properties.length === 0) {
     return (
       <div className="page-content">
         <EmptyState
           icon={<Icon name="wrench" size={38} />}
-          title="Select a property from the Overview or Properties tab first."
+          title="No properties yet. Add a property first to start tracking assets."
         />
       </div>
     );
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="page-content">
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
-        {properties.length > 1 && (
-          <div className="exp-type-sel">
-            <button className={`ets-btn ${propScope === 'current' ? 'active' : ''}`} onClick={() => setPropScope('current')}>This property</button>
-            <button className={`ets-btn ${propScope === 'all' ? 'active' : ''}`} onClick={() => setPropScope('all')}>All</button>
-          </div>
-        )}
-        <button className="btn-primary" onClick={openNew} disabled={!selProp}>
-          <Icon name="plus" size={14} /> Add Asset
-        </button>
-      </div>
 
-      {/* Filters */}
-      <Card variant="section" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="form-section-label" style={{ minWidth: 70 }}>Type</span>
-            <div className="filter-tabs">
-              {['All', ...ASSET_TYPES].map(t => (
-                <button key={t} className={`filter-tab ${filterType === t ? 'active' : ''}`} onClick={() => setFilterType(t)}>{t}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="form-section-label" style={{ minWidth: 70 }}>Condition</span>
-            <div className="filter-tabs">
-              {['All', ...CONDITIONS].map(c => (
-                <button key={c} className={`filter-tab ${filterCond === c ? 'active' : ''}`} onClick={() => setFilterCond(c)}>{c}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {visibleAssets.length === 0 ? (
-        <EmptyState
-          icon={<Icon name="wrench" size={38} />}
-          title={propertyAssets.length === 0
-            ? 'No assets registered yet. Track your appliances, systems, and fixtures here.'
-            : 'No assets match the current filters.'}
-          action={selProp && <button className="btn-primary" onClick={openNew}><Icon name="plus" size={14} /> Add Asset</button>}
+      {/* ── 1. Property selector ─────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="building" size={15} /> Properties</>}
+          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
         />
-      ) : (
-        <div className="fn-list">
-          {visibleAssets.map(asset => {
-            const prop = properties.find(p => p.id === asset.propertyId);
-            const area = (prop?.areas || []).find(a => a.id === asset.areaId);
-            const maintRecords = propertyMaintenance.filter(m => m.propertyId === asset.propertyId);
+        <div className="prop-selector">
+          <div
+            className={`prop-sel-item${propScope === 'all' ? ' selected' : ''}`}
+            onClick={selectAll}
+          >
+            <span className="prop-sel-name">All Properties</span>
+            <div className="prop-sel-meta">
+              <span className="tag">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
+            </div>
+          </div>
+          {properties.map(prop => {
+            const assetCount = propertyAssets.filter(a => a.propertyId === prop.id).length;
+            const isSelected = propScope === 'current' && prop.id === selectedPropertyId;
             return (
-              <AssetRow
-                key={asset.id}
-                asset={asset}
-                area={area}
-                maintenanceRecords={maintRecords}
-                onEdit={openEdit}
-                onDelete={deleteAsset}
-              />
+              <div
+                key={prop.id}
+                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
+                onClick={() => selectProperty(prop.id)}
+              >
+                <span className="prop-sel-name">{prop.name}</span>
+                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
+                <div className="prop-sel-meta">
+                  {prop.type      && <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>}
+                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
+                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
+                  {assetCount > 0 && <span className="tag">{assetCount} asset{assetCount !== 1 ? 's' : ''}</span>}
+                </div>
+              </div>
             );
           })}
         </div>
-      )}
+      </Card>
 
-      {/* ── Modal ──────────────────────────────────────────────────────────── */}
-      {showModal && (
-        <Portal>
-        <div className="modal-overlay" onClick={close}>
-          <div className="modal wide" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{editingId === 'new' ? 'Add Asset / Appliance' : 'Edit Asset'}</h3>
-              <button className="btn-icon" onClick={close}><Icon name="close" size={14} /></button>
-            </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group full">
-                  <label>Name *</label>
-                  <input className={`input${errors.name ? ' input-error' : ''}`} placeholder='e.g. "Lounge Heat Pump", "Hot Water Cylinder"' value={form.name} onChange={e => setField('name', e.target.value)} autoFocus />
-                  {errors.name && <span className="field-error">{errors.name}</span>}
-                </div>
-                <div className="form-group">
-                  <label>Type</label>
-                  <select className="input" value={form.type} onChange={e => setField('type', e.target.value)}>
-                    {ASSET_TYPES.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Condition</label>
-                  <select className="input" value={form.condition} onChange={e => setField('condition', e.target.value)}>
-                    {CONDITIONS.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Property</label>
-                  <select className={`input${errors.propertyId ? ' input-error' : ''}`} value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
-                    <option value="">— Select —</option>
-                    {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                  {errors.propertyId && <span className="field-error">{errors.propertyId}</span>}
-                </div>
-                <div className="form-group">
-                  <label>Area</label>
-                  <select className="input" value={form.areaId} onChange={e => setField('areaId', e.target.value)}>
-                    <option value="">— None —</option>
-                    {(properties.find(p => p.id === form.propertyId)?.areas || []).map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Brand</label>
-                  <input className="input" placeholder="e.g. Mitsubishi" value={form.brand} onChange={e => setField('brand', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Model</label>
-                  <input className="input" placeholder="e.g. MSZ-AP25VG" value={form.model} onChange={e => setField('model', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Date Installed</label>
-                  <input className="input" type="date" value={form.dateInstalled} onChange={e => setField('dateInstalled', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Warranty Expiry</label>
-                  <input className="input" type="date" value={form.warrantyExpiry} onChange={e => setField('warrantyExpiry', e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Expected Lifespan (years)</label>
-                  <input className={`input${errors.expectedLifespan ? ' input-error' : ''}`} type="number" min="1" placeholder="e.g. 15" value={form.expectedLifespan} onChange={e => setField('expectedLifespan', e.target.value)} />
-                  {errors.expectedLifespan && <span className="field-error">{errors.expectedLifespan}</span>}
-                </div>
-                <div className="form-group full">
-                  <label>Notes (serial number, supplier, etc.)</label>
-                  <textarea className="input" rows={3} style={{ resize: 'vertical' }} value={form.notes} onChange={e => setField('notes', e.target.value)} />
-                </div>
+      {/* ── 2. Asset snapshot ────────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="wrench" size={15} /> Asset Snapshot</>}
+          subtitle={scopeLabel}
+        />
+        <div className="fn-summary">
+          <StatTile label="Total"           value={snap.total}     valueClassName={snap.total > 0 ? '' : 'text3'} />
+          <StatTile label="Excellent"       value={snap.excellent} valueClassName={snap.excellent > 0 ? 'green' : 'text3'} />
+          <StatTile label="Good"            value={snap.good}      valueClassName={snap.good > 0 ? 'teal' : 'text3'} />
+          <StatTile label="Fair"            value={snap.fair}      valueClassName={snap.fair > 0 ? '' : 'text3'} />
+          <StatTile label="Poor / Critical" value={snap.poorCrit}  valueClassName={snap.poorCrit > 0 ? 'red' : 'text3'} />
+        </div>
+      </Card>
+
+      {/* ── 3. Filter toolbar ────────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader title={<><Icon name="filter" size={15} /> Filters</>} />
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            className="input small"
+            style={{ flex: '1 1 160px', minWidth: 140 }}
+            placeholder="Search assets…"
+            value={filterSearch}
+            onChange={e => setFilterSearch(e.target.value)}
+          />
+          <select className="input small" value={filterType} onChange={e => setFilterType(e.target.value)}>
+            <option value="All">All types</option>
+            {ASSET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="input small" value={filterCond} onChange={e => setFilterCond(e.target.value)}>
+            <option value="All">All conditions</option>
+            {ASSET_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {propScope === 'current' && areas.length > 0 && (
+            <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
+              <option value="All">All areas</option>
+              {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
+          <select className="input small" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="condition">Sort: Condition</option>
+            <option value="name">Sort: Name</option>
+            <option value="type">Sort: Type</option>
+          </select>
+        </div>
+        {isFiltered && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)' }}>
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Active:</span>
+            {filterSearch         && <ActiveChip label={`"${filterSearch}"`}                                        onClear={() => setFilterSearch('')} />}
+            {filterType !== 'All' && <ActiveChip label={filterType}                                                 onClear={() => setFilterType('All')} />}
+            {filterCond !== 'All' && <ActiveChip label={filterCond}                                                 onClear={() => setFilterCond('All')} />}
+            {filterArea !== 'All' && <ActiveChip label={areas.find(a => a.id === filterArea)?.name ?? filterArea}   onClear={() => setFilterArea('All')} />}
+            <button className="btn-ghost small" onClick={clearFilters} style={{ fontSize: 11, padding: '2px 8px' }}>Clear all</button>
+          </div>
+        )}
+      </Card>
+
+      {/* ── 4. Asset register ────────────────────────────────────────────── */}
+      <Card variant="section">
+        <SectionHeader
+          title={<><Icon name="wrench" size={15} /> Assets</>}
+          subtitle={`${visibleAssets.length} asset${visibleAssets.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`}
+          actions={
+            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && propScope !== 'all'}>
+              <Icon name="plus" size={14} /> Add Asset
+            </button>
+          }
+        />
+        {visibleAssets.length === 0 ? (
+          <EmptyState
+            icon={<Icon name="wrench" size={38} />}
+            title={
+              !selProp && propScope === 'current'
+                ? 'Select a property above to view its assets.'
+                : scopedAssets.length === 0
+                ? 'No assets registered yet. Track your appliances, systems, and fixtures here.'
+                : 'No assets match the current filters.'
+            }
+            action={selProp && <button className="btn-ghost" onClick={openNew}><Icon name="plus" size={14} /> Add Asset</button>}
+          />
+        ) : (
+          groupedAssets.map(({ type, items }, gi) => (
+            <Fragment key={type}>
+              <div className="section-subheader" style={{ marginTop: gi === 0 ? 'var(--space-1)' : undefined }}>
+                <span>{type}</span>
+                <span className="dpill">{items.length}</span>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save}>
-                {editingId === 'new' ? 'Add Asset' : 'Save'}
-              </button>
-            </div>
+              <div className="fn-list">
+                {items.map(asset => {
+                  const prop = properties.find(p => p.id === asset.propertyId);
+                  const area = (prop?.areas || []).find(a => a.id === asset.areaId);
+                  const maintRecords = propertyMaintenance.filter(m => m.propertyId === asset.propertyId);
+                  return (
+                    <AssetRow
+                      key={asset.id}
+                      asset={asset}
+                      area={area}
+                      propName={prop?.name}
+                      showProp={propScope === 'all' && properties.length > 1}
+                      maintenanceRecords={maintRecords}
+                      onEdit={openEdit}
+                      onDelete={deleteAsset}
+                    />
+                  );
+                })}
+              </div>
+            </Fragment>
+          ))
+        )}
+      </Card>
+
+      {/* ── Modal ─────────────────────────────────────────────────────────── */}
+      <Modal
+        isOpen={showModal}
+        onClose={close}
+        title={editingId === 'new' ? 'Add Asset / Appliance' : 'Edit Asset'}
+        wide
+        footer={
+          <>
+            <button className="btn-ghost" onClick={close}>Cancel</button>
+            <button className="btn-primary" onClick={save}>
+              {editingId === 'new' ? 'Add Asset' : 'Save'}
+            </button>
+          </>
+        }
+      >
+        <div className="form-grid">
+          <div className="form-group full">
+            <label>Name *</label>
+            <input className={`input${errors.name ? ' input-error' : ''}`} placeholder='e.g. "Lounge Heat Pump", "Hot Water Cylinder"' value={form.name} onChange={e => setField('name', e.target.value)} autoFocus />
+            {errors.name && <span className="field-error">{errors.name}</span>}
+          </div>
+          <div className="form-group">
+            <label>Type</label>
+            <select className="input" value={form.type} onChange={e => setField('type', e.target.value)}>
+              {ASSET_TYPES.map(t => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Condition</label>
+            <select className="input" value={form.condition} onChange={e => setField('condition', e.target.value)}>
+              {ASSET_CONDITIONS.map(c => <option key={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Property</label>
+            <select className={`input${errors.propertyId ? ' input-error' : ''}`} value={form.propertyId} onChange={e => setField('propertyId', e.target.value)}>
+              <option value="">— Select —</option>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            {errors.propertyId && <span className="field-error">{errors.propertyId}</span>}
+          </div>
+          <div className="form-group">
+            <label>Area</label>
+            <select className="input" value={form.areaId} onChange={e => setField('areaId', e.target.value)}>
+              <option value="">— None —</option>
+              {(properties.find(p => p.id === form.propertyId)?.areas || []).map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Brand</label>
+            <input className="input" placeholder="e.g. Mitsubishi" value={form.brand} onChange={e => setField('brand', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Model</label>
+            <input className="input" placeholder="e.g. MSZ-AP25VG" value={form.model} onChange={e => setField('model', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Date Installed</label>
+            <input className="input" type="date" value={form.dateInstalled} onChange={e => setField('dateInstalled', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Warranty Expiry</label>
+            <input className="input" type="date" value={form.warrantyExpiry} onChange={e => setField('warrantyExpiry', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>Expected Lifespan (years)</label>
+            <input className={`input${errors.expectedLifespan ? ' input-error' : ''}`} type="number" min="1" placeholder="e.g. 15" value={form.expectedLifespan} onChange={e => setField('expectedLifespan', e.target.value)} />
+            {errors.expectedLifespan && <span className="field-error">{errors.expectedLifespan}</span>}
+          </div>
+          <div className="form-group full">
+            <label>Notes (serial number, supplier, etc.)</label>
+            <textarea className="input" rows={3} style={{ resize: 'vertical' }} value={form.notes} onChange={e => setField('notes', e.target.value)} />
           </div>
         </div>
-        </Portal>
-      )}
+      </Modal>
     </div>
   );
 }

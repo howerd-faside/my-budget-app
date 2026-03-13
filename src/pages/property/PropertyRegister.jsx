@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
@@ -117,20 +117,33 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
     return { openTasks: open.length, overdue: overdue.length, maint, projects, alerts };
   }, [selProp, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, today]);
 
-  // ── Building detail rows for selected property ────────────────────────────
-  const buildingRows = selProp ? [
-    ['Year Built',   selProp.yearBuilt],
-    ['Construction', selProp.constructionType],
-    ['Roof',         selProp.roofType],
-    ['Cladding',     selProp.cladding],
-    ['Heating',      selProp.heating],
-    ['Water Supply', selProp.waterSupply],
-    ['Wastewater',   selProp.wastewater],
-  ].filter(([, v]) => v) : [];
-
-  const insulationRows = selProp ? ['ceiling', 'underfloor', 'walls']
-    .map(z => [z.charAt(0).toUpperCase() + z.slice(1), selProp.insulation?.[z] || 'unknown'])
-    .filter(([, v]) => v !== 'unknown') : [];
+  // ── Building detail groups for selected property ──────────────────────────
+  const buildingGroups = selProp ? [
+    {
+      label: 'Core Structure',
+      rows: [
+        ['Year Built',   selProp.yearBuilt],
+        ['Construction', selProp.constructionType],
+        ['Roof',         selProp.roofType],
+        ['Cladding',     selProp.cladding],
+      ].filter(([, v]) => v),
+    },
+    {
+      label: 'Utilities',
+      rows: [
+        ['Heating',      selProp.heating],
+        ['Water Supply', selProp.waterSupply],
+        ['Wastewater',   selProp.wastewater],
+      ].filter(([, v]) => v),
+    },
+    {
+      label: 'Insulation',
+      isInsulation: true,
+      rows: ['Ceiling', 'Underfloor', 'Walls']
+        .map(z => [z, selProp.insulation?.[z.toLowerCase()] || 'unknown'])
+        .filter(([, v]) => v !== 'unknown'),
+    },
+  ].filter(g => g.rows.length > 0) : [];
 
   const areaGroups = selProp
     ? AREA_GROUPS.filter(g => (selProp.areas || []).some(a => a.group === g))
@@ -412,7 +425,7 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
             {/* Left — Building Details + Areas */}
             <div className="dash-col-8" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {(buildingRows.length > 0 || insulationRows.length > 0 || selProp.notes) && (
+              {(buildingGroups.length > 0 || selProp.notes) && (
                 <Card variant="section">
                   <SectionHeader
                     title="Building Details"
@@ -422,26 +435,49 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
                       </button>
                     }
                   />
-                  {(buildingRows.length > 0 || insulationRows.length > 0) && (
-                    <div className="exp-detail-grid">
-                      {buildingRows.map(([label, value]) => (
-                        <div key={label} className="edg-item">
-                          <span className="edg-label">{label}</span>
-                          <span className="edg-val">{value}</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, alignItems: 'start' }}>
+                    {buildingGroups.map((group, gi) => {
+                      const rightCol  = gi % 2 === 1;
+                      const newRow    = gi >= 2;
+                      const lastAlone = newRow && gi % 2 === 0 && gi === buildingGroups.length - 1;
+                      return (
+                        <div
+                          key={group.label}
+                          style={{
+                            paddingLeft:   rightCol  ? 24 : 0,
+                            paddingRight: !rightCol  ? 24 : 0,
+                            paddingTop:   newRow     ? 16 : 0,
+                            paddingBottom: !newRow   ? 16 : 0,
+                            borderLeft:   rightCol   ? '1px solid var(--sep)' : undefined,
+                            borderTop:    newRow     ? '1px solid var(--sep)' : undefined,
+                            gridColumn:   lastAlone  ? '1 / -1' : undefined,
+                          }}
+                        >
+                          <div className="prop-areas-glabel" style={{ marginBottom: 7, color: 'var(--text2)' }}>{group.label}</div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: lastAlone
+                              ? `repeat(${group.rows.length}, max-content auto)`
+                              : 'max-content 1fr',
+                            gap: '5px 16px',
+                            alignItems: 'baseline',
+                          }}>
+                            {group.rows.map(([label, value]) => (
+                              <Fragment key={label}>
+                                <span className="edg-label" style={{ marginBottom: 0 }}>{label}</span>
+                                <span className="edg-val" style={group.isInsulation ? {
+                                  color: value === 'yes' ? 'var(--green)' : value === 'no' ? 'var(--red)' : 'var(--text3)',
+                                  marginRight: 24,
+                                } : undefined}>{value}</span>
+                              </Fragment>
+                            ))}
+                          </div>
                         </div>
-                      ))}
-                      {insulationRows.map(([label, value]) => (
-                        <div key={label} className="edg-item">
-                          <span className="edg-label">{label} Insulation</span>
-                          <span className="edg-val" style={{
-                            color: value === 'yes' ? 'var(--green)' : value === 'no' ? 'var(--red)' : 'var(--text3)',
-                          }}>{value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
                   {selProp.notes && (
-                    <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--card2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
+                    <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--card2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
                       {selProp.notes}
                     </div>
                   )}
@@ -483,23 +519,29 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
                 {(selProp.areas || []).length === 0 ? (
                   <p style={{ fontSize: 13, color: 'var(--text3)' }}>No areas defined. Add areas to tag tasks, maintenance, and assets.</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {areaGroups.map(group => (
-                      <div key={group} className="prop-areas-group">
-                        <span className="prop-areas-glabel">{group}</span>
-                        <div className="prop-areas-chips">
-                          {(selProp.areas || []).filter(a => a.group === group).map(area => (
-                            <span key={area.id} className="prop-area-chip">
-                              {area.name}
-                              <button className="btn-icon small danger" onClick={() => deleteAreaFromSelected(area.id)}>
-                                <Icon name="close" size={10} />
-                              </button>
-                            </span>
-                          ))}
+                  <>
+                    {areaGroups.map(group => {
+                      const groupAreas = (selProp.areas || []).filter(a => a.group === group);
+                      return (
+                        <div key={group} className="prop-areas-group">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span className="prop-areas-glabel">{group}</span>
+                            <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>{groupAreas.length}</span>
+                          </div>
+                          <div className="prop-areas-chips">
+                            {groupAreas.map(area => (
+                              <span key={area.id} className="prop-area-chip mini">
+                                {area.name}
+                                <button className="btn-icon small danger" onClick={() => deleteAreaFromSelected(area.id)}>
+                                  <Icon name="close" size={10} />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      );
+                    })}
+                  </>
                 )}
               </Card>
             </div>

@@ -17,10 +17,12 @@
   --teal-dim:  rgba(0,113,227,0.08);
   --green:     #34C759;   /* success */
   --green-dim: rgba(52,199,89,0.1);
-  --red:       #FF3B30;   /* danger */
-  --red-dim:   rgba(255,59,48,0.08);
-  --amber:     #FF9F0A;   /* warning */
-  --amber-dim: rgba(255,159,10,0.08);
+  --red:        #FF3B30;   /* danger */
+  --red-dim:    rgba(255,59,48,0.08);
+  --orange:     #FF6B00;   /* poor condition */
+  --orange-dim: rgba(255,107,0,0.08);
+  --amber:      #FF9F0A;   /* warning */
+  --amber-dim:  rgba(255,159,10,0.08);
   --purple:    #AF52DE;   /* AI / accent */
 
   /* ── Text ─────────────────────────────────────────────────────────────── */
@@ -414,6 +416,7 @@ body {
   border: 1px solid transparent;
 }
 .dpill.red    { background: var(--red-dim);              color: var(--red);    border-color: rgba(255,59,48,0.15); }
+.dpill.orange { background: var(--orange-dim);           color: var(--orange); border-color: rgba(255,107,0,0.15); }
 .dpill.amber  { background: var(--amber-dim);            color: var(--amber);  border-color: rgba(255,159,10,0.15); }
 .dpill.teal   { background: var(--teal-dim);             color: var(--teal);   border-color: rgba(0,113,227,0.15); }
 .dpill.purple { background: rgba(175,82,222,0.08);       color: var(--purple); border-color: rgba(175,82,222,0.15); }
@@ -1394,14 +1397,14 @@ select.input {
 
 .prop-areas-list { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* ── Area group two-column layout ────────────────────────────────────────── */
-.prop-areas-group  { display: flex; align-items: flex-start; gap: 10px; }
+/* ── Area groups ─────────────────────────────────────────────────────────── */
+.prop-areas-group { display: flex; flex-direction: column; gap: 5px; }
+.prop-areas-group + .prop-areas-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--sep); }
 .prop-areas-glabel {
-  flex-shrink: 0; min-width: 68px; padding-top: 5px; text-align: right;
   font-size: 10px; font-weight: 600; color: var(--text3);
   text-transform: uppercase; letter-spacing: 0.05em;
 }
-.prop-areas-chips  { display: flex; flex-wrap: wrap; gap: 5px; }
+.prop-areas-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 
 /* ── Insulation selector ─────────────────────────────────────────────────── */
 .prop-insul-grid { display: flex; flex-direction: column; gap: 10px; }

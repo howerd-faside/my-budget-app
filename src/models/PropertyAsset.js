@@ -35,7 +35,7 @@ export const ASSET_CONDITIONS = /** @type {const} */ (
 
 /** Pill colour class keyed by condition. */
 export const CONDITION_PILL = /** @type {const} */ ({
-  Excellent: 'green', Good: 'teal', Fair: 'amber', Poor: 'red', Critical: 'red',
+  Excellent: 'green', Good: 'teal', Fair: 'amber', Poor: 'orange', Critical: 'red',
 });
 
 /**
