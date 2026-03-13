@@ -25,6 +25,7 @@ import InvestmentTaxSummary from './pages/investments/InvestmentTaxSummary';
 import { getPortfolioDependents, cascadeDeletePortfolio, portfolioDeleteMessage } from './utils/cascade';
 import DataManagement from './components/DataManagement';
 import Icon from './components/Icon';
+import { Card, SectionHeader } from './components/ui';
 import fasideLogo from './assets/faside-logo.png';
 import './App.css';
 
@@ -77,10 +78,10 @@ function PortfolioBar() {
   const portfolios = investmentPortfolios || [];
   const selectedId = selectedPortfolioId;
 
-  const [creating,    setCreating]    = useState(false);
-  const [newName,     setNewName]     = useState('');
-  const [renamingId,  setRenamingId]  = useState(null);
-  const [renameText,  setRenameText]  = useState('');
+  const [creating,   setCreating]   = useState(false);
+  const [newName,    setNewName]    = useState('');
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameText, setRenameText] = useState('');
   const inputRef  = useRef(null);
   const renameRef = useRef(null);
 
@@ -92,8 +93,7 @@ function PortfolioBar() {
     const name = newName.trim();
     if (!name) { setCreating(false); return; }
     const id = crypto.randomUUID();
-    const newPortfolios = [...portfolios, { id, name, createdAt: today() }];
-    setInvestment('investmentPortfolios', newPortfolios);
+    setInvestment('investmentPortfolios', [...portfolios, { id, name, createdAt: today() }]);
     setInvestment('selectedPortfolioId', id);
     setCreating(false);
   };
@@ -120,77 +120,86 @@ function PortfolioBar() {
     mergeInvestment(cascadeDeletePortfolio(invState, id));
   };
 
-  if (portfolios.length === 0 && !creating) {
-    return (
-      <div className="portfolio-bar">
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>No portfolios yet.</span>
-        <button className="portfolio-add-btn" onClick={startCreate}>+ New Portfolio</button>
-      </div>
-    );
-  }
+  const selPortfolio = portfolios.find(p => p.id === selectedId);
 
   return (
-    <div className="portfolio-bar">
-      {portfolios.map(p => {
-        const isActive   = p.id === selectedId;
-        const isRenaming = renamingId === p.id;
-        return (
-          <div
-            key={p.id}
-            className={`portfolio-pill ${isActive ? 'active' : ''}`}
-            onClick={() => !isRenaming && setInvestment('selectedPortfolioId', p.id)}
-          >
-            {isRenaming ? (
-              <input
-                ref={renameRef}
-                className="portfolio-rename-input"
-                value={renameText}
-                onChange={e => setRenameText(e.target.value)}
-                onBlur={confirmRename}
-                onKeyDown={e => { if (e.key === 'Enter') confirmRename(); if (e.key === 'Escape') setRenamingId(null); }}
-                onClick={e => e.stopPropagation()}
-              />
-            ) : (
-              <span>{p.name}</span>
-            )}
-            {isActive && !isRenaming && (
-              <>
-                <button
-                  className="portfolio-pill-action"
-                  title="Rename"
-                  onClick={e => { e.stopPropagation(); startRename(p); }}
-                >
-                  <Icon name="pencil" size={9} />
-                </button>
-                {portfolios.length > 1 && (
-                  <button
-                    className="portfolio-pill-action danger"
-                    title="Delete portfolio"
-                    onClick={e => { e.stopPropagation(); deletePortfolio(p.id); }}
-                  >
-                    <Icon name="trash" size={9} />
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        );
-      })}
+    <Card variant="section" style={{ marginBottom: 24 }}>
+      <SectionHeader
+        title={<><Icon name="layers" size={15} /> Portfolios</>}
+        subtitle={
+          portfolios.length === 0
+            ? 'No portfolios yet'
+            : `${portfolios.length} ${portfolios.length === 1 ? 'portfolio' : 'portfolios'} · click to select`
+        }
+        actions={
+          <button className="btn-ghost small" onClick={startCreate}>+ New Portfolio</button>
+        }
+      />
 
-      {creating ? (
-        <input
-          ref={inputRef}
-          className="portfolio-new-input"
-          placeholder="Portfolio name…"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          onBlur={confirmCreate}
-          onKeyDown={e => { if (e.key === 'Enter') confirmCreate(); if (e.key === 'Escape') setCreating(false); }}
-        />
-      ) : (
-        <button className="portfolio-add-btn" onClick={startCreate}>+ New</button>
+      {(portfolios.length > 0 || creating) && (
+        <div className="prop-selector">
+          {portfolios.map(p => {
+            const holdingCount = (investments || []).filter(i => i.portfolioId === p.id).length;
+            const isSelected = p.id === selectedId;
+            const isRenaming = renamingId === p.id;
+            return (
+              <div
+                key={p.id}
+                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
+                onClick={() => !isRenaming && setInvestment('selectedPortfolioId', p.id)}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                  {isRenaming ? (
+                    <input
+                      ref={renameRef}
+                      className="prop-sel-rename-input"
+                      value={renameText}
+                      onChange={e => setRenameText(e.target.value)}
+                      onBlur={confirmRename}
+                      onKeyDown={e => { if (e.key === 'Enter') confirmRename(); if (e.key === 'Escape') setRenamingId(null); }}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span
+                      className="prop-sel-name"
+                      title="Click to rename"
+                      onClick={e => { e.stopPropagation(); startRename(p); }}
+                      style={{ cursor: 'text' }}
+                    >{p.name}</span>
+                  )}
+                  {portfolios.length > 1 && !isRenaming && (
+                    <button
+                      className="btn-icon small danger prop-sel-del"
+                      title="Delete portfolio"
+                      onClick={e => { e.stopPropagation(); deletePortfolio(p.id); }}
+                    >
+                      <Icon name="trash" size={11} />
+                    </button>
+                  )}
+                </div>
+                <div className="prop-sel-meta">
+                  <span className="tag">{holdingCount} {holdingCount === 1 ? 'holding' : 'holdings'}</span>
+                </div>
+              </div>
+            );
+          })}
+
+          {creating && (
+            <div className="prop-sel-item prop-sel-creating">
+              <input
+                ref={inputRef}
+                className="prop-sel-new-input"
+                placeholder="Portfolio name…"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onBlur={confirmCreate}
+                onKeyDown={e => { if (e.key === 'Enter') confirmCreate(); if (e.key === 'Escape') setCreating(false); }}
+              />
+            </div>
+          )}
+        </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -347,12 +356,10 @@ function Shell() {
           </div>
         )}
 
-        {/* Portfolio switcher (investments only) */}
-        {section === 'investments' && <PortfolioBar />}
-
         {/* Page content */}
         <main className="main-content">
           <div className="content-wrap">
+            {section === 'investments' && <PortfolioBar />}
             <div key={animKey} className={`page-anim ${animClass}`}>
               <ErrorBoundary key={tab} label={currentTabs.find(t => t.id === tab)?.label}>
                 {section === 'home' ? <DataManagement /> : renderPage()}

@@ -1203,6 +1203,10 @@ select.input {
 .btn-primary.btn-green { background: var(--green); }
 .btn-primary.btn-green:hover { background: var(--green); filter: brightness(0.92); }
 
+/* ── BTN-DARK variant ────────────────────────────────────────────────── */
+.btn-primary.btn-dark { background: var(--text); }
+.btn-primary.btn-dark:hover { background: var(--text); filter: brightness(1.2); }
+
 /* ── LOAN CHARTS ─────────────────────────────────────────────────────── */
 .loan-charts-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;
@@ -1616,65 +1620,17 @@ select.input {
 }
 
 
-/* ── PORTFOLIO SWITCHER BAR ──────────────────────────────────────────────── */
-.portfolio-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 20px;
-  border-bottom: 1px solid var(--sep);
-  background: var(--bg);
-  flex-wrap: wrap;
-  min-height: 40px;
+/* ── Portfolio selector extras ───────────────────────────────────────────── */
+.prop-sel-rename-input {
+  background: none; border: none; outline: none;
+  font-size: 13px; font-weight: 600; color: var(--teal);
+  font-family: var(--font); flex: 1; min-width: 80px;
 }
-.portfolio-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--sep);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text2);
-  cursor: pointer;
-  transition: background 0.13s, border-color 0.13s, color 0.13s;
-  user-select: none;
-}
-.portfolio-pill:hover { border-color: var(--teal); color: var(--teal); }
-.portfolio-pill.active {
-  background: var(--teal);
-  border-color: var(--teal);
-  color: #fff;
-}
-.portfolio-pill-action {
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; cursor: pointer; padding: 0;
-  color: rgba(255,255,255,0.7);
-  border-radius: 3px;
-  transition: color 0.1s;
-  line-height: 1;
-}
-.portfolio-pill-action:hover { color: #fff; }
-.portfolio-pill-action.danger:hover { color: #FF3B30; }
-.portfolio-rename-input {
-  border: none; outline: none; background: transparent;
-  color: #fff; font-size: 12px; font-weight: 500;
-  width: 100px; font-family: var(--font);
-}
-.portfolio-add-btn {
-  background: none; border: 1px dashed var(--sep); border-radius: 20px;
-  padding: 4px 10px; font-size: 12px; color: var(--text3);
-  cursor: pointer; transition: border-color 0.13s, color 0.13s;
-  font-family: var(--font);
-}
-.portfolio-add-btn:hover { border-color: var(--teal); color: var(--teal); }
-.portfolio-new-input {
-  border: 1px solid var(--teal); border-radius: 20px;
-  padding: 4px 10px; font-size: 12px; color: var(--text1);
-  background: var(--card); outline: none; font-family: var(--font);
-  width: 140px;
+.prop-sel-creating { min-width: 150px; }
+.prop-sel-new-input {
+  background: none; border: none; outline: none;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  font-family: var(--font); width: 100%;
 }
 
 /* ── Validation ──────────────────────────────────────────────────────────── */
