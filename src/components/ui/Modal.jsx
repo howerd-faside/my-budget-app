@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import Portal from '../Portal.jsx';
 
 /**
@@ -37,3 +38,17 @@ export default function Modal({ isOpen, onClose, title, children, footer, wide =
     </Portal>
   );
 }
+
+Modal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  title: PropTypes.string,
+  children: PropTypes.node.isRequired,
+  footer: PropTypes.node,
+  wide: PropTypes.bool,
+  bodyStyle: PropTypes.object,
+};
+
+Modal.defaultProps = {
+  wide: false,
+};

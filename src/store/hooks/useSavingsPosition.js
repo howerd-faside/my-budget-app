@@ -4,7 +4,8 @@ import { usePeople }  from './usePeople';
 import {
   totalBalance, buildSavingsTrajectory,
   calcFortnightlyIncomeAt, calcFortnightlyAssetIncome, calcFortnightlyExpensesAt,
-} from '../../store';
+} from '../../utils/finance/savings';
+import { today } from '../../utils/finance/dates';
 
 /**
  * Derived hook — current and near-term savings position.
@@ -41,7 +42,7 @@ export function useSavingsPosition() {
       : currentBalance;
 
     // ── Sparkline: next 12 calendar months, first fortnight per month ────────
-    const todayStr  = new Date().toISOString().slice(0, 10);
+    const todayStr  = today();
     const monthMap  = new Map();
     for (const p of trajectory) {
       if (p.date < todayStr) continue;

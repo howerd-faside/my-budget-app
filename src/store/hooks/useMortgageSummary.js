@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useMortgageFacilities } from './useMortgageFacilities';
 import { useMortgageAmortisation } from './useMortgageAmortisation';
-import { calcTotalInterest, calcRemainingTerm } from '../../utils/mortgage';
+import { calcTotalInterest, calcRemainingTerm } from '../../utils/finance/mortgage';
 
 /**
  * Derived hook — aggregate mortgage summary metrics.

@@ -5,258 +5,28 @@ import {
 } from 'recharts';
 import {
   totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
-} from '../store';
+} from '../utils/finance/savings';
 import { useFinance } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
-import { fmtMoneyRound, calcNetPay } from '../utils/tax';
-import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../utils/mortgage';
+import { fmtMoneyRound, calcNetPay } from '../utils/finance/tax';
+import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../utils/finance/mortgage';
 import { toFortnightly } from '../utils/finance/frequency';
 import { EXPENSE_GROUPS } from '../utils/categories';
 import Icon from '../components/Icon';
-import { validate, accountSchema } from '../utils/validation';
-import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../components/ui';
+import { SectionHeader, StatTile, EmptyState, Card } from '../components/ui';
+import { RATE_COLORS } from '../utils/colors';
+import { today } from '../utils/finance/dates';
 
-const RATE_COLORS = { fixed: '#FF9F0A', floating: '#34C759', revolving: '#AF52DE', default: '#0071E3' };
+import TrajTooltip from './dashboard/TrajTooltip';
+import AccountCard from './dashboard/AccountCard';
+import TransferModal from './dashboard/TransferModal';
+import IncomeCard from './dashboard/IncomeCard';
+import GoalsSection from './dashboard/GoalsSection';
 
 
-const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
 const VIEW_LIMITS = { '1y': 13, '2y': 26, '3y': 39, '5y': 65 };
 
-const TrajTooltip = ({ active, payload, label, goals, people }) => {
-  if (!active || !payload?.length) return null;
-  const bal = payload[0]?.value;
-  const hit = goals.filter(g => g._hitDate === label);
-  // Detect active income events at this month
-  const monthDate = label ? new Date(label + '-15') : null;
-  const activeEvents = monthDate ? (people || []).flatMap(p =>
-    (p.incomeEvents || [])
-      .filter(e => e.startDate && new Date(e.startDate) <= monthDate && (!e.endDate || new Date(e.endDate) > monthDate))
-      .map(e => ({ ...e, personName: p.name }))
-  ) : [];
-  return (
-    <div className="chart-tt">
-      <div className="tt-date">{label}</div>
-      <div className="tt-bal">${Math.round(bal).toLocaleString('en-NZ')}</div>
-      {activeEvents.map(e => (
-        <div key={e.id} style={{ color: '#FF9F0A', fontSize: 10, marginTop: 2, fontWeight: 600 }}>⚑ {e.label} · {e.personName}</div>
-      ))}
-      {hit.map(g => <div key={g.id} className="tt-goal">🎯 {g.name}</div>)}
-    </div>
-  );
-};
-
-
 const fmtK = v => `$${(v / 1000).toFixed(0)}k`;
-
-// ── Account Card ────────────────────────────────────────────────────────────
-function AccountCard({ account, total, updateAccount }) {
-  const [editing, setEditing] = useState(false);
-  const [input, setInput]     = useState('');
-  const [error, setError]     = useState('');
-  const pct    = total > 0 ? Math.round(account.balance / total * 100) : 0;
-  const barPct = total > 0 ? Math.max(2, pct) : 0;
-
-  const COLORS = { main: 'var(--teal)', emergency: 'var(--amber)', travel: 'var(--purple)' };
-  const color  = COLORS[account.id] || 'var(--teal)';
-
-  const save = () => {
-    const { ok, errors } = validate(accountSchema, { balance: input });
-    if (!ok) { setError(errors.balance || 'Invalid value'); return; }
-    updateAccount(account.id, parseFloat(input));
-    setEditing(false);
-    setInput('');
-    setError('');
-  };
-
-  return (
-    <div className="account-card">
-      <div className="ac-name">{account.name}</div>
-      {editing ? (
-        <div style={{ margin: '8px 0 14px' }}>
-          <div className="bw-edit">
-            <input
-              className={`bw-input${error ? ' input-error' : ''}`}
-              type="number" step="0.01" autoFocus
-              value={input}
-              placeholder={account.balance.toFixed(2)}
-              onChange={e => { setInput(e.target.value); setError(''); }}
-              onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setError(''); } }}
-            />
-            <button className="bw-save" onClick={save}><Icon name="check" size={11} /></button>
-          </div>
-          {error && <span className="field-error">{error}</span>}
-        </div>
-      ) : (
-        <button className="bw-value ac-balance-btn" onClick={() => { setInput(account.balance.toFixed(2)); setEditing(true); }}>
-          <span className="ac-balance" style={{ color }}>
-            ${account.balance.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          <span className="bw-edit-hint"><Icon name="pencil" size={10} /></span>
-        </button>
-      )}
-      <div className="ac-bar-wrap">
-        <div className="ac-bar" style={{ width: `${barPct}%`, background: color }} />
-      </div>
-      <div className="ac-pct">{pct}% of total</div>
-    </div>
-  );
-}
-
-// ── Transfer Modal ───────────────────────────────────────────────────────────
-function TransferModal({ accounts, onClose, onTransfer }) {
-  const [form, setForm] = useState({
-    fromId: accounts[0]?.id || 'main',
-    toId:   accounts[1]?.id || 'emergency',
-    amount: '',
-    note:   '',
-  });
-
-  const from  = accounts.find(a => a.id === form.fromId);
-  const to    = accounts.find(a => a.id === form.toId);
-  const amt   = parseFloat(form.amount) || 0;
-  const valid = amt > 0 && form.fromId !== form.toId && amt <= (from?.balance || 0);
-
-  const submit = () => { if (!valid) return; onTransfer(form); onClose(); };
-
-  return (
-    <Modal
-      isOpen
-      onClose={onClose}
-      title="Transfer Between Accounts"
-      footer={
-        <>
-          <button className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={submit} disabled={!valid}>Transfer</button>
-        </>
-      }
-    >
-      <div className="form-grid">
-        <div className="form-group">
-          <label>From</label>
-          <select className="input" value={form.fromId}
-            onChange={e => setForm(f => ({ ...f, fromId: e.target.value }))}>
-            {accounts.map(a => (
-              <option key={a.id} value={a.id}>{a.name} (${a.balance.toLocaleString('en-NZ', { minimumFractionDigits: 2 })})</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>To</label>
-          <select className="input" value={form.toId}
-            onChange={e => setForm(f => ({ ...f, toId: e.target.value }))}>
-            {accounts.filter(a => a.id !== form.fromId).map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Amount ($)</label>
-          <input className="input mono" type="number" step="0.01" placeholder="0.00" value={form.amount}
-            onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} autoFocus />
-        </div>
-        <div className="form-group">
-          <label>Note (optional)</label>
-          <input className="input" placeholder="e.g. Holiday savings" value={form.note}
-            onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-        </div>
-      </div>
-      {amt > 0 && from && to && (
-        <div className="calc-preview">
-          <span>{from.name}: <strong className={amt > from.balance ? 'red' : ''}>${(from.balance - amt).toLocaleString('en-NZ', { minimumFractionDigits: 2 })}</strong></span>
-          <span className="text3">→</span>
-          <span>{to.name}: <strong>${(to.balance + amt).toLocaleString('en-NZ', { minimumFractionDigits: 2 })}</strong></span>
-        </div>
-      )}
-      {amt > (from?.balance || 0) && amt > 0 && (
-        <div style={{ color: 'var(--red)', fontSize: 12 }}>Insufficient balance in {from?.name}</div>
-      )}
-    </Modal>
-  );
-}
-
-// ── Income Card (per person) ─────────────────────────────────────────────────
-function IncomeCard({ person }) {
-  // person._effectivePay = pay computed from today's active event/role
-  // person._eventLabel   = active income event label (null if none)
-  // person._employer     = current employer from employment history (null if none)
-  // person._basePay      = pay at base grossAnnual (for comparison)
-  const pay     = person._effectivePay || person.pay || calcNetPay(person);
-  const basePay = person._basePay || pay;
-  const eventActive = !!person._eventLabel;
-
-  const secFn = useMemo(() =>
-    (person.secondaryIncomes || []).reduce((s, si) => s + toFortnightly(si.amount, si.frequency), 0),
-    [person.secondaryIncomes]);
-
-  return (
-    <div className="income-card">
-      <div className="ic-header">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span className="ic-name">{person.name || 'Unnamed'}</span>
-          {person._employer && (
-            <div className="ic-employer-line">{person._employer}</div>
-          )}
-        </div>
-        <div className="ic-tags">
-          <span className="tag">{person.taxCode}</span>
-          {person.kiwiSaverRate > 0 && <span className="tag teal">KS {person.kiwiSaverRate}%</span>}
-        </div>
-      </div>
-
-      <div className="ic-stats">
-        <div className="ic-stat">
-          <span className="ic-stat-label">Gross /fn</span>
-          <span className="mono ic-stat-val">{fmtMoneyRound(pay.grossAnnual / 26)}</span>
-        </div>
-        <div className="ic-stat">
-          <span className="ic-stat-label">Net /fn</span>
-          <span className={`mono ic-stat-val ${eventActive ? 'amber' : 'green'}`}>{fmtMoneyRound(pay.netFortnightly)}</span>
-        </div>
-        <div className="ic-stat">
-          <span className="ic-stat-label">Annual Gross</span>
-          <span className="mono ic-stat-val">{fmtMoneyRound(pay.grossAnnual)}</span>
-        </div>
-        <div className="ic-stat">
-          <span className="ic-stat-label">Annual Net</span>
-          <span className={`mono ic-stat-val ${eventActive ? 'amber' : 'green'}`}>{fmtMoneyRound(pay.netAnnual)}</span>
-        </div>
-      </div>
-
-      <div className="ic-deductions">
-        <span className="ic-ded red">Tax {pay.effectiveRate.toFixed(1)}% · −{fmtMoneyRound(pay.taxAnnual / 26)}/fn</span>
-        <span className="ic-ded red">ACC −{fmtMoneyRound(pay.accAnnual / 26)}/fn</span>
-        {person.kiwiSaverRate > 0 && (
-          <span className="ic-ded teal">KiwiSaver {person.kiwiSaverRate}% · −{fmtMoneyRound(pay.kiwiSaverAnnual / 26)}/fn</span>
-        )}
-        {pay.studentLoanAnnual > 0 && (
-          <span className="ic-ded purple">Student Loan −{fmtMoneyRound(pay.studentLoanAnnual / 26)}/fn</span>
-        )}
-      </div>
-
-      {secFn > 0 && (
-        <div className="ic-secondary">
-          <span className="ic-ded green">+ Secondary income {fmtMoneyRound(secFn)}/fn</span>
-          <span className="ic-total-row">
-            <span className="text3" style={{ fontSize: 10 }}>TOTAL /fn</span>
-            <span className={`mono ${eventActive ? 'amber' : 'green'}`} style={{ fontSize: 15, fontWeight: 700 }}>
-              {fmtMoneyRound(pay.netFortnightly + secFn)}
-            </span>
-          </span>
-        </div>
-      )}
-
-      {/* Active income event banner — bottom of card */}
-      {eventActive && (
-        <div className="ic-event-banner">
-          <span className="ic-event-icon">⚑</span>
-          <span className="ic-event-name">{person._eventLabel}</span>
-          <span className="mono ic-event-net">{fmtMoneyRound(pay.netFortnightly)}/fn</span>
-          <span className="ic-event-base text3">base {fmtMoneyRound(basePay.netFortnightly)}/fn</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Chart tooltip styles ─────────────────────────────────────────────────────
 const TOOLTIP_STYLE = {
@@ -272,8 +42,6 @@ export default function Dashboard() {
   const { people, expenses } = usePeople();
   const [showTransfer, setShowTransfer] = useState(false);
   const [viewRange, setViewRange]       = useState('3y');
-  const [editing, setEditing]           = useState(null);
-  const [goalForm, setGoalForm]         = useState(EMPTY_GOAL);
 
   const accounts      = rawAccounts || [];
   const netWorth      = totalBalance(accounts);
@@ -316,7 +84,7 @@ export default function Dashboard() {
   // ── Goals & Trajectory ────────────────────────────────────────────────────
   const trajectory = useMemo(() => buildSavingsTrajectory({ people, expenses, fortnightlyData, accounts, assetIncomes }), [people, expenses, fortnightlyData, accounts, assetIncomes]);
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = today();
   const todayIdx = useMemo(() => {
     let idx = 0;
     for (let i = 0; i < trajectory.length; i++) {
@@ -388,18 +156,6 @@ export default function Dashboard() {
   const endIdx        = Math.min(trajectory.length - 1, todayIdx + (VIEW_LIMITS[viewRange] ?? 36));
   const projectedBal  = trajectory[endIdx]?.balance ?? 0;
   const projectedYear = trajectory[endIdx]?.date.slice(0, 4) ?? '2030';
-
-  const openGoal  = () => { setGoalForm({ ...EMPTY_GOAL, id: crypto.randomUUID() }); setEditing('new'); };
-  const closeGoal = () => { setEditing(null); setGoalForm(EMPTY_GOAL); };
-  const saveGoal  = () => {
-    const goal = { ...goalForm, amount: +goalForm.amount };
-    if (editing === 'new') setFinance('goals', [...(goals || []), goal]);
-    else setFinance('goals', (goals || []).map(g => g.id === goalForm.id ? goal : g));
-    closeGoal();
-  };
-  const removeGoal = (id) => {
-    if (confirm('Remove this goal?')) setFinance('goals', (goals || []).filter(g => g.id !== id));
-  };
 
   const nextGoalIdx = goalsWithDates.findIndex(g => currentBal < (g.amount || 0));
 
@@ -497,7 +253,7 @@ export default function Dashboard() {
                     {tx.note && <span className="th-note"> · {tx.note}</span>}
                   </span>
                   <span className="th-amount">{fmtMoneyRound(tx.amount)}</span>
-                  <button className="btn-icon small" onClick={() => removeTransfer(tx.id)} title="Undo transfer">
+                  <button className="btn-icon small" onClick={() => removeTransfer(tx.id)} title="Undo transfer" aria-label="Undo transfer">
                     <Icon name="close" size={10} />
                   </button>
                 </div>
@@ -692,54 +448,13 @@ export default function Dashboard() {
           );
         })()}
 
-        {goalsWithDates.length > 0 && (
-          <>
-            <div className="section-subheader">
-              <span>Goals</span>
-              <button className="btn-ghost small" onClick={openGoal}>+ Add Goal</button>
-            </div>
-            <div className="dash-goals">
-              {goalsWithDates.map((g, idx) => {
-                const pct      = g.amount > 0 ? Math.min(100, Math.round((currentBal / g.amount) * 100)) : 0;
-                const achieved = !!g._hitDate;
-                const today    = new Date().toISOString().slice(0, 7);
-                const overdue  = g.targetDate && g.targetDate < today && !achieved;
-                return (
-                  <div key={g.id} className={`dash-goal-row ${idx === nextGoalIdx ? 'next-goal' : ''}`}>
-                    <div className="dg-info">
-                      <span className="dg-name">
-                        {idx === nextGoalIdx && <span className="dg-next-tag">Next up</span>}
-                        {g.name}
-                      </span>
-                      <span className="dg-target text3">${Math.round(g.amount).toLocaleString('en-NZ')}</span>
-                    </div>
-                    <div className="dg-bar-wrap">
-                      <div className="dg-bar">
-                        <div className="dg-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="dg-pct">{pct}%</span>
-                    </div>
-                    {g._hitDate
-                      ? <span className="dg-date teal">{g._hitDate}</span>
-                      : <span className="dg-date" style={{ color: overdue ? 'var(--red)' : 'var(--text3)' }}>Beyond range</span>
-                    }
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn-icon small" onClick={() => { setGoalForm({ ...g }); setEditing(g.id); }}><Icon name="pencil" size={10} /></button>
-                      <button className="btn-icon small danger" onClick={() => removeGoal(g.id)}><Icon name="trash" size={10} /></button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {(goals || []).length === 0 && (
-          <div className="traj-empty">
-            <span className="text3">No goals yet —</span>
-            <button className="btn-ghost small" onClick={openGoal}>add a savings target</button>
-          </div>
-        )}
+        <GoalsSection
+          goals={goals}
+          goalsWithDates={goalsWithDates}
+          currentBal={currentBal}
+          nextGoalIdx={nextGoalIdx}
+          setFinance={setFinance}
+        />
       </Card>
 
       {/* ── EXPENSES ────────────────────────────────────────────────────── */}
@@ -1010,41 +725,6 @@ export default function Dashboard() {
           onTransfer={(form) => addTransfer(form)}
         />
       )}
-
-      <Modal
-        isOpen={!!editing}
-        onClose={closeGoal}
-        title={editing === 'new' ? 'Add Goal' : 'Edit Goal'}
-        footer={
-          <>
-            <button className="btn-ghost" onClick={closeGoal}>Cancel</button>
-            <button className="btn-primary" onClick={saveGoal} disabled={!goalForm.name || !goalForm.amount}>Save</button>
-          </>
-        }
-      >
-        <div className="form-grid">
-          <div className="form-group full">
-            <label>Goal Name</label>
-            <input className="input" placeholder="e.g. New Car" value={goalForm.name}
-              onChange={e => setGoalForm(f => ({ ...f, name: e.target.value }))} />
-          </div>
-          <div className="form-group">
-            <label>Target Amount ($)</label>
-            <input className="input mono" type="number" placeholder="0" value={goalForm.amount}
-              onChange={e => setGoalForm(f => ({ ...f, amount: e.target.value }))} />
-          </div>
-          <div className="form-group">
-            <label>Target Date (optional)</label>
-            <input className="input" type="month" value={goalForm.targetDate}
-              onChange={e => setGoalForm(f => ({ ...f, targetDate: e.target.value }))} />
-          </div>
-          <div className="form-group full">
-            <label>Notes</label>
-            <input className="input" placeholder="Optional" value={goalForm.notes}
-              onChange={e => setGoalForm(f => ({ ...f, notes: e.target.value }))} />
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

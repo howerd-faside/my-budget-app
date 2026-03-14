@@ -1,21 +1,15 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
 import {
   createPropertyMaintenance,
   MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
 } from '../../models/PropertyMaintenance';
-
-function today() { return new Date().toISOString().slice(0, 10); }
+import { today } from '../../utils/finance/dates';
 
 const CATEGORIES   = MAINTENANCE_CATEGORIES;
 const PERFORMED_BY = PERFORMED_BY_OPTIONS;
-
-const TYPE_COLOR = {
-  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
-  'Investment': 'purple', 'Land/Section': '', 'Other': '',
-};
 
 const CATEGORY_BAR = {
   Repair:      'var(--red)',
@@ -43,9 +37,7 @@ function groupByMonth(records) {
 
 // ── MaintenanceRow ────────────────────────────────────────────────────────────
 
-function MaintenanceRow({ rec, areas, propName, showProp, propertyAssets, onEdit, onDelete }) {
-  const [open, setOpen] = useState(false);
-
+const MaintenanceRow = memo(function MaintenanceRow({ rec, areas, propName, showProp, propertyAssets, onEdit, onDelete }) {
   const area      = areas.find(a => a.id === rec.areaId);
   const asset     = propertyAssets.find(a => a.id === rec.assetId);
   const byLabel   = rec.performedBy === 'Other' ? (rec.performedByCustom || 'Other') : rec.performedBy;
@@ -53,62 +45,50 @@ function MaintenanceRow({ rec, areas, propName, showProp, propertyAssets, onEdit
   const hasDetail = !!rec.description;
 
   return (
-    <div
-      className={`expense-row${open ? ' expanded' : ''}`}
-      onClick={hasDetail ? () => setOpen(o => !o) : undefined}
-      style={hasDetail ? undefined : { cursor: 'default' }}
-    >
-      <div className="exp-cat-bar" style={{ background: CATEGORY_BAR[rec.category] || 'var(--sep2)' }} />
-      <div className="exp-main">
-        <div className="exp-top">
-          <div className="exp-info">
-            <span className="exp-name">{rec.title}</span>
-            <span className="exp-tags">
-              <span className="tag">{rec.category}</span>
-              {area  && <span className="tag teal">{area.name}</span>}
-              {asset && <span className="tag amber">{asset.name}</span>}
-              {showProp && propName && <span className="tag">{propName}</span>}
-            </span>
-            {!open && rec.description && (
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {rec.description}
-              </span>
+    <ExpandableRow
+      className="expense-row"
+      summary={(expanded) => (
+        <>
+          <div className="exp-cat-bar" style={{ background: CATEGORY_BAR[rec.category] || 'var(--sep2)' }} />
+          <div className="exp-main">
+            <div className="exp-top">
+              <div className="exp-info">
+                <span className="exp-name">{rec.title}</span>
+                <span className="exp-tags">
+                  <span className="tag">{rec.category}</span>
+                  {area  && <span className="tag teal">{area.name}</span>}
+                  {asset && <span className="tag amber">{asset.name}</span>}
+                  {showProp && propName && <span className="tag">{propName}</span>}
+                </span>
+                {!expanded && rec.description && (
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {rec.description}
+                  </span>
+                )}
+              </div>
+              <div className="exp-right">
+                <div className="exp-amounts">
+                  <span className="exp-amount" style={{ fontSize: 12, color: 'var(--text3)' }}>{rec.date}</span>
+                  {showBy && <span className="dpill">{byLabel}</span>}
+                </div>
+                <div className="exp-actions" onClick={e => e.stopPropagation()}>
+                  <button className="btn-icon" onClick={() => onEdit(rec)} aria-label="Edit maintenance record"><Icon name="pencil" /></button>
+                  <button className="btn-icon danger" onClick={() => onDelete(rec.id)} aria-label="Delete maintenance record"><Icon name="trash" /></button>
+                </div>
+              </div>
+            </div>
+
+            {expanded && rec.description && (
+              <div className="exp-detail" onClick={e => e.stopPropagation()}>
+                <div className="exp-detail-notes">{rec.description}</div>
+              </div>
             )}
           </div>
-          <div className="exp-right">
-            <div className="exp-amounts">
-              <span className="exp-amount" style={{ fontSize: 12, color: 'var(--text3)' }}>{rec.date}</span>
-              {showBy && <span className="dpill">{byLabel}</span>}
-            </div>
-            <div className="exp-actions" onClick={e => e.stopPropagation()}>
-              <button className="btn-icon" onClick={() => onEdit(rec)}><Icon name="pencil" /></button>
-              <button className="btn-icon danger" onClick={() => onDelete(rec.id)}><Icon name="trash" /></button>
-            </div>
-          </div>
-        </div>
-
-        {open && rec.description && (
-          <div className="exp-detail" onClick={e => e.stopPropagation()}>
-            <div className="exp-detail-notes">{rec.description}</div>
-          </div>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    />
   );
-}
-
-function ActiveChip({ label, onClear }) {
-  return (
-    <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {label}
-      <button
-        onClick={onClear}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--text3)', fontSize: 13 }}
-        aria-label="Remove filter"
-      >×</button>
-    </span>
-  );
-}
+});
 
 function fmtMonth(ym) {
   if (!ym || ym === 'Unknown') return 'Unknown';
@@ -125,7 +105,6 @@ export default function PropertyMaintenance() {
   const [showModal,       setShowModal]       = useState(false);
   const [form,            setForm]            = useState(EMPTY_RECORD);
   const [editingId,       setEditingId]       = useState(null);
-  const [propScope,       setPropScope]       = useState('current');
   // ── Filters ─────────────────────────────────────────────────────────────────
   const [search,          setSearch]          = useState('');
   const [filterCat,       setFilterCat]       = useState('All');
@@ -135,22 +114,14 @@ export default function PropertyMaintenance() {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [filterDateFrom,  setFilterDateFrom]  = useState('');
   const [filterDateTo,    setFilterDateTo]    = useState('');
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ── Scope helpers ───────────────────────────────────────────────────────────
-  const selectProperty = (id) => {
-    setProperty('selectedPropertyId', id);
-    setPropScope('current');
-    setFilterArea('All');
-  };
+  // Reset area filter when property changes
+  useEffect(() => { setFilterArea('All'); }, [selectedPropertyId]);
 
-  const selectAll = () => {
-    setPropScope('all');
-    setFilterArea('All');
-  };
-
-  const scopeLabel = propScope === 'all' ? 'All properties' : (selProp?.name ?? 'No property selected');
+  const scopeLabel = selectedPropertyId === null ? 'All properties' : (selProp?.name ?? 'No property selected');
 
   // ── Snapshot metrics ────────────────────────────────────────────────────────
   const snap = useMemo(() => {
@@ -159,11 +130,11 @@ export default function PropertyMaintenance() {
     const last30 = d30.toISOString().slice(0, 10);
     const ym = todayStr.slice(0, 7);
 
-    const scoped = propScope === 'all'
+    const scoped = selectedPropertyId === null
       ? propertyMaintenance
       : propertyMaintenance.filter(r => r.propertyId === selectedPropertyId);
 
-    const scopedTasks = propScope === 'all'
+    const scopedTasks = selectedPropertyId === null
       ? propertyTasks
       : propertyTasks.filter(t => t.propertyId === selectedPropertyId);
 
@@ -177,12 +148,12 @@ export default function PropertyMaintenance() {
       openTasks,
       lastDate,
     };
-  }, [propertyMaintenance, propertyTasks, propScope, selectedPropertyId]);
+  }, [propertyMaintenance, propertyTasks, selectedPropertyId]);
 
   // ── Filtered + grouped records ──────────────────────────────────────────────
   const records = useMemo(() => {
     let list = propertyMaintenance;
-    if (propScope === 'current' && selectedPropertyId) list = list.filter(r => r.propertyId === selectedPropertyId);
+    if (selectedPropertyId) list = list.filter(r => r.propertyId === selectedPropertyId);
     if (filterCat  !== 'All') list = list.filter(r => r.category  === filterCat);
     if (filterArea !== 'All') list = list.filter(r => r.areaId    === filterArea);
     if (filterBy   !== 'All') list = list.filter(r => {
@@ -201,7 +172,7 @@ export default function PropertyMaintenance() {
     else if (sortBy === 'category') list.sort((a, b) => a.category.localeCompare(b.category));
     else list.sort((a, b) => b.date.localeCompare(a.date)); // date-desc default
     return list;
-  }, [propertyMaintenance, propScope, selectedPropertyId, filterCat, filterArea, filterBy, filterDateFrom, filterDateTo, search, sortBy]);
+  }, [propertyMaintenance, selectedPropertyId, filterCat, filterArea, filterBy, filterDateFrom, filterDateTo, search, sortBy]);
 
   const groups     = useMemo(() => groupByMonth(records), [records]);
   const isFiltered = filterCat !== 'All' || filterArea !== 'All' || filterBy !== 'All'
@@ -221,10 +192,10 @@ export default function PropertyMaintenance() {
     setEditingId('new'); setShowModal(true);
   };
 
-  const openEdit = (rec) => {
+  const openEdit = useCallback((rec) => {
     setForm({ ...EMPTY_RECORD, ...rec });
     setEditingId(rec.id); setShowModal(true);
-  };
+  }, []);
 
   const close = () => { setShowModal(false); setForm(EMPTY_RECORD); setEditingId(null); };
 
@@ -235,9 +206,10 @@ export default function PropertyMaintenance() {
     close();
   };
 
-  const deleteRecord = (id) => {
-    if (!confirm('Delete this maintenance record?')) return;
-    setProperty('propertyMaintenance', propertyMaintenance.filter(r => r.id !== id));
+  const deleteRecord = useCallback((id) => setConfirmTarget(id), []);
+  const executeDeleteRecord = () => {
+    setProperty('propertyMaintenance', propertyMaintenance.filter(r => r.id !== confirmTarget));
+    setConfirmTarget(null);
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -255,46 +227,7 @@ export default function PropertyMaintenance() {
   return (
     <div className="page-content">
 
-      {/* ── 1. Property selector ─────────────────────────────────────────── */}
-      <Card variant="section">
-        <SectionHeader
-          title={<><Icon name="building" size={15} /> Properties</>}
-          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
-        />
-        <div className="prop-selector">
-          <div
-            className={`prop-sel-item${propScope === 'all' ? ' selected' : ''}`}
-            onClick={selectAll}
-          >
-            <span className="prop-sel-name">All Properties</span>
-            <div className="prop-sel-meta">
-              <span className="tag">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
-            </div>
-          </div>
-          {properties.map(prop => {
-            const maintCount = propertyMaintenance.filter(r => r.propertyId === prop.id).length;
-            const isSelected = propScope === 'current' && prop.id === selectedPropertyId;
-            return (
-              <div
-                key={prop.id}
-                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
-                onClick={() => selectProperty(prop.id)}
-              >
-                <span className="prop-sel-name">{prop.name}</span>
-                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
-                <div className="prop-sel-meta">
-                  {prop.type      && <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>}
-                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
-                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
-                  {maintCount > 0 && <span className="tag">{maintCount} record{maintCount !== 1 ? 's' : ''}</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* ── 2. Maintenance snapshot ──────────────────────────────────────── */}
+      {/* ── 1. Maintenance snapshot ──────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
           title={<><Icon name="tool" size={15} /> Maintenance Snapshot</>}
@@ -333,7 +266,7 @@ export default function PropertyMaintenance() {
             <option value="All">All categories</option>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
-          {propScope === 'current' && areas.length > 0 && (
+          {selectedPropertyId !== null && areas.length > 0 && (
             <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
               <option value="All">All areas</option>
               {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -398,7 +331,7 @@ export default function PropertyMaintenance() {
           title={<><Icon name="tool" size={15} /> Maintenance Log</>}
           subtitle={`${records.length} record${records.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`}
           actions={
-            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && propScope !== 'all'}>
+            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && selectedPropertyId !== null}>
               <Icon name="plus" size={14} /> Log Work
             </button>
           }
@@ -408,7 +341,7 @@ export default function PropertyMaintenance() {
           <EmptyState
             icon={<Icon name="tool" size={38} />}
             title={
-              !selProp && propScope === 'current'
+              !selProp && selectedPropertyId !== null
                 ? 'Select a property above to view its maintenance history.'
                 : propertyMaintenance.length === 0
                 ? 'No maintenance records yet. Log your first piece of work to start building a history.'
@@ -432,7 +365,7 @@ export default function PropertyMaintenance() {
                       rec={rec}
                       areas={prop?.areas || []}
                       propName={prop?.name}
-                      showProp={propScope === 'all' && properties.length > 1}
+                      showProp={selectedPropertyId === null && properties.length > 1}
                       propertyAssets={propertyAssets}
                       onEdit={openEdit}
                       onDelete={deleteRecord}
@@ -527,6 +460,14 @@ export default function PropertyMaintenance() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Delete maintenance record"
+        message="Delete this maintenance record?"
+        onConfirm={executeDeleteRecord}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

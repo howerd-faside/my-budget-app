@@ -4,6 +4,7 @@
  * Crypto               → CoinGecko public API
  */
 import { withRetry } from './retry';
+import { today } from './finance/dates';
 
 const CRYPTO_CATEGORIES = new Set(['Crypto']);
 
@@ -225,7 +226,7 @@ function lastKnownPrice(sorted, dateStr) {
  */
 export function buildPortfolioSeries(holdings, histMap, rangeKey) {
   const startDate = getRangeStart(rangeKey);
-  const todayStr  = new Date().toISOString().slice(0, 10);
+  const todayStr  = today();
 
   // Pre-sort each holding's price entries once
   const sortedPrices = new Map();

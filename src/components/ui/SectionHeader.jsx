@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 /**
  * SectionHeader — matches the .section-header pattern used across all pages.
  *
@@ -27,3 +29,9 @@ export default function SectionHeader({ title, subtitle, actions }) {
     </div>
   );
 }
+
+SectionHeader.propTypes = {
+  title: PropTypes.node.isRequired,
+  subtitle: PropTypes.string,
+  actions: PropTypes.node,
+};

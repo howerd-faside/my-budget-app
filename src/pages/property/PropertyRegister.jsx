@@ -1,8 +1,8 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
-import { Card, SectionHeader, StatTile, EmptyState } from '../../components/ui';
+import { Card, SectionHeader, StatTile, EmptyState, ConfirmDialog } from '../../components/ui';
 import {
   createProperty, createPropertyArea,
   PROPERTY_TYPES, CONSTRUCTION_TYPES, ROOF_TYPES, CLADDING_TYPES,
@@ -12,6 +12,8 @@ import {
   getPropertyDependents, cascadeDeleteProperty, propertyDeleteMessage,
   getAreaDependents, cascadeDeleteArea, areaDeleteMessage,
 } from '../../utils/cascade';
+import { today } from '../../utils/finance/dates';
+import { useNavigate } from '../../contexts/NavigationContext';
 
 function fmtMoney(n) { return n ? `$${Number(n).toLocaleString('en-NZ')}` : null; }
 
@@ -22,13 +24,10 @@ const INSULATION_OPTS = INSULATION_OPTIONS;
 const EMPTY_PROP = createProperty();
 const EMPTY_AREA = createPropertyArea();
 
-const TYPE_COLOR = {
-  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
-  'Investment': 'purple', 'Land/Section': '', 'Other': '',
-};
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function PropertyRegister({ onSelectTab = () => {} }) {
+export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled = () => {} }) {
+  const onSelectTab = useNavigate();
   const {
     properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets,
     selectedPropertyId, setProperty, mergeProperty,
@@ -41,9 +40,14 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
   const [areaForm,       setAreaForm]       = useState(EMPTY_AREA);   // modal areas tab
   const [addingArea,     setAddingArea]     = useState(false);         // inline add area
   const [detailAreaForm, setDetailAreaForm] = useState(EMPTY_AREA);   // inline add area form
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
-  const today   = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
+
+  useEffect(() => {
+    if (openNewTrigger > 0) { openNew(); onOpenNewHandled(); }
+  }, [openNewTrigger]);
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setInsul = (k, v) => setForm(f => ({ ...f, insulation: { ...f.insulation, [k]: v } }));
@@ -78,8 +82,7 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
     if (!prop) return;
     const propState = { properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, selectedPropertyId };
     const deps = getPropertyDependents(propState, id);
-    if (!confirm(propertyDeleteMessage(prop.name, deps))) return;
-    mergeProperty(cascadeDeleteProperty(propState, id));
+    setConfirmTarget({ type: 'property', message: propertyDeleteMessage(prop.name, deps), action: () => mergeProperty(cascadeDeleteProperty(propState, id)) });
   };
 
   const submitDetailArea = () => {
@@ -96,8 +99,12 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
     if (!area) return;
     const areaState = { propertyTasks, propertyMaintenance, propertyAssets, properties };
     const deps = getAreaDependents(areaState, selProp.id, areaId);
-    if (!confirm(areaDeleteMessage(area.name, deps))) return;
-    mergeProperty(cascadeDeleteArea(areaState, selProp.id, areaId));
+    setConfirmTarget({ type: 'area', message: areaDeleteMessage(area.name, deps), action: () => mergeProperty(cascadeDeleteArea(areaState, selProp.id, areaId)) });
+  };
+
+  const executeConfirm = () => {
+    if (confirmTarget?.action) confirmTarget.action();
+    setConfirmTarget(null);
   };
 
   // ── Derived stats for selected property ──────────────────────────────────
@@ -105,17 +112,17 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
     if (!selProp) return null;
     const id       = selProp.id;
     const open     = propertyTasks.filter(t => t.propertyId === id && t.status !== 'Done' && t.status !== 'Cancelled');
-    const overdue  = open.filter(t => t.dueDate && t.dueDate < today);
+    const overdue  = open.filter(t => t.dueDate && t.dueDate < todayStr);
     const maint    = propertyMaintenance.filter(m => m.propertyId === id).length;
     const projects = propertyProjects.filter(p => p.propertyId === id && p.status !== 'Completed' && p.status !== 'Cancelled').length;
     const alerts   = propertyAssets.filter(a => {
       if (a.propertyId !== id) return false;
       if (a.condition === 'Poor' || a.condition === 'Critical') return true;
-      const w = a.warrantyExpiry ? Math.round((new Date(a.warrantyExpiry) - new Date(today)) / 86400000) : null;
+      const w = a.warrantyExpiry ? Math.round((new Date(a.warrantyExpiry) - new Date(todayStr)) / 86400000) : null;
       return w !== null && w >= 0 && w <= 90;
     }).length;
     return { openTasks: open.length, overdue: overdue.length, maint, projects, alerts };
-  }, [selProp, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, today]);
+  }, [selProp, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, todayStr]);
 
   // ── Building detail groups for selected property ──────────────────────────
   const buildingGroups = selProp ? [
@@ -157,7 +164,7 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
           <div className="modal wide" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editingId === 'new' ? 'Add Property' : `Edit — ${form.name || 'Property'}`}</h3>
-              <button className="btn-icon" onClick={close}><Icon name="close" size={14} /></button>
+              <button className="btn-icon" onClick={close} aria-label="Close"><Icon name="close" size={14} /></button>
             </div>
 
             <div className="prop-modal-tabs">
@@ -300,7 +307,7 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
                         <span key={a.id} className="prop-area-chip">
                           {a.name}
                           <span className="text3" style={{ fontSize: 10, marginLeft: 4 }}>({a.group})</span>
-                          <button className="btn-icon small danger" style={{ marginLeft: 2 }} onClick={() => setForm(f => ({ ...f, areas: f.areas.filter(x => x.id !== a.id) }))}>
+                          <button className="btn-icon small danger" style={{ marginLeft: 2 }} onClick={() => setForm(f => ({ ...f, areas: f.areas.filter(x => x.id !== a.id) }))} aria-label={`Remove area ${a.name}`}>
                             <Icon name="close" size={10} />
                           </button>
                         </span>
@@ -341,67 +348,46 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
     );
   }
 
-  return (
-    <div className="page-content">
-
-      {/* ── Tier 1: Property Selector ────────────────────────────────────── */}
-      <Card variant="section">
-        <SectionHeader
-          title={<><Icon name="building" size={15} /> Properties</>}
-          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
-          actions={
+  if (!selProp) {
+    return (
+      <div className="page-content">
+        <EmptyState
+          icon={<Icon name="building" size={38} />}
+          title="Select a property in the bar above to view its details."
+          action={
             <button className="btn-ghost small" onClick={openNew}>
-              <Icon name="plus" size={12} /> Add Property
+              <Icon name="plus" size={14} /> Add Property
             </button>
           }
         />
-        <div className="prop-selector">
-          {properties.map(prop => {
-            const isSelected = prop.id === selectedPropertyId;
-            const overdue = propertyTasks.filter(t =>
-              t.propertyId === prop.id && t.status !== 'Done' && t.status !== 'Cancelled' && t.dueDate && t.dueDate < today
-            ).length;
-            return (
-              <div
-                key={prop.id}
-                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
-                onClick={() => setProperty('selectedPropertyId', prop.id)}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-                  <span className="prop-sel-name">{prop.name}</span>
-                  <button
-                    className="btn-icon small danger prop-sel-del"
-                    onClick={e => { e.stopPropagation(); deleteProp(prop.id); }}
-                    title="Delete property"
-                  >
-                    <Icon name="trash" size={11} />
-                  </button>
-                </div>
-                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
-                <div className="prop-sel-meta">
-                  <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>
-                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
-                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
-                  {overdue > 0    && <span className="dpill red">{overdue} due</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+        {showModal && renderModal()}
+      </div>
+    );
+  }
 
-      {/* ── Tier 2 + 3: Selected property detail ─────────────────────────── */}
+  return (
+    <div className="page-content">
+
+      {/* ── Tier 1 + 2: Property detail ──────────────────────────────────── */}
       {selProp && detail && (
         <>
-          {/* ── Tier 2: Snapshot stat row ───────────────────────────────── */}
+          {/* ── Snapshot stat row ───────────────────────────────────────── */}
           <Card variant="section">
             <SectionHeader
               title={<><Icon name="building" size={15} /> Property Snapshot</>}
               subtitle={selProp.address ? `${selProp.name} · ${selProp.address}` : selProp.name}
               actions={
-                <button className="btn-ghost small" onClick={() => openEdit(selProp)}>
-                  <Icon name="pencil" size={12} /> Edit
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-ghost small" onClick={openNew}>
+                    <Icon name="plus" size={12} /> Add Property
+                  </button>
+                  <button className="btn-ghost small danger" onClick={() => deleteProp(selProp.id)}>
+                    <Icon name="trash" size={12} /> Delete
+                  </button>
+                  <button className="btn-ghost small" onClick={() => openEdit(selProp)}>
+                    <Icon name="pencil" size={12} /> Edit
+                  </button>
+                </div>
               }
             />
             <div className="fn-summary">
@@ -488,7 +474,7 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
                 <SectionHeader
                   title="Areas & Zones"
                   actions={
-                    <button className="btn-icon" onClick={() => setAddingArea(true)} title="Add area">
+                    <button className="btn-icon" onClick={() => setAddingArea(true)} title="Add area" aria-label="Add area">
                       <Icon name="plus" size={13} />
                     </button>
                   }
@@ -532,7 +518,7 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
                             {groupAreas.map(area => (
                               <span key={area.id} className="prop-area-chip mini">
                                 {area.name}
-                                <button className="btn-icon small danger" onClick={() => deleteAreaFromSelected(area.id)}>
+                                <button className="btn-icon small danger" onClick={() => deleteAreaFromSelected(area.id)} aria-label={`Delete area ${area.name}`}>
                                   <Icon name="close" size={10} />
                                 </button>
                               </span>
@@ -621,6 +607,14 @@ export default function PropertyRegister({ onSelectTab = () => {} }) {
       )}
 
       {showModal && renderModal()}
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title={confirmTarget?.type === 'area' ? 'Delete area' : 'Delete property'}
+        message={confirmTarget?.message || ''}
+        onConfirm={executeConfirm}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

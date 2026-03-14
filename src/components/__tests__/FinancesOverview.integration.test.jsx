@@ -18,11 +18,16 @@ import FinancesOverview from '../../pages/FinancesOverview';
 import { useFinanceStore }    from '../../store/financeStore';
 import { usePeopleStore }     from '../../store/peopleStore';
 import { useInvestmentStore } from '../../store/investmentStore';
+import { NavigationProvider } from '../../contexts/NavigationContext';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function renderOverview(props = {}) {
-  return render(<FinancesOverview onSelectTab={props.onSelectTab ?? (() => {})} />);
+  return render(
+    <NavigationProvider value={() => {}}>
+      <FinancesOverview />
+    </NavigationProvider>
+  );
 }
 
 function resetStores() {
@@ -88,10 +93,7 @@ describe('FinancesOverview — section headings', () => {
     expect(screen.getByText('Savings Position')).toBeInTheDocument();
   });
 
-  it('renders Accounts section', () => {
-    renderOverview();
-    expect(screen.getByText('Accounts')).toBeInTheDocument();
-  });
+  // Accounts section was removed from FinancesOverview (lives in Dashboard now).
 });
 
 // ── legacy sections must NOT appear ──────────────────────────────────────────
@@ -185,24 +187,5 @@ describe('FinancesOverview — Cashflow Trend', () => {
   });
 });
 
-// ── Accounts section ──────────────────────────────────────────────────────────
-
-describe('FinancesOverview — Accounts section', () => {
-  it('renders the three reserve account names', () => {
-    useFinanceStore.setState({
-      accounts: [
-        { id: 'main',      name: 'Savings',   balance: 12000 },
-        { id: 'emergency', name: 'Emergency', balance: 5000 },
-        { id: 'travel',    name: 'Travel',    balance: 1500 },
-      ],
-      assetIncomes: [], fortnightlyData: {}, goals: [], transfers: [],
-      settings: { currentBalance: 0 },
-    });
-
-    renderOverview();
-    // "Savings" also appears in the Money Flow legend — use getAllByText and confirm ≥1
-    expect(screen.getAllByText('Savings').length).toBeGreaterThan(0);
-    expect(screen.getByText('Emergency')).toBeInTheDocument();
-    expect(screen.getByText('Travel')).toBeInTheDocument();
-  });
-});
+// Accounts section was removed from FinancesOverview — individual account names
+// are displayed on the Dashboard page, not on the overview.

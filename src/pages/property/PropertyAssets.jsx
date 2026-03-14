@@ -1,20 +1,14 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
 import {
   createPropertyAsset,
   ASSET_TYPES, ASSET_CONDITIONS, CONDITION_PILL,
 } from '../../models/PropertyAsset';
 import { getAssetDependents, cascadeDeleteAsset, assetDeleteMessage } from '../../utils/cascade';
 import { validate, propertyAssetSchema } from '../../utils/validation';
-
-function today() { return new Date().toISOString().slice(0, 10); }
-
-const TYPE_COLOR = {
-  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
-  'Investment': 'purple', 'Land/Section': '', 'Other': '',
-};
+import { today } from '../../utils/finance/dates';
 
 function warrantyStatus(warrantyExpiry) {
   if (!warrantyExpiry) return null;
@@ -35,25 +29,9 @@ function lifespanAlert(dateInstalled, expectedLifespan) {
 
 const EMPTY_ASSET = createPropertyAsset();
 
-// ── ActiveChip ────────────────────────────────────────────────────────────────
-
-function ActiveChip({ label, onClear }) {
-  return (
-    <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {label}
-      <button
-        onClick={onClear}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--text3)', fontSize: 13 }}
-        aria-label="Remove filter"
-      >×</button>
-    </span>
-  );
-}
-
 // ── AssetRow ──────────────────────────────────────────────────────────────────
 
-function AssetRow({ asset, area, propName, showProp, maintenanceRecords, onEdit, onDelete }) {
-  const [expanded, setExpanded] = useState(false);
+const AssetRow = memo(function AssetRow({ asset, area, propName, showProp, maintenanceRecords, onEdit, onDelete }) {
   const warranty    = warrantyStatus(asset.warrantyExpiry);
   const lifespan    = lifespanAlert(asset.dateInstalled, asset.expectedLifespan);
   const history     = maintenanceRecords
@@ -63,94 +41,93 @@ function AssetRow({ asset, area, propName, showProp, maintenanceRecords, onEdit,
   const hasDetail   = history.length > 0 || !!asset.notes;
 
   return (
-    <div className="fn-row">
-      <div
-        className="fn-main"
-        style={{ cursor: hasDetail ? 'pointer' : 'default' }}
-        onClick={() => hasDetail && setExpanded(e => !e)}
-      >
-        <div className="fn-left">
-          <div className="fn-dates">
+    <ExpandableRow
+      summary={(expanded) => (
+        <div
+          className="fn-main"
+          style={{ cursor: hasDetail ? 'pointer' : 'default' }}
+        >
+          <div className="fn-left">
+            <div className="fn-dates">
 
-            {/* Title — fn-label already provides font-size/weight via CSS */}
-            <div className="fn-label">{asset.name}</div>
+              {/* Title — fn-label already provides font-size/weight via CSS */}
+              <div className="fn-label">{asset.name}</div>
 
-            {/* Primary classification chips */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              {showProp && propName && <span className="tag">{propName}</span>}
-              <span className="tag">{asset.type}</span>
-              {area && <span className="tag teal">{area.name}</span>}
-              <span className={`dpill ${CONDITION_PILL[asset.condition] || ''}`}>{asset.condition}</span>
-              {warranty && <span className={`dpill ${warranty.pill}`}>{warranty.label}</span>}
-              {lifespan && <span className={`dpill ${lifespan.pill}`}>{lifespan.label}</span>}
+              {/* Primary classification chips */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {showProp && propName && <span className="tag">{propName}</span>}
+                <span className="tag">{asset.type}</span>
+                {area && <span className="tag teal">{area.name}</span>}
+                <span className={`dpill ${CONDITION_PILL[asset.condition] || ''}`}>{asset.condition}</span>
+                {warranty && <span className={`dpill ${warranty.pill}`}>{warranty.label}</span>}
+                {lifespan && <span className={`dpill ${lifespan.pill}`}>{lifespan.label}</span>}
+              </div>
+
+              {/* Lifecycle line */}
+              {(asset.dateInstalled || lastService) && (
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {asset.dateInstalled && (
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>Installed {asset.dateInstalled}</span>
+                  )}
+                  {lastService && (
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>Last service {lastService.date}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Notes preview — only when collapsed */}
+              {!expanded && asset.notes && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {asset.notes}
+                </div>
+              )}
+
             </div>
-
-            {/* Lifecycle line */}
-            {(asset.dateInstalled || lastService) && (
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {asset.dateInstalled && (
-                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>Installed {asset.dateInstalled}</span>
-                )}
-                {lastService && (
-                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>Last service {lastService.date}</span>
-                )}
-              </div>
-            )}
-
-            {/* Notes preview — only when collapsed */}
-            {!expanded && asset.notes && (
-              <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {asset.notes}
-              </div>
-            )}
-
           </div>
-        </div>
 
-        <div className="fn-right" style={{ alignItems: 'flex-end', gap: 'var(--space-2)' }}>
-          {asset.brand && (
-            <span style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>
-              {asset.brand}{asset.model ? ` ${asset.model}` : ''}
-            </span>
-          )}
-          <div className="exp-actions">
-            <button className="btn-icon small" onClick={e => { e.stopPropagation(); onEdit(asset); }}><Icon name="pencil" size={12} /></button>
-            <button className="btn-icon small danger" onClick={e => { e.stopPropagation(); onDelete(asset.id); }}><Icon name="trash" size={12} /></button>
-          </div>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="exp-detail">
-          {asset.notes && (
-            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: history.length > 0 ? 'var(--space-3)' : 0 }}>
-              {asset.notes}
+          <div className="fn-right" style={{ alignItems: 'flex-end', gap: 'var(--space-2)' }}>
+            {asset.brand && (
+              <span style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>
+                {asset.brand}{asset.model ? ` ${asset.model}` : ''}
+              </span>
+            )}
+            <div className="exp-actions">
+              <button className="btn-icon small" onClick={e => { e.stopPropagation(); onEdit(asset); }} aria-label="Edit asset"><Icon name="pencil" size={12} /></button>
+              <button className="btn-icon small danger" onClick={e => { e.stopPropagation(); onDelete(asset.id); }} aria-label="Delete asset"><Icon name="trash" size={12} /></button>
             </div>
-          )}
-          {history.length > 0 && (
-            <>
-              <div className="form-section-label" style={{ marginBottom: 'var(--space-2)' }}>Maintenance History</div>
-              <div className="change-history">
-                {history.slice(0, 5).map(m => (
-                  <div key={m.id} className="ch-row">
-                    <span className="ch-date mono">{m.date}</span>
-                    <span className="ch-text" style={{ flex: 1 }}>{m.title}</span>
-                    {m.performedBy && m.performedBy !== 'Self' && (
-                      <span className="tag" style={{ fontSize: 10 }}>{m.performedBy}</span>
-                    )}
-                  </div>
-                ))}
-                {history.length > 5 && (
-                  <div style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>+{history.length - 5} more records</div>
-                )}
-              </div>
-            </>
-          )}
+          </div>
         </div>
       )}
-    </div>
+    >
+      <div className="exp-detail" onClick={e => e.stopPropagation()}>
+        {asset.notes && (
+          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: history.length > 0 ? 'var(--space-3)' : 0 }}>
+            {asset.notes}
+          </div>
+        )}
+        {history.length > 0 && (
+          <>
+            <div className="form-section-label" style={{ marginBottom: 'var(--space-2)' }}>Maintenance History</div>
+            <div className="change-history">
+              {history.slice(0, 5).map(m => (
+                <div key={m.id} className="ch-row">
+                  <span className="ch-date mono">{m.date}</span>
+                  <span className="ch-text" style={{ flex: 1 }}>{m.title}</span>
+                  {m.performedBy && m.performedBy !== 'Self' && (
+                    <span className="tag" style={{ fontSize: 10 }}>{m.performedBy}</span>
+                  )}
+                </div>
+              ))}
+              {history.length > 5 && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', padding: '4px 0' }}>+{history.length - 5} more records</div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </ExpandableRow>
   );
-}
+});
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -168,24 +145,19 @@ export default function PropertyAssets() {
   const [filterCond,   setFilterCond]   = useState('All');
   const [filterArea,   setFilterArea]   = useState('All');
   const [sortBy,       setSortBy]       = useState('condition');
-  const [propScope,    setPropScope]    = useState('current');
-
+  const [confirmTarget, setConfirmTarget] = useState(null);
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // ── Scope helpers ───────────────────────────────────────────────────────────
-  const selectProperty = (id) => {
-    setProperty('selectedPropertyId', id);
-    setPropScope('current');
-    setFilterArea('All');
-  };
-  const selectAll  = () => { setPropScope('all'); setFilterArea('All'); };
-  const scopeLabel = propScope === 'all' ? 'All properties' : (selProp?.name ?? 'No property selected');
+  const scopeLabel = selectedPropertyId === null ? 'All properties' : (selProp?.name ?? 'No property selected');
+
+  // Reset area filter when property changes
+  useEffect(() => { setFilterArea('All'); }, [selectedPropertyId]);
 
   // ── Scoped assets (pre-filter) — used for snapshot ─────────────────────────
   const scopedAssets = useMemo(() => {
-    if (propScope === 'all') return propertyAssets;
+    if (selectedPropertyId === null) return propertyAssets;
     return selectedPropertyId ? propertyAssets.filter(a => a.propertyId === selectedPropertyId) : [];
-  }, [propertyAssets, propScope, selectedPropertyId]);
+  }, [propertyAssets, selectedPropertyId]);
 
   // ── Filtered + sorted assets — used for the register ───────────────────────
   const visibleAssets = useMemo(() => {
@@ -235,10 +207,10 @@ export default function PropertyAssets() {
     setErrors({}); setEditingId('new'); setShowModal(true);
   };
 
-  const openEdit = (asset) => {
+  const openEdit = useCallback((asset) => {
     setForm({ ...EMPTY_ASSET, ...asset });
     setErrors({}); setEditingId(asset.id); setShowModal(true);
-  };
+  }, []);
 
   const close = () => { setShowModal(false); setForm(EMPTY_ASSET); setEditingId(null); setErrors({}); };
 
@@ -251,12 +223,15 @@ export default function PropertyAssets() {
     close();
   };
 
-  const deleteAsset = (id) => {
+  const deleteAsset = useCallback((id) => {
     const asset = propertyAssets.find(a => a.id === id);
     if (!asset) return;
     const deps = getAssetDependents({ propertyMaintenance }, id);
-    if (!confirm(assetDeleteMessage(asset.name, deps))) return;
-    mergeProperty(cascadeDeleteAsset({ propertyAssets, propertyMaintenance }, id));
+    setConfirmTarget({ id, message: assetDeleteMessage(asset.name, deps) });
+  }, [propertyAssets, propertyMaintenance]);
+  const executeDeleteAsset = () => {
+    mergeProperty(cascadeDeleteAsset({ propertyAssets, propertyMaintenance }, confirmTarget.id));
+    setConfirmTarget(null);
   };
 
   // ── No properties guard ─────────────────────────────────────────────────────
@@ -275,46 +250,7 @@ export default function PropertyAssets() {
   return (
     <div className="page-content">
 
-      {/* ── 1. Property selector ─────────────────────────────────────────── */}
-      <Card variant="section">
-        <SectionHeader
-          title={<><Icon name="building" size={15} /> Properties</>}
-          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
-        />
-        <div className="prop-selector">
-          <div
-            className={`prop-sel-item${propScope === 'all' ? ' selected' : ''}`}
-            onClick={selectAll}
-          >
-            <span className="prop-sel-name">All Properties</span>
-            <div className="prop-sel-meta">
-              <span className="tag">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
-            </div>
-          </div>
-          {properties.map(prop => {
-            const assetCount = propertyAssets.filter(a => a.propertyId === prop.id).length;
-            const isSelected = propScope === 'current' && prop.id === selectedPropertyId;
-            return (
-              <div
-                key={prop.id}
-                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
-                onClick={() => selectProperty(prop.id)}
-              >
-                <span className="prop-sel-name">{prop.name}</span>
-                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
-                <div className="prop-sel-meta">
-                  {prop.type      && <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>}
-                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
-                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
-                  {assetCount > 0 && <span className="tag">{assetCount} asset{assetCount !== 1 ? 's' : ''}</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* ── 2. Asset snapshot ────────────────────────────────────────────── */}
+      {/* ── 1. Asset snapshot ────────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
           title={<><Icon name="wrench" size={15} /> Asset Snapshot</>}
@@ -348,7 +284,7 @@ export default function PropertyAssets() {
             <option value="All">All conditions</option>
             {ASSET_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          {propScope === 'current' && areas.length > 0 && (
+          {selectedPropertyId !== null && areas.length > 0 && (
             <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
               <option value="All">All areas</option>
               {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -378,7 +314,7 @@ export default function PropertyAssets() {
           title={<><Icon name="wrench" size={15} /> Assets</>}
           subtitle={`${visibleAssets.length} asset${visibleAssets.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`}
           actions={
-            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && propScope !== 'all'}>
+            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && selectedPropertyId !== null}>
               <Icon name="plus" size={14} /> Add Asset
             </button>
           }
@@ -387,7 +323,7 @@ export default function PropertyAssets() {
           <EmptyState
             icon={<Icon name="wrench" size={38} />}
             title={
-              !selProp && propScope === 'current'
+              !selProp && selectedPropertyId !== null
                 ? 'Select a property above to view its assets.'
                 : scopedAssets.length === 0
                 ? 'No assets registered yet. Track your appliances, systems, and fixtures here.'
@@ -413,7 +349,7 @@ export default function PropertyAssets() {
                       asset={asset}
                       area={area}
                       propName={prop?.name}
-                      showProp={propScope === 'all' && properties.length > 1}
+                      showProp={selectedPropertyId === null && properties.length > 1}
                       maintenanceRecords={maintRecords}
                       onEdit={openEdit}
                       onDelete={deleteAsset}
@@ -503,6 +439,14 @@ export default function PropertyAssets() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Delete asset"
+        message={confirmTarget?.message || ''}
+        onConfirm={executeDeleteAsset}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

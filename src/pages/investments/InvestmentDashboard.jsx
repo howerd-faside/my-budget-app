@@ -4,21 +4,14 @@ import Icon from '../../components/Icon';
 import { calcPortfolioStats } from '../../utils/finance/savings';
 import { getPortfolioActivity } from '../../utils/finance/transactions';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
-
-const CAT_COLOR = {
-  'Shares':       '#0071E3',
-  'ETF':          '#34C759',
-  'Managed Fund': '#AF52DE',
-  'Bonds':        '#FF9F0A',
-  'Term Deposit': '#FF6B2B',
-  'Crypto':       '#32ADE6',
-  'Other':        '#86868B',
-};
+import { useNavigate } from '../../contexts/NavigationContext';
+import { CATEGORY_COLORS as CAT_COLOR } from '../../utils/colors';
 
 const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function InvestmentDashboard({ onSelectTab }) {
+export default function InvestmentDashboard() {
+  const onSelectTab = useNavigate();
   const { selectedPortfolioId: pid, investments, investmentContributions, investmentDividends, investmentPortfolios } = useInvestment();
   const holdings      = (investments             || []).filter(h => h.portfolioId === pid);
   const contributions = (investmentContributions || []).filter(c => c.portfolioId === pid);

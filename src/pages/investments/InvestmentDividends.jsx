@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../../components/ui';
+import { SectionHeader, StatTile, EmptyState, Card, Modal, ConfirmDialog } from '../../components/ui';
 import { createDividend } from '../../models/Dividend';
 import { transactionFromDividend } from '../../models/Transaction';
 import { sumTransactions, sumField } from '../../utils/finance/transactions';
-
-function today() { return new Date().toISOString().slice(0, 10); }
+import { today } from '../../utils/finance/dates';
 
 const fmt = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -121,6 +120,7 @@ export default function InvestmentDividends() {
 
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   const sorted = useMemo(() =>
     [...dividends].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
@@ -146,9 +146,11 @@ export default function InvestmentDividends() {
     setEditTarget(null);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Remove this dividend record?'))
-      setInvestment('investmentDividends', allDividends.filter(d => d.id !== id));
+  const handleDelete = (id) => setConfirmTarget(id);
+
+  const executeDelete = () => {
+    if (confirmTarget) setInvestment('investmentDividends', allDividends.filter(d => d.id !== confirmTarget));
+    setConfirmTarget(null);
   };
 
   const openEdit = (d) => { setEditTarget(d); setShowModal(true); };
@@ -214,10 +216,10 @@ export default function InvestmentDividends() {
                       )}
                     </div>
                     <div className="exp-actions">
-                      <button className="btn-icon small" onClick={() => openEdit(d)}>
+                      <button className="btn-icon small" onClick={() => openEdit(d)} aria-label="Edit dividend">
                         <Icon name="pencil" size={12} />
                       </button>
-                      <button className="btn-icon small danger" onClick={() => handleDelete(d.id)}>
+                      <button className="btn-icon small danger" onClick={() => handleDelete(d.id)} aria-label="Delete dividend">
                         <Icon name="trash" size={12} />
                       </button>
                     </div>
@@ -238,6 +240,15 @@ export default function InvestmentDividends() {
           onClose={() => { setShowModal(false); setEditTarget(null); }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Remove dividend"
+        message="Remove this dividend record?"
+        confirmLabel="Remove"
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

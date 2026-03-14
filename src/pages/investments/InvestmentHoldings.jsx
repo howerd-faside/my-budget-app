@@ -1,14 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { SectionHeader, EmptyState, Card, Modal } from '../../components/ui';
+import { SectionHeader, EmptyState, Card, Modal, ConfirmDialog, ExpandableRow } from '../../components/ui';
 import { refreshAllPrices } from '../../utils/priceService';
 import { useToast } from '../../components/Toast';
-import { createHolding, HOLDING_CATEGORIES, CATEGORY_COLORS } from '../../models/Holding';
+import { createHolding, HOLDING_CATEGORIES } from '../../models/Holding';
+import { CATEGORY_COLORS } from '../../utils/colors';
 import { getHoldingDependents, cascadeDeleteHolding, holdingDeleteMessage } from '../../utils/cascade';
 import { validate, holdingSchema } from '../../utils/validation';
-
-function today() { return new Date().toISOString().slice(0, 10); }
+import { today } from '../../utils/finance/dates';
 
 const CATEGORIES = HOLDING_CATEGORIES;
 const CAT_FILTER  = ['All', ...CATEGORIES];
@@ -49,9 +49,7 @@ function timeAgo(isoStr) {
 
 // ── Holding row ───────────────────────────────────────────────────────────────
 
-function HoldingRow({ holding, onEdit, onDelete }) {
-  const [expanded, setExpanded] = useState(false);
-
+const HoldingRow = memo(function HoldingRow({ holding, onEdit, onDelete }) {
   // Use flat computed fields (written on save) for display
   const units        = +holding.units        || 0;
   const avgCost      = +holding.avgCost      || 0;
@@ -67,93 +65,93 @@ function HoldingRow({ holding, onEdit, onDelete }) {
   const trancheCount = holding.tranches?.length || 0;
 
   return (
-    <div className="fn-row">
-      <div className="fn-main" onClick={() => setExpanded(e => !e)}>
-        <div className="fn-left">
-          <div className="fn-dates">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{holding.name}</span>
-              {holding.ticker && (
-                <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0 }}>{holding.ticker}</span>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span className="tag" style={{ color, borderColor: `${color}40`, background: `${color}12` }}>
-                {holding.category}
-              </span>
-              {holding.platform && <span className="tag">{holding.platform}</span>}
-              {trancheCount > 1 && (
-                <span className="tag">{trancheCount} tranches</span>
-              )}
-              {ago && (
-                <span style={{ fontSize: 10, color: 'var(--text3)' }}>live · {ago}</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
-          <div style={{ textAlign: 'right' }}>
-            <div className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currentValue)}</div>
-            <div className="mono" style={{ fontSize: 11, color: isGain ? 'var(--green)' : 'var(--red)' }}>
-              {isGain ? '+' : '−'}{fmt(gl)} ({isGain ? '+' : ''}{glPct.toFixed(1)}%)
-            </div>
-          </div>
-          <div className="exp-actions">
-            <button className="btn-icon small" onClick={e => { e.stopPropagation(); onEdit(holding); }}>
-              <Icon name="pencil" size={12} />
-            </button>
-            <button className="btn-icon small danger" onClick={e => { e.stopPropagation(); onDelete(holding.id); }}>
-              <Icon name="trash" size={12} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="exp-detail" style={{ paddingBottom: 12 }}>
-          <div className="exp-detail-grid">
-            <div className="edg-item">
-              <span className="edg-label">Total Units</span>
-              <span className="edg-val mono">{units.toLocaleString('en-NZ', { maximumFractionDigits: 6 })}</span>
-            </div>
-            <div className="edg-item">
-              <span className="edg-label">Avg Cost / unit</span>
-              <span className="edg-val mono">{fmt(avgCost)}</span>
-            </div>
-            <div className="edg-item">
-              <span className="edg-label">Current Price</span>
-              <span className="edg-val mono">{fmt(currentPrice)}</span>
-            </div>
-            <div className="edg-item">
-              <span className="edg-label">Total Cost Basis</span>
-              <span className="edg-val mono">{fmt(totalCost)}</span>
-            </div>
-          </div>
-          {holding.tranches?.length > 1 && (
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sep)' }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Purchase Tranches
+    <ExpandableRow
+      summary={
+        <div className="fn-main">
+          <div className="fn-left">
+            <div className="fn-dates">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{holding.name}</span>
+                {holding.ticker && (
+                  <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0 }}>{holding.ticker}</span>
+                )}
               </div>
-              {holding.tranches.map((t, i) => (
-                <div key={t.id} style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text2)', marginBottom: 3 }}>
-                  <span style={{ color: 'var(--text3)', minWidth: 90 }}>{t.date || '—'}</span>
-                  <span className="mono">{(+t.units || 0).toLocaleString('en-NZ', { maximumFractionDigits: 4 })} units</span>
-                  <span className="mono">@ {fmt(t.costPerUnit)}</span>
-                  <span className="mono" style={{ color: 'var(--text3)' }}>{fmt((+t.units || 0) * (+t.costPerUnit || 0))}</span>
-                </div>
-              ))}
+              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="tag" style={{ color, borderColor: `${color}40`, background: `${color}12` }}>
+                  {holding.category}
+                </span>
+                {holding.platform && <span className="tag">{holding.platform}</span>}
+                {trancheCount > 1 && (
+                  <span className="tag">{trancheCount} tranches</span>
+                )}
+                {ago && (
+                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>live · {ago}</span>
+                )}
+              </div>
             </div>
-          )}
-          {holding.notes && (
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--sep)' }}>
-              {holding.notes}
+          </div>
+          <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
+            <div style={{ textAlign: 'right' }}>
+              <div className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currentValue)}</div>
+              <div className="mono" style={{ fontSize: 11, color: isGain ? 'var(--green)' : 'var(--red)' }}>
+                {isGain ? '+' : '−'}{fmt(gl)} ({isGain ? '+' : ''}{glPct.toFixed(1)}%)
+              </div>
             </div>
-          )}
+            <div className="exp-actions">
+              <button className="btn-icon small" onClick={e => { e.stopPropagation(); onEdit(holding); }} aria-label="Edit holding">
+                <Icon name="pencil" size={12} />
+              </button>
+              <button className="btn-icon small danger" onClick={e => { e.stopPropagation(); onDelete(holding.id); }} aria-label="Delete holding">
+                <Icon name="trash" size={12} />
+              </button>
+            </div>
+          </div>
         </div>
-      )}
-    </div>
+      }
+    >
+      <div className="exp-detail" style={{ paddingBottom: 12 }} onClick={e => e.stopPropagation()}>
+        <div className="exp-detail-grid">
+          <div className="edg-item">
+            <span className="edg-label">Total Units</span>
+            <span className="edg-val mono">{units.toLocaleString('en-NZ', { maximumFractionDigits: 6 })}</span>
+          </div>
+          <div className="edg-item">
+            <span className="edg-label">Avg Cost / unit</span>
+            <span className="edg-val mono">{fmt(avgCost)}</span>
+          </div>
+          <div className="edg-item">
+            <span className="edg-label">Current Price</span>
+            <span className="edg-val mono">{fmt(currentPrice)}</span>
+          </div>
+          <div className="edg-item">
+            <span className="edg-label">Total Cost Basis</span>
+            <span className="edg-val mono">{fmt(totalCost)}</span>
+          </div>
+        </div>
+        {holding.tranches?.length > 1 && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sep)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Purchase Tranches
+            </div>
+            {holding.tranches.map((t, i) => (
+              <div key={t.id} style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text2)', marginBottom: 3 }}>
+                <span style={{ color: 'var(--text3)', minWidth: 90 }}>{t.date || '—'}</span>
+                <span className="mono">{(+t.units || 0).toLocaleString('en-NZ', { maximumFractionDigits: 4 })} units</span>
+                <span className="mono">@ {fmt(t.costPerUnit)}</span>
+                <span className="mono" style={{ color: 'var(--text3)' }}>{fmt((+t.units || 0) * (+t.costPerUnit || 0))}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {holding.notes && (
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--sep)' }}>
+            {holding.notes}
+          </div>
+        )}
+      </div>
+    </ExpandableRow>
   );
-}
+});
 
 // ── Holding modal ─────────────────────────────────────────────────────────────
 
@@ -260,7 +258,7 @@ function HoldingModal({ holding, onSave, onClose }) {
                       value={t.costPerUnit} onChange={e => setTranche(t.id, 'costPerUnit', e.target.value)} />
                     <span className="mono tranche-total">{lineTotal > 0 ? fmt(lineTotal) : '—'}</span>
                     <button className="btn-icon small danger" disabled={form.tranches.length === 1}
-                      onClick={() => removeTranche(t.id)}>
+                      onClick={() => removeTranche(t.id)} aria-label="Remove tranche">
                       <Icon name="close" size={10} />
                     </button>
                   </div>
@@ -306,6 +304,7 @@ export default function InvestmentHoldings() {
   const [catFilter,  setCatFilter]  = useState('All');
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState(null);
 
@@ -357,16 +356,20 @@ export default function InvestmentHoldings() {
     setEditTarget(null);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = useCallback((id) => {
     const holding = allHoldings.find(h => h.id === id);
     if (!holding) return;
     const invState = { investments, investmentContributions, investmentDividends };
     const deps = getHoldingDependents(invState, id);
-    if (!window.confirm(holdingDeleteMessage(holding.name, deps))) return;
-    mergeInvestment(cascadeDeleteHolding(invState, id));
+    setConfirmTarget({ id, message: holdingDeleteMessage(holding.name, deps), invState });
+  }, [allHoldings, investments, investmentContributions, investmentDividends]);
+
+  const executeDelete = () => {
+    if (confirmTarget) mergeInvestment(cascadeDeleteHolding(confirmTarget.invState, confirmTarget.id));
+    setConfirmTarget(null);
   };
 
-  const openEdit = (h) => { setEditTarget(h); setShowModal(true); };
+  const openEdit = useCallback((h) => { setEditTarget(h); setShowModal(true); }, []);
   const openAdd  = ()  => { setEditTarget(null); setShowModal(true); };
 
   return (
@@ -426,6 +429,14 @@ export default function InvestmentHoldings() {
           onClose={() => { setShowModal(false); setEditTarget(null); }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Delete holding"
+        message={confirmTarget?.message || ''}
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

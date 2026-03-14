@@ -1,5 +1,5 @@
 /**
- * Tests for pure derived-helper functions exported from src/store.jsx.
+ * Tests for pure derived-helper functions exported from src/utils/finance/savings.js.
  *
  * These helpers are pure functions (no Zustand hooks, no localStorage access)
  * and can be called directly in a Node test environment.
@@ -12,13 +12,8 @@
  *   calcFortnightlyExpensesAt — date-aware expense sum (startDate / endDate filtering)
  *   calcFortnightlyAssetIncome — asset income normalised to fortnightly
  *   getPersonIncomeAt         — priority: income events > employment history > grossAnnual
- *
- * Note: importing store.jsx causes the Zustand stores to initialise. In the Node
- * environment localStorage is undefined; the budgetStorage adapter catches that
- * error and returns null, so the stores initialise with their defaults. A console
- * spy suppresses the resulting noise.
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   totalBalance,
   calcFortnightlyIncome,
@@ -27,18 +22,7 @@ import {
   calcFortnightlyExpensesAt,
   calcFortnightlyAssetIncome,
   getPersonIncomeAt,
-} from '../../store.jsx';
-
-// Suppress persist-middleware noise (localStorage unavailable in node)
-let consoleSpy;
-beforeAll(() => {
-  consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  vi.spyOn(console, 'info').mockImplementation(() => {});
-});
-afterAll(() => {
-  consoleSpy.mockRestore();
-  vi.restoreAllMocks();
-});
+} from '../../utils/finance/savings';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // totalBalance

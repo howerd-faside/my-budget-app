@@ -34,6 +34,7 @@ import { FINANCE_VERSION,    FINANCE_VERSION_KEY }    from '../store/migrations/
 import { PEOPLE_VERSION,     PEOPLE_VERSION_KEY }     from '../store/migrations/people';
 import { PROPERTY_VERSION,   PROPERTY_VERSION_KEY }   from '../store/migrations/property';
 import { INVESTMENT_VERSION, INVESTMENT_VERSION_KEY } from '../store/migrations/investment';
+import { today } from './finance/dates';
 
 // Slice keys mirror the FINANCE_KEYS / PEOPLE_KEYS / … arrays in each store file.
 // They are kept in sync manually because importing them from the store files
@@ -128,7 +129,7 @@ export function downloadBackup(backup) {
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const date = new Date().toISOString().slice(0, 10);
+  const date = today();
   a.href     = url;
   a.download = `faside-backup-${date}.json`;
   a.click();

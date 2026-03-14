@@ -12,12 +12,11 @@ import {
   FINANCE_VERSION_KEY,
   FINANCE_MIGRATIONS,
 } from './migrations/finance';
+import { today } from '../utils/finance/dates';
 
 export const FINANCE_KEYS = [
   'accounts', 'transfers', 'fortnightlyData', 'goals', 'assetIncomes', 'settings',
 ];
-
-function today() { return new Date().toISOString().slice(0, 10); }
 
 const defaults = {
   accounts:        createDefaultAccounts(),

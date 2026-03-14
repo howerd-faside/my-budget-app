@@ -5,8 +5,8 @@ import {
   calcFortnightlyIncomeAt,
   calcFortnightlyExpensesAt,
   calcFortnightlyAssetIncome,
-  getFortnight,
-} from '../../store';
+} from '../../utils/finance/savings';
+import { getFortnight } from '../../utils/finance/dates';
 
 const FORTNIGHTS_BACK = 25; // current fortnight + 25 prior = 26 total
 

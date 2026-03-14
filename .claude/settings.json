@@ -3,7 +3,23 @@
     "allow": [
       "Read(//c/Users/Billy/AppData/Local/Temp/claude/c--Users-Billy-my-budget-app/tasks/**)",
       "Bash(npx vitest:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(grep -rn functions+w+.*{ src/pages/PropertyOverview.jsx src/pages/property/PropertyOverview.jsx)",
+      "Bash(npm test:*)",
+      "Bash(npm install:*)",
+      "Bash(grep -n btn-icon src/pages/property/*.jsx src/pages/investments/*.jsx)",
+      "Bash(find /c/Users/Billy/my-budget-app -type f -name *.test.js -o -name *.test.jsx -o -name *.spec.js -o -name *.spec.jsx)",
+      "Bash(grep -r \"from.*store\\\\.jsx\\\\|from.*['''']../store['''']\" /c/Users/Billy/my-budget-app/src --include=*.jsx --include=*.js)",
+      "Bash(grep -c .propTypes /c/Users/Billy/my-budget-app/src/components/ui/*.jsx /c/Users/Billy/my-budget-app/src/components/*.jsx /c/Users/Billy/my-budget-app/src/pages/dashboard/*.jsx)",
+      "Bash(xargs wc:*)",
+      "Bash(grep -r \"vi\\\\.mock\\\\|vi\\\\.spyOn\" /c/Users/Billy/my-budget-app/src --include=*.test.*)",
+      "Bash(grep -c \"describe\\\\|it\\(\" /c/Users/Billy/my-budget-app/src/store/__tests__/*.js /c/Users/Billy/my-budget-app/src/pages/__tests__/*.jsx /c/Users/Billy/my-budget-app/src/utils/*.test.js)",
+      "Read(//c/Users/Billy/my-budget-app/**)",
+      "Bash(bc)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Billy\\my-budget-app\\src\\pages",
+      "\\tmp"
     ]
   }
 }

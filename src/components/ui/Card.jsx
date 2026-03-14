@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 /**
  * Card — shared surface wrapper.
  *
@@ -19,3 +21,15 @@ export default function Card({ children, variant = 'default', className = '', st
     </div>
   );
 }
+
+Card.propTypes = {
+  children: PropTypes.node.isRequired,
+  variant: PropTypes.oneOf(['default', 'section', 'flat']),
+  className: PropTypes.string,
+  style: PropTypes.object,
+};
+
+Card.defaultProps = {
+  variant: 'default',
+  className: '',
+};

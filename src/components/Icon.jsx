@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const PATHS = {
   pencil:    'M10.5 3.5l2 2-8 8H2.5v-2l8-8zm1-1l1.5 1.5',
   trash:     'M2 4.5h12M6 4.5v-2h4v2M4.5 4.5l.6 8a.6.6 0 00.6.5h4.6a.6.6 0 00.6-.5l.6-8',
@@ -52,3 +54,14 @@ export default function Icon({ name, size = 14, strokeWidth = 1.5 }) {
     </svg>
   );
 }
+
+Icon.propTypes = {
+  name: PropTypes.string.isRequired,
+  size: PropTypes.number,
+  strokeWidth: PropTypes.number,
+};
+
+Icon.defaultProps = {
+  size: 14,
+  strokeWidth: 1.5,
+};

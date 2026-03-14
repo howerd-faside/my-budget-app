@@ -8,14 +8,11 @@ import {
 } from '../store/hooks';
 import {
   calcRemainingTerm, calcTotalInterest, calcEarlyRepaymentSavings,
-} from '../utils/mortgage';
+} from '../utils/finance/mortgage';
 import Icon from '../components/Icon';
 import { SectionHeader, StatTile, Card } from '../components/ui';
-import { fmtMoney } from '../utils/tax';
-
-const RATE_COLORS = {
-  fixed: '#FF9F0A', floating: '#34C759', revolving: '#AF52DE', default: '#0071E3',
-};
+import { fmtMoney } from '../utils/finance/tax';
+import { RATE_COLORS } from '../utils/colors';
 
 const TOOLTIP_STYLE = {
   background: 'rgba(255,255,255,0.97)',

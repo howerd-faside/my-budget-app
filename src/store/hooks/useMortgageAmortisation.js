@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useMortgageFacilities } from './useMortgageFacilities';
-import { buildAmortSchedule } from '../../utils/mortgage';
+import { buildAmortSchedule } from '../../utils/finance/mortgage';
 
 /**
  * Derived hook — aggregate amortisation datasets for all mortgage facilities.

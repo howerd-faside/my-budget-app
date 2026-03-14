@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import PropTypes from 'prop-types';
 
 /**
  * Reusable React error boundary.
@@ -55,3 +56,9 @@ export default class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
+
+ErrorBoundary.propTypes = {
+  label: PropTypes.string,
+  fallback: PropTypes.func,
+  children: PropTypes.node.isRequired,
+};

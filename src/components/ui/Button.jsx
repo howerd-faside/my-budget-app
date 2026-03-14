@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 /**
  * Button — thin wrapper over the global .btn-* classes.
  *
@@ -32,3 +34,17 @@ export default function Button({
     </button>
   );
 }
+
+Button.propTypes = {
+  children: PropTypes.node.isRequired,
+  variant: PropTypes.oneOf(['primary', 'ghost', 'icon', 'ai']),
+  size: PropTypes.oneOf(['sm', 'md']),
+  danger: PropTypes.bool,
+  className: PropTypes.string,
+};
+
+Button.defaultProps = {
+  variant: 'primary',
+  danger: false,
+  className: '',
+};

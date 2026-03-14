@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
-import { calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, getFortnight, totalBalance, buildSavingsTrajectory } from '../store';
+import { calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, calcFortnightlyIncomeAt, totalBalance, buildSavingsTrajectory } from '../utils/finance/savings';
+import { getFortnight } from '../utils/finance/dates';
 import { useFinance } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
-import { fmtMoney, fmtMoneyRound } from '../utils/tax';
+import { fmtMoney, fmtMoneyRound } from '../utils/finance/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
 import { SectionHeader, StatTile, Card, Modal } from '../components/ui';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts';
+import { today } from '../utils/finance/dates';
 
 const EXPENSE_CATS  = ADHOC_EXPENSE_CATS;
 const INCOME_CATS   = ['Bonus', 'Commission', 'Tax Refund', 'Side Income', 'Gift Received', 'Other Income'];
@@ -187,7 +189,7 @@ export default function FinancialTracking() {
     const isIncome = txType === 'income';
     const tx = {
       id: crypto.randomUUID(),
-      date: new Date().toISOString().slice(0, 10),
+      date: today(),
       description: txForm.description,
       amount: isIncome ? +Math.abs(+txForm.amount) : -Math.abs(+txForm.amount),
       category: txForm.category,
@@ -208,7 +210,7 @@ export default function FinancialTracking() {
   return (
     <div className="page-content">
       <div className="year-bar">
-        <button className="year-nav-btn" onClick={() => shiftWindow(-1)}>
+        <button className="year-nav-btn" onClick={() => shiftWindow(-1)} aria-label="Previous year">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 3L5 8l5 5"/>
           </svg>
@@ -228,7 +230,7 @@ export default function FinancialTracking() {
             >{y}</button>
           ))}
         </div>
-        <button className="year-nav-btn" onClick={() => shiftWindow(1)}>
+        <button className="year-nav-btn" onClick={() => shiftWindow(1)} aria-label="Next year">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 3l5 5-5 5"/>
           </svg>
@@ -513,7 +515,7 @@ export default function FinancialTracking() {
                       <span className="fn-tx-desc">{tx.description}</span>
                       {tx.note && <span className="fn-tx-note">{tx.note}</span>}
                       <span className={`fn-tx-amount ${tx.amount >= 0 ? 'green' : 'red'}`}>{fmtMoney(tx.amount)}</span>
-                      <button className="btn-icon danger small" onClick={() => removeTx(f.i, tx.id)}>
+                      <button className="btn-icon danger small" onClick={() => removeTx(f.i, tx.id)} aria-label="Remove transaction">
                         <Icon name="close" size={11} />
                       </button>
                     </div>

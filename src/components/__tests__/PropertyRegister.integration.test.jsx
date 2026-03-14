@@ -50,7 +50,6 @@ function seedProperty(overrides = {}) {
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'info').mockImplementation(() => {});
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
   usePropertyStore.setState({
     properties: [], propertyTasks: [], propertyMaintenance: [],
     propertyProjects: [], propertyAssets: [], selectedPropertyId: null,
@@ -165,15 +164,19 @@ describe('PropertyRegister — deleting a property', () => {
     const user = userEvent.setup();
     renderRegister();
 
-    const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    await user.click(dangerBtns[0]);
+    const dangerBtn = document.querySelector('.btn-ghost.danger');
+    await user.click(dangerBtn);
 
-    expect(window.confirm).toHaveBeenCalled();
+    // ConfirmDialog appears — click its Delete button (inside .modal-footer)
+    const dialogDelete = document.querySelector('.modal-footer .btn.danger');
+    await user.click(dialogDelete);
+
     expect(usePropertyStore.getState().properties).toHaveLength(0);
   });
 
-  it('cascade-deletes tasks and maintenance linked to the property', () => {
+  it('cascade-deletes tasks and maintenance linked to the property', async () => {
     const prop = seedProperty();
+    const user = userEvent.setup();
     usePropertyStore.setState({
       properties: [prop],
       selectedPropertyId: prop.id,
@@ -189,8 +192,10 @@ describe('PropertyRegister — deleting a property', () => {
 
     renderRegister();
 
-    const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    fireEvent.click(dangerBtns[0]);
+    const dangerBtn = document.querySelector('.btn-ghost.danger');
+    await user.click(dangerBtn);
+    const dialogDelete = document.querySelector('.modal-footer .btn.danger');
+    await user.click(dialogDelete);
 
     const state = usePropertyStore.getState();
     expect(state.properties).toHaveLength(0);
@@ -198,13 +203,16 @@ describe('PropertyRegister — deleting a property', () => {
     expect(state.propertyMaintenance).toHaveLength(0);
   });
 
-  it('does not delete when confirm returns false', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('does not delete when confirm is cancelled', async () => {
     seedProperty();
+    const user = userEvent.setup();
     renderRegister();
 
-    const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    fireEvent.click(dangerBtns[0]);
+    const dangerBtn = document.querySelector('.btn-ghost.danger');
+    await user.click(dangerBtn);
+
+    const cancelBtn = document.querySelector('.modal-footer .btn:not(.danger)');
+    await user.click(cancelBtn);
 
     expect(usePropertyStore.getState().properties).toHaveLength(1);
   });

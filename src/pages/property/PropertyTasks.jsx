@@ -1,7 +1,7 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
 import {
   createPropertyTask,
   TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, TASK_EFFORTS, RECUR_UNITS,
@@ -9,20 +9,15 @@ import {
 } from '../../models/PropertyTask';
 import { getTaskDependents, cascadeDeleteTask, taskDeleteMessage } from '../../utils/cascade';
 import { validate, propertyTaskSchema } from '../../utils/validation';
-
-function today() { return new Date().toISOString().slice(0, 10); }
+import { PRIORITY_BAR } from '../../utils/colors';
+import { today } from '../../utils/finance/dates';
 
 const CATEGORIES     = TASK_CATEGORIES;
 const PRIORITIES     = TASK_PRIORITIES;
 const STATUSES       = TASK_STATUSES;
 const EFFORTS        = TASK_EFFORTS;
 const PRIORITY_DPILL = PRIORITY_PILL;
-const PRIORITY_BAR   = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--teal)', Low: 'var(--sep2)' };
 const PRIORITY_ORDER = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
-const TYPE_COLOR     = {
-  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
-  'Investment': 'purple', 'Land/Section': '', 'Other': '',
-};
 
 const EMPTY_TASK = createPropertyTask();
 
@@ -77,23 +72,9 @@ const BUCKETS = [
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
-function ActiveChip({ label, onClear }) {
-  return (
-    <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {label}
-      <button
-        onClick={onClear}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--text3)', fontSize: 13 }}
-        aria-label="Remove filter"
-      >×</button>
-    </span>
-  );
-}
-
 // ── TaskRow ───────────────────────────────────────────────────────────────────
 
-function TaskRow({ task, areas, propName, showProp, onEdit, onDelete, onStatusChange, onAddNote }) {
-  const [open,     setOpen]     = useState(false);
+const TaskRow = memo(function TaskRow({ task, areas, propName, showProp, onEdit, onDelete, onStatusChange, onAddNote }) {
   const [noteText, setNoteText] = useState('');
 
   const area      = areas.find(a => a.id === task.areaId);
@@ -112,91 +93,97 @@ function TaskRow({ task, areas, propName, showProp, onEdit, onDelete, onStatusCh
   };
 
   return (
-    <div className={`expense-row ${open ? 'expanded' : ''}`} onClick={() => setOpen(o => !o)}>
-      <div className="exp-cat-bar" style={{ background: PRIORITY_BAR[task.priority] }} />
-      <div className="exp-main">
-        <div className="exp-top">
-          <div className="exp-info">
-            <span className={`exp-name ${isDone ? 'line-through' : ''}`}>{task.title}</span>
-            {showProp && propName && (
-              <span className="text3" style={{ display: 'block', fontSize: 11, marginTop: 1 }}>
-                {propName}
-              </span>
-            )}
-            <span className="exp-tags">
-              {showStatusTag && <span className="tag">{task.status}</span>}
-              <span className="tag">{task.category}</span>
-              {area && <span className="tag teal">{area.name}</span>}
-              {task.effort && <span className="tag">{task.effort}</span>}
-              {task.recurring && <span className="tag amber">Recurring</span>}
-              {task.notes?.length > 0 && <span className="tag">{task.notes.length} note{task.notes.length !== 1 ? 's' : ''}</span>}
-            </span>
-          </div>
-          <div className="exp-right">
-            <div className="exp-amounts">
-              {dueLabel && (
-                <span className="exp-amount" style={{
-                  fontSize: 12,
-                  color: isOverdue ? 'var(--red)' : 'var(--text3)',
-                  fontFamily: 'var(--mono)',
-                  fontWeight: isOverdue ? 600 : 500,
-                }}>
-                  {dueLabel}
+    <ExpandableRow
+      className="expense-row"
+      summary={(expanded) => (
+        <>
+          <div className="exp-cat-bar" style={{ background: PRIORITY_BAR[task.priority] }} />
+          <div className="exp-main">
+            <div className="exp-top">
+              <div className="exp-info">
+                <span className={`exp-name ${isDone ? 'line-through' : ''}`}>{task.title}</span>
+                {showProp && propName && (
+                  <span className="text3" style={{ display: 'block', fontSize: 11, marginTop: 1 }}>
+                    {propName}
+                  </span>
+                )}
+                <span className="exp-tags">
+                  {showStatusTag && <span className="tag">{task.status}</span>}
+                  <span className="tag">{task.category}</span>
+                  {area && <span className="tag teal">{area.name}</span>}
+                  {task.effort && <span className="tag">{task.effort}</span>}
+                  {task.recurring && <span className="tag amber">Recurring</span>}
+                  {task.notes?.length > 0 && <span className="tag">{task.notes.length} note{task.notes.length !== 1 ? 's' : ''}</span>}
                 </span>
-              )}
-              <span className={`dpill ${PRIORITY_DPILL[task.priority]}`} style={task.priority === 'Low' ? { color: 'var(--text3)' } : {}}>
-                {task.priority}
-              </span>
+              </div>
+              <div className="exp-right">
+                <div className="exp-amounts">
+                  {dueLabel && (
+                    <span className="exp-amount" style={{
+                      fontSize: 12,
+                      color: isOverdue ? 'var(--red)' : 'var(--text3)',
+                      fontFamily: 'var(--mono)',
+                      fontWeight: isOverdue ? 600 : 500,
+                    }}>
+                      {dueLabel}
+                    </span>
+                  )}
+                  <span className={`dpill ${PRIORITY_DPILL[task.priority]}`} style={task.priority === 'Low' ? { color: 'var(--text3)' } : {}}>
+                    {task.priority}
+                  </span>
+                </div>
+                <div className="exp-actions" onClick={e => e.stopPropagation()}>
+                  <button
+                    className="btn-icon"
+                    title={`Mark as ${STATUS_NEXT[task.status]}`}
+                    aria-label={`Mark as ${STATUS_NEXT[task.status]}`}
+                    onClick={() => onStatusChange(task)}
+                  >
+                    {task.status === 'Done'
+                      ? <Icon name="check" size={13} />
+                      : <Icon name="chevronD" size={13} />}
+                  </button>
+                  <button className="btn-icon" onClick={() => onEdit(task)} aria-label="Edit task"><Icon name="pencil" /></button>
+                  <button className="btn-icon danger" onClick={() => onDelete(task.id)} aria-label="Delete task"><Icon name="trash" /></button>
+                </div>
+              </div>
             </div>
-            <div className="exp-actions" onClick={e => e.stopPropagation()}>
-              <button
-                className="btn-icon"
-                title={`Mark as ${STATUS_NEXT[task.status]}`}
-                onClick={() => onStatusChange(task)}
-              >
-                {task.status === 'Done'
-                  ? <Icon name="check" size={13} />
-                  : <Icon name="chevronD" size={13} />}
-              </button>
-              <button className="btn-icon" onClick={() => onEdit(task)}><Icon name="pencil" /></button>
-              <button className="btn-icon danger" onClick={() => onDelete(task.id)}><Icon name="trash" /></button>
-            </div>
-          </div>
-        </div>
 
-        {open && (
-          <div className="exp-detail" onClick={e => e.stopPropagation()}>
-            {task.description && (
-              <div className="exp-detail-notes">{task.description}</div>
-            )}
-            {(task.notes || []).length > 0 && (
-              <div className="change-history" style={{ marginTop: task.description ? 8 : 0 }}>
-                <div className="ch-label">Notes</div>
-                {task.notes.map(n => (
-                  <div key={n.id} className="ch-row">
-                    <span className="ch-date">{n.date}</span>
-                    <span style={{ color: 'var(--text2)' }}>{n.text}</span>
+            {expanded && (
+              <div className="exp-detail" onClick={e => e.stopPropagation()}>
+                {task.description && (
+                  <div className="exp-detail-notes">{task.description}</div>
+                )}
+                {(task.notes || []).length > 0 && (
+                  <div className="change-history" style={{ marginTop: task.description ? 8 : 0 }}>
+                    <div className="ch-label">Notes</div>
+                    {task.notes.map(n => (
+                      <div key={n.id} className="ch-row">
+                        <span className="ch-date">{n.date}</span>
+                        <span style={{ color: 'var(--text2)' }}>{n.text}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-2)' }}>
+                  <input
+                    className="input small"
+                    style={{ flex: 1 }}
+                    placeholder="Add a progress note…"
+                    value={noteText}
+                    onChange={e => setNoteText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') submitNote(); }}
+                  />
+                  <button className="btn-ghost small" onClick={submitNote} disabled={!noteText.trim()}>Add</button>
+                </div>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-2)' }}>
-              <input
-                className="input small"
-                style={{ flex: 1 }}
-                placeholder="Add a progress note…"
-                value={noteText}
-                onChange={e => setNoteText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitNote(); }}
-              />
-              <button className="btn-ghost small" onClick={submitNote} disabled={!noteText.trim()}>Add</button>
-            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    />
   );
-}
+});
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -204,9 +191,6 @@ export default function PropertyTasks() {
   const { properties, propertyTasks, propertyMaintenance, selectedPropertyId, setProperty, mergeProperty } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
-
-  // ── Scope ──────────────────────────────────────────────────────────────────
-  const [propScope, setPropScope] = useState('current');
 
   // ── Primary filters ────────────────────────────────────────────────────────
   const [filterSearch,   setFilterSearch]   = useState('');
@@ -230,22 +214,14 @@ export default function PropertyTasks() {
   const [recurEnabled,  setRecurEnabled]  = useState(false);
   const [recurInterval, setRecurInterval] = useState(6);
   const [recurUnit,     setRecurUnit]     = useState('months');
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const areas = selProp?.areas || [];
 
-  // ── Scope helpers ──────────────────────────────────────────────────────────
-  const selectProperty = (id) => {
-    setProperty('selectedPropertyId', id);
-    setPropScope('current');
-    setFilterArea('All');
-  };
-
-  const selectAll = () => {
-    setPropScope('all');
-    setFilterArea('All');
-  };
+  // Reset area filter when property changes
+  useEffect(() => { setFilterArea('All'); }, [selectedPropertyId]);
 
   const clearAllFilters = () => {
     setFilterSearch('');
@@ -260,9 +236,9 @@ export default function PropertyTasks() {
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const scopedTasks = useMemo(() => {
-    if (propScope === 'all') return propertyTasks;
+    if (selectedPropertyId === null) return propertyTasks;
     return selectedPropertyId ? propertyTasks.filter(t => t.propertyId === selectedPropertyId) : [];
-  }, [propertyTasks, propScope, selectedPropertyId]);
+  }, [propertyTasks, selectedPropertyId]);
 
   const snap = useMemo(() => {
     const todayStr = today();
@@ -279,7 +255,7 @@ export default function PropertyTasks() {
   // Filtered flat list — no sort; sorting is applied per-bucket in `grouped`
   const visible = useMemo(() => {
     let list = propertyTasks;
-    if (propScope === 'current' && selectedPropertyId) list = list.filter(t => t.propertyId === selectedPropertyId);
+    if (selectedPropertyId) list = list.filter(t => t.propertyId === selectedPropertyId);
     if (filterSearch)             list = list.filter(t => t.title.toLowerCase().includes(filterSearch.toLowerCase()));
     if (filterStatus   !== 'All') list = list.filter(t => t.status   === filterStatus);
     if (filterPriority !== 'All') list = list.filter(t => t.priority === filterPriority);
@@ -289,7 +265,7 @@ export default function PropertyTasks() {
     if (!filterShowDone)          list = list.filter(t => t.status !== 'Done');
     if (filterDueBefore)          list = list.filter(t => t.dueDate && t.dueDate <= filterDueBefore);
     return list;
-  }, [propertyTasks, propScope, selectedPropertyId, filterSearch, filterStatus, filterPriority, filterArea, filterCategory, filterRecurring, filterShowDone, filterDueBefore]);
+  }, [propertyTasks, selectedPropertyId, filterSearch, filterStatus, filterPriority, filterArea, filterCategory, filterRecurring, filterShowDone, filterDueBefore]);
 
   // Bucketed + sorted for rendering
   const grouped = useMemo(() => {
@@ -324,13 +300,13 @@ export default function PropertyTasks() {
     setErrors({}); setEditingId('new'); setShowModal(true);
   };
 
-  const openEdit = (task) => {
+  const openEdit = useCallback((task) => {
     setForm({ ...EMPTY_TASK, ...task });
     setRecurEnabled(!!task.recurring);
     setRecurInterval(task.recurring?.interval || 6);
     setRecurUnit(task.recurring?.unit || 'months');
     setErrors({}); setEditingId(task.id); setShowModal(true);
-  };
+  }, []);
 
   const close = () => { setShowModal(false); setForm(EMPTY_TASK); setEditingId(null); setErrors({}); };
 
@@ -350,13 +326,16 @@ export default function PropertyTasks() {
     close();
   };
 
-  const deleteTask = (id) => {
+  const deleteTask = useCallback((id) => {
     const deps = getTaskDependents({ propertyMaintenance }, id);
-    if (!confirm(taskDeleteMessage(deps))) return;
-    mergeProperty(cascadeDeleteTask({ propertyTasks, propertyMaintenance }, id));
+    setConfirmTarget({ id, message: taskDeleteMessage(deps) });
+  }, [propertyMaintenance]);
+  const executeDeleteTask = () => {
+    mergeProperty(cascadeDeleteTask({ propertyTasks, propertyMaintenance }, confirmTarget.id));
+    setConfirmTarget(null);
   };
 
-  const cycleStatus = (task) => {
+  const cycleStatus = useCallback((task) => {
     const next = STATUS_NEXT[task.status] || 'To Do';
     let updated = propertyTasks.map(t => t.id === task.id ? { ...t, status: next } : t);
     if (next === 'Done' && task.recurring?.interval && task.dueDate) {
@@ -364,13 +343,13 @@ export default function PropertyTasks() {
       updated = [...updated, { ...task, id: crypto.randomUUID(), status: 'To Do', dueDate: nextDue, notes: [], createdAt: today() }];
     }
     setProperty('propertyTasks', updated);
-  };
+  }, [propertyTasks, setProperty]);
 
-  const addNote = (taskId, text) => {
+  const addNote = useCallback((taskId, text) => {
     setProperty('propertyTasks', propertyTasks.map(t =>
       t.id === taskId ? { ...t, notes: [...(t.notes || []), { id: crypto.randomUUID(), date: today(), text }] } : t
     ));
-  };
+  }, [propertyTasks, setProperty]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   if (properties.length === 0) {
@@ -384,55 +363,12 @@ export default function PropertyTasks() {
     );
   }
 
-  const scopeLabel = propScope === 'all' ? 'All properties' : (selProp?.name ?? 'No property selected');
+  const scopeLabel = selectedPropertyId === null ? 'All properties' : (selProp?.name ?? 'No property selected');
 
   return (
     <div className="page-content">
 
-      {/* ── 1. Property selector ────────────────────────────────────────── */}
-      <Card variant="section">
-        <SectionHeader
-          title={<><Icon name="building" size={15} /> Properties</>}
-          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
-        />
-        <div className="prop-selector">
-          {/* All card */}
-          <div
-            className={`prop-sel-item${propScope === 'all' ? ' selected' : ''}`}
-            onClick={selectAll}
-          >
-            <span className="prop-sel-name">All Properties</span>
-            <div className="prop-sel-meta">
-              <span className="tag">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
-            </div>
-          </div>
-          {properties.map(prop => {
-            const overdue = propertyTasks.filter(t =>
-              t.propertyId === prop.id && t.dueDate && t.dueDate < today() &&
-              t.status !== 'Done' && t.status !== 'Cancelled'
-            ).length;
-            const isSelected = propScope === 'current' && prop.id === selectedPropertyId;
-            return (
-              <div
-                key={prop.id}
-                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
-                onClick={() => selectProperty(prop.id)}
-              >
-                <span className="prop-sel-name">{prop.name}</span>
-                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
-                <div className="prop-sel-meta">
-                  {prop.type     && <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>}
-                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
-                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
-                  {overdue > 0    && <span className="dpill red">{overdue} due</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* ── 2. Task snapshot ────────────────────────────────────────────── */}
+      {/* ── 1. Task snapshot ────────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
           title={<><Icon name="clipboard" size={15} /> Task Snapshot</>}
@@ -467,21 +403,21 @@ export default function PropertyTasks() {
             value={filterSearch}
             onChange={e => setFilterSearch(e.target.value)}
           />
-          <select className="input small" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <select className="input small" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} aria-label="Filter by status">
             <option value="All">All statuses</option>
             {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <select className="input small" value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+          <select className="input small" value={filterPriority} onChange={e => setFilterPriority(e.target.value)} aria-label="Filter by priority">
             <option value="All">All priorities</option>
             {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
-          {propScope === 'current' && areas.length > 0 && (
-            <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
+          {selectedPropertyId !== null && areas.length > 0 && (
+            <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)} aria-label="Filter by area">
               <option value="All">All areas</option>
               {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           )}
-          <select className="input small" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <select className="input small" value={sortBy} onChange={e => setSortBy(e.target.value)} aria-label="Sort tasks">
             <option value="priority">Sort: Priority</option>
             <option value="dueDate">Sort: Due date</option>
             <option value="title">Sort: Title</option>
@@ -492,7 +428,7 @@ export default function PropertyTasks() {
         {/* Secondary filters */}
         {showMore && (
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--sep)' }}>
-            <select className="input small" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+            <select className="input small" value={filterCategory} onChange={e => setFilterCategory(e.target.value)} aria-label="Filter by category">
               <option value="All">All categories</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -540,7 +476,7 @@ export default function PropertyTasks() {
           title={<><Icon name="clipboard" size={15} /> Tasks</>}
           subtitle={`${visible.length} task${visible.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`}
           actions={
-            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && propScope !== 'all'}>
+            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && selectedPropertyId !== null}>
               <Icon name="plus" size={14} /> Add Task
             </button>
           }
@@ -574,7 +510,7 @@ export default function PropertyTasks() {
                         task={task}
                         areas={prop?.areas || []}
                         propName={prop?.name}
-                        showProp={propScope === 'all' && properties.length > 1}
+                        showProp={selectedPropertyId === null && properties.length > 1}
                         onEdit={openEdit}
                         onDelete={deleteTask}
                         onStatusChange={cycleStatus}
@@ -680,6 +616,14 @@ export default function PropertyTasks() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Delete task"
+        message={confirmTarget?.message || ''}
+        onConfirm={executeDeleteTask}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

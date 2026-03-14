@@ -44,7 +44,6 @@ function seedExpense(overrides = {}) {
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'info').mockImplementation(() => {});
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
   usePeopleStore.setState({ people: [], expenses: [], wishlist: [] });
 });
 
@@ -186,17 +185,22 @@ describe('Expenses — deleting an expense', () => {
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
     await user.click(dangerBtns[0]);
 
-    expect(window.confirm).toHaveBeenCalledWith('Remove this expense?');
+    expect(screen.getByText('Remove this expense?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+
     expect(usePeopleStore.getState().expenses).toHaveLength(0);
   });
 
-  it('does not remove the expense if confirm returns false', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('does not remove the expense if confirm is cancelled', async () => {
     seedExpense();
+    const user = userEvent.setup();
     renderExpenses();
 
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    fireEvent.click(dangerBtns[0]);
+    await user.click(dangerBtns[0]);
+
+    expect(screen.getByText('Remove this expense?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(usePeopleStore.getState().expenses).toHaveLength(1);
   });

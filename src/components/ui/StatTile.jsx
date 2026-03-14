@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 /**
  * StatTile — matches the .fns-item pattern used throughout the app.
  *
@@ -20,3 +22,15 @@ export default function StatTile({ label, value, valueClassName = '', meta, icon
     </div>
   );
 }
+
+StatTile.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+  valueClassName: PropTypes.string,
+  meta: PropTypes.node,
+  icon: PropTypes.node,
+};
+
+StatTile.defaultProps = {
+  valueClassName: '',
+};

@@ -1,24 +1,15 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
 import {
   createPropertyProject,
   PROJECT_STATUSES, PROJECT_PRIORITIES, STATUS_DPILL,
 } from '../../models/PropertyProject';
-
-function today() { return new Date().toISOString().slice(0, 10); }
-
-const PRIORITY_DPILL = { Urgent: 'red', High: 'amber', Medium: 'teal', Low: '' };
-const PRIORITY_BAR   = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--teal)', Low: 'var(--sep2)' };
-const PRIORITY_COLOR = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--teal)', Low: 'var(--text3)' };
+import { PRIORITY_DPILL, PRIORITY_BAR, PRIORITY_COLOR } from '../../utils/colors';
+import { today } from '../../utils/finance/dates';
 
 const STATUS_ORDER = ['In Progress', 'Planning', 'Idea', 'On Hold', 'Completed', 'Cancelled'];
-
-const TYPE_COLOR = {
-  'Primary Home': 'teal', 'Rental': 'amber', 'Bach/Holiday': 'green',
-  'Investment': 'purple', 'Land/Section': '', 'Other': '',
-};
 
 const EMPTY_PROJ = createPropertyProject();
 
@@ -33,25 +24,9 @@ const SORT_FN = {
   },
 };
 
-// ── ActiveChip ────────────────────────────────────────────────────────────────
-
-function ActiveChip({ label, onClear }) {
-  return (
-    <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {label}
-      <button
-        onClick={onClear}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--text3)', fontSize: 13 }}
-        aria-label="Remove filter"
-      >×</button>
-    </span>
-  );
-}
-
 // ── ProjectRow ────────────────────────────────────────────────────────────────
 
-function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusChange, onAddNote }) {
-  const [expanded, setExpanded] = useState(false);
+const ProjectRow = memo(function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusChange, onAddNote }) {
   const [noteText, setNoteText] = useState('');
 
   const linkedTasks = propertyTasks.filter(t => proj.taskIds.includes(t.id));
@@ -72,112 +47,110 @@ function ProjectRow({ proj, property, propertyTasks, onEdit, onDelete, onStatusC
   const dateColor = proj.status === 'Completed' ? 'var(--green)' : 'var(--text3)';
 
   return (
-    <div
-      className={`expense-row${expanded ? ' expanded' : ''}`}
-      onClick={hasDetail ? () => setExpanded(e => !e) : undefined}
-      style={hasDetail ? undefined : { cursor: 'default' }}
-    >
-      <div className="exp-cat-bar" style={{ background: PRIORITY_BAR[proj.priority] || 'var(--sep2)' }} />
-      <div className="exp-main">
-        <div className="exp-top">
-          <div className="exp-info">
-            <span className="exp-name">{proj.title}</span>
-            {projAreas.length > 0 && (
-              <span className="exp-tags">
-                {projAreas.map(a => <span key={a.id} className="tag teal">{a.name}</span>)}
-              </span>
-            )}
-            {!expanded && proj.description && (
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {proj.description}
-              </span>
-            )}
-          </div>
-          <div className="exp-right">
-            <div className="exp-amounts">
-              {dateLabel && (
-                <span className="exp-amount" style={{ fontSize: 12, color: dateColor }}>{dateLabel}</span>
-              )}
-              <span
-                className={`dpill ${PRIORITY_DPILL[proj.priority] || ''}`}
-                style={!PRIORITY_DPILL[proj.priority] ? { color: 'var(--text3)' } : {}}
-              >{proj.priority}</span>
+    <ExpandableRow
+      className="expense-row"
+      summary={(expanded) => (
+        <>
+          <div className="exp-cat-bar" style={{ background: PRIORITY_BAR[proj.priority] || 'var(--sep2)' }} />
+          <div className="exp-main">
+            <div className="exp-top">
+              <div className="exp-info">
+                <span className="exp-name">{proj.title}</span>
+                {projAreas.length > 0 && (
+                  <span className="exp-tags">
+                    {projAreas.map(a => <span key={a.id} className="tag teal">{a.name}</span>)}
+                  </span>
+                )}
+                {!expanded && proj.description && (
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {proj.description}
+                  </span>
+                )}
+              </div>
+              <div className="exp-right">
+                <div className="exp-amounts">
+                  {dateLabel && (
+                    <span className="exp-amount" style={{ fontSize: 12, color: dateColor }}>{dateLabel}</span>
+                  )}
+                  <span
+                    className={`dpill ${PRIORITY_DPILL[proj.priority] || ''}`}
+                    style={!PRIORITY_DPILL[proj.priority] ? { color: 'var(--text3)' } : {}}
+                  >{proj.priority}</span>
+                </div>
+                <div className="exp-actions" onClick={e => e.stopPropagation()}>
+                  <button className="btn-icon" title="Advance status" aria-label="Advance status" onClick={() => onStatusChange(proj)}>
+                    <Icon name="chevronD" size={13} />
+                  </button>
+                  <button className="btn-icon" onClick={() => onEdit(proj)} aria-label="Edit project">
+                    <Icon name="pencil" />
+                  </button>
+                  <button className="btn-icon danger" onClick={() => onDelete(proj.id)} aria-label="Delete project">
+                    <Icon name="trash" />
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="exp-actions" onClick={e => e.stopPropagation()}>
-              <button className="btn-icon" title="Advance status" onClick={() => onStatusChange(proj)}>
-                <Icon name="chevronD" size={13} />
-              </button>
-              <button className="btn-icon" onClick={() => onEdit(proj)}>
-                <Icon name="pencil" />
-              </button>
-              <button className="btn-icon danger" onClick={() => onDelete(proj.id)}>
-                <Icon name="trash" />
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {expanded && hasDetail && (
-          <div className="exp-detail" onClick={e => e.stopPropagation()}>
-            {proj.description && (
-              <div className="exp-detail-notes" style={{ marginBottom: 'var(--space-3)' }}>{proj.description}</div>
-            )}
+            {expanded && hasDetail && (
+              <div className="exp-detail" onClick={e => e.stopPropagation()}>
+                {proj.description && (
+                  <div className="exp-detail-notes" style={{ marginBottom: 'var(--space-3)' }}>{proj.description}</div>
+                )}
 
-            {linkedTasks.length > 0 && (
-              <div style={{ marginBottom: 'var(--space-3)' }}>
-                <div className="ch-label">Linked Tasks</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                  {linkedTasks.map(t => (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text2)' }}>
-                      <span style={{
-                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                        background: t.status === 'Done' ? 'var(--green)' : PRIORITY_COLOR[t.priority] || 'var(--text3)',
-                      }} />
-                      <span style={{ textDecoration: t.status === 'Done' ? 'line-through' : 'none', flex: 1 }}>{t.title}</span>
-                      <span className="tag" style={{ fontSize: 10 }}>{t.status}</span>
+                {linkedTasks.length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-3)' }}>
+                    <div className="ch-label">Linked Tasks</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                      {linkedTasks.map(t => (
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text2)' }}>
+                          <span style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            background: t.status === 'Done' ? 'var(--green)' : PRIORITY_COLOR[t.priority] || 'var(--text3)',
+                          }} />
+                          <span style={{ textDecoration: t.status === 'Done' ? 'line-through' : 'none', flex: 1 }}>{t.title}</span>
+                          <span className="tag" style={{ fontSize: 10 }}>{t.status}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                {proj.notes?.length > 0 && (
+                  <div className="change-history" style={{ marginBottom: 'var(--space-2)' }}>
+                    <div className="ch-label">Notes</div>
+                    {[...(proj.notes || [])].reverse().map(n => (
+                      <div key={n.id} className="ch-row">
+                        <span className="ch-date">{n.date}</span>
+                        <span style={{ color: 'var(--text2)' }}>{n.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-2)' }}>
+                  <input
+                    className="input small"
+                    style={{ flex: 1 }}
+                    placeholder="Add a planning note or decision…"
+                    value={noteText}
+                    onChange={e => setNoteText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') submitNote(); }}
+                  />
+                  <button className="btn-ghost small" onClick={submitNote} disabled={!noteText.trim()}>Add</button>
                 </div>
               </div>
             )}
-
-            {proj.notes?.length > 0 && (
-              <div className="change-history" style={{ marginBottom: 'var(--space-2)' }}>
-                <div className="ch-label">Notes</div>
-                {[...(proj.notes || [])].reverse().map(n => (
-                  <div key={n.id} className="ch-row">
-                    <span className="ch-date">{n.date}</span>
-                    <span style={{ color: 'var(--text2)' }}>{n.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-2)' }}>
-              <input
-                className="input small"
-                style={{ flex: 1 }}
-                placeholder="Add a planning note or decision…"
-                value={noteText}
-                onChange={e => setNoteText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitNote(); }}
-              />
-              <button className="btn-ghost small" onClick={submitNote} disabled={!noteText.trim()}>Add</button>
-            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    />
   );
-}
+});
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PropertyProjects() {
   const { properties, propertyProjects, propertyTasks, selectedPropertyId, setProperty } = useProperty();
-
-  // ── Scope ──────────────────────────────────────────────────────────────────
-  const [propScope, setPropScope] = useState('current');
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filterSearch, setFilterSearch] = useState('');
@@ -191,28 +164,20 @@ export default function PropertyProjects() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
   const [noteText,  setNoteText]  = useState('');
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const selProp    = properties.find(p => p.id === selectedPropertyId) || null;
   const areas      = selProp?.areas || [];
-  const scopeLabel = propScope === 'all' ? 'All properties' : (selProp?.name ?? 'No property selected');
+  const scopeLabel = selectedPropertyId === null ? 'All properties' : (selProp?.name ?? 'No property selected');
 
-  // ── Scope helpers ──────────────────────────────────────────────────────────
-  const selectProperty = (id) => {
-    setProperty('selectedPropertyId', id);
-    setPropScope('current');
-    setFilterArea('All');
-  };
-
-  const selectAll = () => {
-    setPropScope('all');
-    setFilterArea('All');
-  };
+  // Reset area filter when property changes
+  useEffect(() => { setFilterArea('All'); }, [selectedPropertyId]);
 
   // ── Snapshot ───────────────────────────────────────────────────────────────
   const snap = useMemo(() => {
-    const scoped = propScope === 'all'
+    const scoped = selectedPropertyId === null
       ? propertyProjects
       : propertyProjects.filter(p => p.propertyId === selectedPropertyId);
     return {
@@ -222,17 +187,17 @@ export default function PropertyProjects() {
       onHold:     scoped.filter(p => p.status === 'On Hold').length,
       completed:  scoped.filter(p => p.status === 'Completed').length,
     };
-  }, [propertyProjects, propScope, selectedPropertyId]);
+  }, [propertyProjects, selectedPropertyId]);
 
   // ── Filtered + grouped ─────────────────────────────────────────────────────
   const visible = useMemo(() => {
     let list = propertyProjects;
-    if (propScope === 'current' && selectedPropertyId) list = list.filter(p => p.propertyId === selectedPropertyId);
+    if (selectedPropertyId) list = list.filter(p => p.propertyId === selectedPropertyId);
     if (filterSearch)            list = list.filter(p => p.title.toLowerCase().includes(filterSearch.toLowerCase()));
     if (filterStatus !== 'All') list = list.filter(p => p.status === filterStatus);
     if (filterArea   !== 'All') list = list.filter(p => p.areas.includes(filterArea));
     return list;
-  }, [propertyProjects, propScope, selectedPropertyId, filterSearch, filterStatus, filterArea]);
+  }, [propertyProjects, selectedPropertyId, filterSearch, filterStatus, filterArea]);
 
   const grouped = useMemo(() => {
     const groups = {};
@@ -260,10 +225,10 @@ export default function PropertyProjects() {
     setEditingId('new'); setActiveTab('info'); setNoteText(''); setShowModal(true);
   };
 
-  const openEdit = (proj) => {
+  const openEdit = useCallback((proj) => {
     setForm({ ...EMPTY_PROJ, ...proj, notes: proj.notes || [], taskIds: proj.taskIds || [], areas: proj.areas || [] });
     setEditingId(proj.id); setActiveTab('info'); setNoteText(''); setShowModal(true);
-  };
+  }, []);
 
   const close = () => { setShowModal(false); setForm(EMPTY_PROJ); setEditingId(null); setNoteText(''); };
 
@@ -282,26 +247,27 @@ export default function PropertyProjects() {
     close();
   };
 
-  const deleteProject = (id) => {
-    if (!confirm('Delete this project?')) return;
-    setProperty('propertyProjects', propertyProjects.filter(p => p.id !== id));
+  const deleteProject = useCallback((id) => setConfirmTarget(id), []);
+  const executeDeleteProject = () => {
+    setProperty('propertyProjects', propertyProjects.filter(p => p.id !== confirmTarget));
+    setConfirmTarget(null);
   };
 
-  const cycleStatus = (proj) => {
+  const cycleStatus = useCallback((proj) => {
     const active = ['Idea', 'Planning', 'In Progress', 'On Hold', 'Completed'];
     const next = active[(active.indexOf(proj.status) + 1) % active.length];
     const updates = { status: next };
     if (next === 'Completed') updates.actualCompletion = today();
     setProperty('propertyProjects', propertyProjects.map(p => p.id === proj.id ? { ...p, ...updates } : p));
-  };
+  }, [propertyProjects, setProperty]);
 
-  const addNote = (projId, text) => {
+  const addNote = useCallback((projId, text) => {
     setProperty('propertyProjects', propertyProjects.map(p =>
       p.id === projId
         ? { ...p, notes: [...(p.notes || []), { id: crypto.randomUUID(), date: today(), text }] }
         : p
     ));
-  };
+  }, [propertyProjects, setProperty]);
 
   const toggleTaskLink = (taskId) => {
     setForm(f => ({
@@ -332,46 +298,7 @@ export default function PropertyProjects() {
   return (
     <div className="page-content">
 
-      {/* ── 1. Property selector ─────────────────────────────────────────── */}
-      <Card variant="section">
-        <SectionHeader
-          title={<><Icon name="building" size={15} /> Properties</>}
-          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
-        />
-        <div className="prop-selector">
-          <div
-            className={`prop-sel-item${propScope === 'all' ? ' selected' : ''}`}
-            onClick={selectAll}
-          >
-            <span className="prop-sel-name">All Properties</span>
-            <div className="prop-sel-meta">
-              <span className="tag">{properties.length} {properties.length === 1 ? 'property' : 'properties'}</span>
-            </div>
-          </div>
-          {properties.map(prop => {
-            const projCount  = propertyProjects.filter(p => p.propertyId === prop.id).length;
-            const isSelected = propScope === 'current' && prop.id === selectedPropertyId;
-            return (
-              <div
-                key={prop.id}
-                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
-                onClick={() => selectProperty(prop.id)}
-              >
-                <span className="prop-sel-name">{prop.name}</span>
-                {prop.address && <span className="prop-sel-addr">{prop.address}</span>}
-                <div className="prop-sel-meta">
-                  {prop.type      && <span className={`tag ${TYPE_COLOR[prop.type] || ''}`}>{prop.type}</span>}
-                  {prop.bedrooms  && <span className="tag">{prop.bedrooms}bd</span>}
-                  {prop.bathrooms && <span className="tag">{prop.bathrooms}ba</span>}
-                  {projCount > 0  && <span className="tag">{projCount} project{projCount !== 1 ? 's' : ''}</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* ── 2. Project snapshot ──────────────────────────────────────────── */}
+      {/* ── 1. Project snapshot ──────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader
           title={<><Icon name="layers" size={15} /> Project Snapshot</>}
@@ -401,7 +328,7 @@ export default function PropertyProjects() {
             <option value="All">All statuses</option>
             {PROJECT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          {propScope === 'current' && areas.length > 0 && (
+          {selectedPropertyId !== null && areas.length > 0 && (
             <select className="input small" value={filterArea} onChange={e => setFilterArea(e.target.value)}>
               <option value="All">All areas</option>
               {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -430,7 +357,7 @@ export default function PropertyProjects() {
           title={<><Icon name="layers" size={15} /> Projects</>}
           subtitle={`${visible.length} project${visible.length !== 1 ? 's' : ''}${isFiltered ? ' (filtered)' : ''}`}
           actions={
-            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && propScope !== 'all'}>
+            <button className="btn-ghost small" onClick={openNew} disabled={!selProp && selectedPropertyId !== null}>
               <Icon name="plus" size={14} /> Add Project
             </button>
           }
@@ -439,7 +366,7 @@ export default function PropertyProjects() {
           <EmptyState
             icon={<Icon name="layers" size={38} />}
             title={
-              !selProp && propScope === 'current'
+              !selProp && selectedPropertyId !== null
                 ? 'Select a property above to view its projects.'
                 : propertyProjects.length === 0
                 ? 'No projects yet. Plan your first improvement project.'
@@ -613,7 +540,7 @@ export default function PropertyProjects() {
                   <div key={n.id} className="ch-row">
                     <span className="ch-date">{n.date}</span>
                     <span className="ch-text" style={{ flex: 1 }}>{n.text}</span>
-                    <button className="btn-icon small danger" onClick={() => setForm(f => ({ ...f, notes: f.notes.filter(x => x.id !== n.id) }))}>
+                    <button className="btn-icon small danger" onClick={() => setForm(f => ({ ...f, notes: f.notes.filter(x => x.id !== n.id) }))} aria-label="Delete note">
                       <Icon name="close" size={10} />
                     </button>
                   </div>
@@ -623,6 +550,14 @@ export default function PropertyProjects() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Delete project"
+        message="Delete this project?"
+        onConfirm={executeDeleteProject}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

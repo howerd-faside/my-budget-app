@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { usePeople } from './usePeople';
-import { calcRemainingTerm, calcTotalInterest } from '../../utils/mortgage';
+import { calcRemainingTerm, calcTotalInterest } from '../../utils/finance/mortgage';
 import { toFortnightly } from '../../utils/finance/frequency';
 
 /**

@@ -25,16 +25,6 @@ export const HOLDING_CATEGORIES = /** @type {const} */ (
   ['Shares', 'ETF', 'Managed Fund', 'Bonds', 'Term Deposit', 'Crypto', 'Other']
 );
 
-/** Display colours keyed by category (used in allocation charts). */
-export const CATEGORY_COLORS = /** @type {const} */ ({
-  'Shares':       '#0071E3',
-  'ETF':          '#34C759',
-  'Managed Fund': '#AF52DE',
-  'Bonds':        '#FF9F0A',
-  'Term Deposit': '#FF6B2B',
-  'Crypto':       '#32ADE6',
-  'Other':        '#86868B',
-});
 
 /**
  * @typedef {Object} Holding

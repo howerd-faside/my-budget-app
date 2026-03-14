@@ -6,7 +6,7 @@ import {
   calcFortnightlyIncomeAt,
   calcFortnightlyAssetIncome,
   calcFortnightlyExpensesAt,
-} from '../../store';
+} from '../../utils/finance/savings';
 import { toFortnightly }                     from '../../utils/finance/frequency';
 import { filterByDateRange, sumTransactions } from '../../utils/finance/transactions';
 import { transactionFromContribution }        from '../../models/Transaction';

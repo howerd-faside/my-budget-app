@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 /**
  * EmptyState — matches the .empty-state pattern.
  *
@@ -23,3 +25,10 @@ export default function EmptyState({ icon, title, description, action }) {
     </div>
   );
 }
+
+EmptyState.propTypes = {
+  icon: PropTypes.node,
+  title: PropTypes.string,
+  description: PropTypes.node,
+  action: PropTypes.node,
+};

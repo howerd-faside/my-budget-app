@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../../components/ui';
+import { SectionHeader, StatTile, EmptyState, Card, Modal, ConfirmDialog } from '../../components/ui';
 import { createInvestmentContribution, CONTRIBUTION_TYPES, CONTRIBUTION_TYPE_PILL } from '../../models/InvestmentContribution';
 import { transactionFromContribution } from '../../models/Transaction';
 import { filterByYear, filterByYearMonth, sumTransactions } from '../../utils/finance/transactions';
-
-function today() { return new Date().toISOString().slice(0, 10); }
+import { today } from '../../utils/finance/dates';
 
 const CONTRIB_TYPES = CONTRIBUTION_TYPES;
 const TYPE_DPILL    = CONTRIBUTION_TYPE_PILL;
@@ -107,6 +106,7 @@ export default function InvestmentContributions() {
 
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
   const sorted = useMemo(() =>
     [...contributions].sort((a, b) => (b.date || '').localeCompare(a.date || '')),
@@ -134,9 +134,11 @@ export default function InvestmentContributions() {
     setEditTarget(null);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Remove this contribution?'))
-      setInvestment('investmentContributions', allContributions.filter(c => c.id !== id));
+  const handleDelete = (id) => setConfirmTarget(id);
+
+  const executeDelete = () => {
+    if (confirmTarget) setInvestment('investmentContributions', allContributions.filter(c => c.id !== confirmTarget));
+    setConfirmTarget(null);
   };
 
   const openEdit = (c) => { setEditTarget(c); setShowModal(true); };
@@ -196,10 +198,10 @@ export default function InvestmentContributions() {
                   <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
                     <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(c.amount)}</span>
                     <div className="exp-actions">
-                      <button className="btn-icon small" onClick={() => openEdit(c)}>
+                      <button className="btn-icon small" onClick={() => openEdit(c)} aria-label="Edit contribution">
                         <Icon name="pencil" size={12} />
                       </button>
-                      <button className="btn-icon small danger" onClick={() => handleDelete(c.id)}>
+                      <button className="btn-icon small danger" onClick={() => handleDelete(c.id)} aria-label="Delete contribution">
                         <Icon name="trash" size={12} />
                       </button>
                     </div>
@@ -220,6 +222,15 @@ export default function InvestmentContributions() {
           onClose={() => { setShowModal(false); setEditTarget(null); }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Remove contribution"
+        message="Remove this contribution?"
+        confirmLabel="Remove"
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

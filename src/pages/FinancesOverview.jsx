@@ -5,11 +5,12 @@ import {
 } from 'recharts';
 import Icon from '../components/Icon';
 import { SectionHeader, StatTile, Card } from '../components/ui';
+import { useNavigate } from '../contexts/NavigationContext';
 import {
   useHouseholdSnapshot, useMoneyFlow, useCashflowTrend,
   useObligationsSnapshot, useSavingsPosition,
 } from '../store/hooks';
-import { fmtMoney } from '../utils/tax';
+import { fmtMoney } from '../utils/finance/tax';
 
 // ── Cashflow Trend helpers ────────────────────────────────────────────────────
 const DATE_FMT = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short' });
@@ -159,14 +160,15 @@ function MoneyFlowSection() {
 }
 
 // ── Obligations Snapshot Section ─────────────────────────────────────────────
-function ObligationsSnapshotSection({ onSelectTab }) {
+function ObligationsSnapshotSection() {
+  const goTab = useNavigate();
   const { totalBalance, repaymentFn, totalInterest, payoffYear, hasLoans } = useObligationsSnapshot();
 
   return (
     <Card variant="section">
       <SectionHeader
         title={<><Icon name="mortgage" size={15} /> Obligations Snapshot</>}
-        actions={<button className="btn-ghost small" onClick={() => onSelectTab?.('mortgage')}>View Mortgage →</button>}
+        actions={<button className="btn-ghost small" onClick={() => goTab('mortgage')}>View Mortgage →</button>}
       />
 
       {!hasLoans ? (
@@ -246,7 +248,7 @@ function SavingsPositionSection() {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function FinancesOverview({ onSelectTab }) {
+export default function FinancesOverview() {
   const snap = useHouseholdSnapshot();
   const savingsPct = `${Math.round(snap.savingsRate * 100)}%`;
 
@@ -279,7 +281,7 @@ export default function FinancesOverview({ onSelectTab }) {
       <CashflowTrendSection />
 
       {/* ── 4. Obligations Snapshot ───────────────────────────────────────── */}
-      <ObligationsSnapshotSection onSelectTab={onSelectTab} />
+      <ObligationsSnapshotSection />
 
       {/* ── 5. Savings Position ───────────────────────────────────────────── */}
       <SavingsPositionSection />

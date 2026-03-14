@@ -6,7 +6,7 @@ import {
   buildAmortSchedule,
   fnInterestComponent,
   buildMonthlySchedule,
-} from './mortgage';
+} from './finance/mortgage';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

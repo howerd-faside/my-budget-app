@@ -45,7 +45,6 @@ function seedPerson(overrides = {}) {
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'info').mockImplementation(() => {});
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
   usePeopleStore.setState({ people: [], expenses: [], wishlist: [] });
   useFinanceStore.setState({
     accounts: [], transfers: [], fortnightlyData: {}, goals: [],
@@ -171,7 +170,9 @@ describe('People — deleting a person', () => {
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
     await user.click(dangerBtns[0]);
 
-    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
     expect(usePeopleStore.getState().people).toHaveLength(0);
   });
 
@@ -190,6 +191,7 @@ describe('People — deleting a person', () => {
 
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
     await user.click(dangerBtns[0]);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     const state = usePeopleStore.getState();
     expect(state.people).toHaveLength(0);
@@ -202,13 +204,16 @@ describe('People — deleting a person', () => {
     expect(state.expenses.find(e => e.id === 'e2').forPerson).toBe('');
   });
 
-  it('does not remove the person if confirm returns false', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('does not remove the person if confirm is cancelled', async () => {
     seedPerson();
+    const user = userEvent.setup();
     renderPeople();
 
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    fireEvent.click(dangerBtns[0]);
+    await user.click(dangerBtns[0]);
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(usePeopleStore.getState().people).toHaveLength(1);
   });

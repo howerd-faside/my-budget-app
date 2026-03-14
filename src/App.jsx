@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { totalBalance } from './store';
+import { totalBalance } from './utils/finance/savings';
 import { useFinance }    from './store/hooks';
 import { useInvestment } from './store/hooks';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -25,8 +25,10 @@ import InvestmentTaxSummary from './pages/investments/InvestmentTaxSummary';
 import { getPortfolioDependents, cascadeDeletePortfolio, portfolioDeleteMessage } from './utils/cascade';
 import DataManagement from './components/DataManagement';
 import Icon from './components/Icon';
-import { Card, SectionHeader } from './components/ui';
+import { Card, SectionHeader, ConfirmDialog } from './components/ui';
 import fasideLogo from './assets/faside-logo.png';
+import { useProperty } from './store/hooks';
+import { NavigationProvider } from './contexts/NavigationContext';
 import './App.css';
 
 const SECTION_TABS = {
@@ -65,7 +67,8 @@ const SIDEBAR_SECTIONS = [
   { id: 'property',    label: 'Property',    icon: 'building' },
 ];
 
-const ACCOUNT_COLORS = { main: '#0071E3', emergency: '#FF9F0A', travel: '#AF52DE' };
+import { ACCOUNT_COLORS } from './utils/colors';
+import { today } from './utils/finance/dates';
 
 // ── Portfolio switcher ─────────────────────────────────────────────────────
 
@@ -82,10 +85,9 @@ function PortfolioBar() {
   const [newName,    setNewName]    = useState('');
   const [renamingId, setRenamingId] = useState(null);
   const [renameText, setRenameText] = useState('');
+  const [confirmTarget, setConfirmTarget] = useState(null);
   const inputRef  = useRef(null);
   const renameRef = useRef(null);
-
-  function today() { return new Date().toISOString().slice(0, 10); }
 
   const startCreate = () => { setCreating(true); setNewName(''); setTimeout(() => inputRef.current?.focus(), 0); };
 
@@ -116,8 +118,12 @@ function PortfolioBar() {
     if (!portfolio) return;
     const invState = { investmentPortfolios, selectedPortfolioId, investments, investmentContributions, investmentDividends };
     const deps = getPortfolioDependents(invState, id);
-    if (!window.confirm(portfolioDeleteMessage(portfolio.name, deps))) return;
-    mergeInvestment(cascadeDeletePortfolio(invState, id));
+    setConfirmTarget({ id, message: portfolioDeleteMessage(portfolio.name, deps), invState });
+  };
+
+  const executeDeletePortfolio = () => {
+    if (confirmTarget) mergeInvestment(cascadeDeletePortfolio(confirmTarget.invState, confirmTarget.id));
+    setConfirmTarget(null);
   };
 
   const selPortfolio = portfolios.find(p => p.id === selectedId);
@@ -146,7 +152,11 @@ function PortfolioBar() {
               <div
                 key={p.id}
                 className={`prop-sel-item${isSelected ? ' selected' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select portfolio ${p.name}`}
                 onClick={() => !isRenaming && setInvestment('selectedPortfolioId', p.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); !isRenaming && setInvestment('selectedPortfolioId', p.id); } }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
                   {isRenaming ? (
@@ -171,6 +181,7 @@ function PortfolioBar() {
                     <button
                       className="btn-icon small danger prop-sel-del"
                       title="Delete portfolio"
+                      aria-label={`Delete portfolio ${p.name}`}
                       onClick={e => { e.stopPropagation(); deletePortfolio(p.id); }}
                     >
                       <Icon name="trash" size={11} />
@@ -199,6 +210,82 @@ function PortfolioBar() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Delete portfolio"
+        message={confirmTarget?.message || ''}
+        onConfirm={executeDeletePortfolio}
+        onCancel={() => setConfirmTarget(null)}
+      />
+    </Card>
+  );
+}
+
+// ── Property switcher ──────────────────────────────────────────────────────
+
+const ALL_SCOPE_TABS = new Set(['prop-tasks', 'prop-maint', 'prop-projects', 'prop-assets']);
+
+function PropertyBar({ currentTab, onAddProperty }) {
+  const { properties, propertyTasks, selectedPropertyId, setProperty } = useProperty();
+  const props = properties || [];
+  const showAll = ALL_SCOPE_TABS.has(currentTab);
+
+  return (
+    <Card variant="section" style={{ marginBottom: 24 }}>
+      <SectionHeader
+        title={<><Icon name="building" size={15} /> Properties</>}
+        subtitle={
+          props.length === 0
+            ? 'No properties yet'
+            : `${props.length} ${props.length === 1 ? 'property' : 'properties'} · click to select`
+        }
+        actions={
+          <button className="btn-ghost small" onClick={onAddProperty}>+ Add Property</button>
+        }
+      />
+
+      {props.length > 0 && (
+        <div className="prop-selector">
+          {showAll && props.length > 1 && (
+            <div
+              className={`prop-sel-item${selectedPropertyId === null ? ' selected' : ''}`}
+              role="button"
+              tabIndex={0}
+              aria-label="Select all properties"
+              onClick={() => setProperty('selectedPropertyId', null)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProperty('selectedPropertyId', null); } }}
+            >
+              <span className="prop-sel-name">All Properties</span>
+              <div className="prop-sel-meta">
+                <span className="tag">{props.length} properties</span>
+              </div>
+            </div>
+          )}
+          {props.map(p => {
+            const openTasks = (propertyTasks || []).filter(t => t.propertyId === p.id && t.status !== 'Done' && t.status !== 'Cancelled').length;
+            const isSelected = p.id === selectedPropertyId;
+            return (
+              <div
+                key={p.id}
+                className={`prop-sel-item${isSelected ? ' selected' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Select property ${p.name}`}
+                onClick={() => setProperty('selectedPropertyId', p.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProperty('selectedPropertyId', p.id); } }}
+              >
+                <span className="prop-sel-name">{p.name}</span>
+                {p.address && <span className="prop-sel-addr">{p.address}</span>}
+                <div className="prop-sel-meta">
+                  {p.type && <span className="tag">{p.type}</span>}
+                  <span className="tag">{openTasks} {openTasks === 1 ? 'task' : 'tasks'}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
@@ -206,8 +293,9 @@ function PortfolioBar() {
 function Shell() {
   const [section,  setSection]  = useState('finances');
   const [tab,      setTab]      = useState('overview');
-  const [slideDir, setSlideDir] = useState(0);   // -1 | 0 | 1
-  const [animKey,  setAnimKey]  = useState(0);
+  const [slideDir,      setSlideDir]      = useState(0);   // -1 | 0 | 1
+  const [animKey,       setAnimKey]       = useState(0);
+  const [propNewTrigger, setPropNewTrigger] = useState(0);
 
   const { accounts: rawAccounts } = useFinance();
   const accounts  = rawAccounts || [];
@@ -248,19 +336,19 @@ function Shell() {
 
   const renderPage = () => {
     switch (tab) {
-      case 'overview':       return <FinancesOverview onSelectTab={goTab} />;
+      case 'overview':       return <FinancesOverview />;
       case 'tracking':       return <FinancialTracking />;
       case 'income':         return <People />;
       case 'expenses':       return <Expenses />;
       case 'mortgage':       return <MortgageOverview />;
       case 'wishlist':       return <Wishlist />;
-      case 'prop-overview':  return <PropertyOverview onSelectTab={goTab} />;
-      case 'prop-register':  return <PropertyRegister onSelectTab={goTab} />;
+      case 'prop-overview':  return <PropertyOverview />;
+      case 'prop-register':  return <PropertyRegister openNewTrigger={propNewTrigger} onOpenNewHandled={() => setPropNewTrigger(0)} />;
       case 'prop-tasks':     return <PropertyTasks />;
       case 'prop-maint':     return <PropertyMaintenance />;
       case 'prop-projects':  return <PropertyProjects />;
       case 'prop-assets':     return <PropertyAssets />;
-      case 'inv-dashboard':   return <InvestmentDashboard onSelectTab={goTab} />;
+      case 'inv-dashboard':   return <InvestmentDashboard />;
       case 'inv-holdings':    return <InvestmentHoldings />;
       case 'inv-contrib':     return <InvestmentContributions />;
       case 'inv-dividends':   return <InvestmentDividends />;
@@ -297,7 +385,7 @@ function Shell() {
         </nav>
 
         {/* Accounts panel */}
-        <div className="sidebar-accounts" onClick={() => goSection('finances')}>
+        <div className="sidebar-accounts" role="button" tabIndex={0} aria-label="View finances" onClick={() => goSection('finances')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goSection('finances'); } }}>
           <div className="sa-label">Total Savings</div>
           <div className="sa-big-total">
             ${netWorth.toLocaleString('en-NZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -358,14 +446,17 @@ function Shell() {
 
         {/* Page content */}
         <main className="main-content">
+          <NavigationProvider value={goTab}>
           <div className="content-wrap">
             {section === 'investments' && <PortfolioBar />}
+            {section === 'property'    && <PropertyBar currentTab={tab} onAddProperty={() => { if (tab !== 'prop-register') goTab('prop-register'); setPropNewTrigger(t => t + 1); }} />}
             <div key={animKey} className={`page-anim ${animClass}`}>
               <ErrorBoundary key={tab} label={currentTabs.find(t => t.id === tab)?.label}>
                 {section === 'home' ? <DataManagement /> : renderPage()}
               </ErrorBoundary>
             </div>
           </div>
+          </NavigationProvider>
         </main>
 
       </div>

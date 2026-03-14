@@ -1,3 +1,6 @@
+/** Today's date as a YYYY-MM-DD string. */
+export function today() { return new Date().toISOString().slice(0, 10); }
+
 /**
  * Monday-aligned fortnight date range.
  * Finds the first Monday on or after Jan 1 of the given year,

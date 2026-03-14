@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
-import { buildSavingsTrajectory, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, totalBalance } from '../store';
+import { buildSavingsTrajectory, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, totalBalance } from '../utils/finance/savings';
 import { useFinance } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
-import { fmtMoneyRound } from '../utils/tax';
+import { fmtMoneyRound } from '../utils/finance/tax';
 import { affordabilityStatus, affordabilityDate, findGoalHit } from '../utils/finance/savings';
 import { createWishlistItem } from '../models/WishlistItem';
 import Icon from '../components/Icon';
 import { validate, wishlistItemSchema } from '../utils/validation';
-import { SectionHeader, StatTile, EmptyState, Card, Modal } from '../components/ui';
+import { SectionHeader, StatTile, EmptyState, Card, Modal, ConfirmDialog } from '../components/ui';
 
 
 const EMPTY = createWishlistItem();
@@ -131,8 +131,8 @@ function WishCard({ item, currentBal, trajectory, onEdit, onRemove, onToggle, on
           {item.purchased ? 'Undo' : 'Purchased'}
         </button>
         <div style={{ flex: 1 }} />
-        <button className="btn-icon" onClick={() => onEdit(item)}><Icon name="pencil" /></button>
-        <button className="btn-icon danger" onClick={() => onRemove(item.id)}><Icon name="trash" /></button>
+        <button className="btn-icon" onClick={() => onEdit(item)} aria-label="Edit item"><Icon name="pencil" /></button>
+        <button className="btn-icon danger" onClick={() => onRemove(item.id)} aria-label="Delete item"><Icon name="trash" /></button>
       </div>
     </div>
   );
@@ -177,8 +177,11 @@ export default function Wishlist() {
     close();
   };
 
-  const remove = (id) => {
-    if (confirm('Remove this item?')) setPeople('wishlist', wishlist.filter(i => i.id !== id));
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const remove = (id) => setConfirmTarget(id);
+  const executeRemove = () => {
+    setPeople('wishlist', wishlist.filter(i => i.id !== confirmTarget));
+    setConfirmTarget(null);
   };
 
   const togglePurchased = (id) => {
@@ -302,6 +305,15 @@ export default function Wishlist() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title="Remove item"
+        message="Remove this item?"
+        confirmLabel="Remove"
+        onConfirm={executeRemove}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 }

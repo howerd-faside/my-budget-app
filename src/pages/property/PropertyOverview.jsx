@@ -2,32 +2,24 @@ import { useMemo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
+import { useNavigate } from '../../contexts/NavigationContext';
+import { PRIORITY_COLOR_HEX, PRIORITY_COLOR, PRIORITY_DPILL } from '../../utils/colors';
+import { today } from '../../utils/finance/dates';
 
-const TODAY = new Date().toISOString().slice(0, 10);
-
-const PRIORITY_COLOR_HEX = { Urgent: '#FF3B30', High: '#FF9F0A', Medium: '#0071E3', Low: '#86868B' };
+const TODAY = today();
 
 function daysBetween(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
-const PRIORITY_COLOR = { Urgent: 'var(--red)', High: 'var(--amber)', Medium: 'var(--teal)', Low: 'var(--text3)' };
-const PRIORITY_DPILL = { Urgent: 'red', High: 'amber', Medium: 'teal', Low: '' };
-
-export default function PropertyOverview({ onSelectTab }) {
+export default function PropertyOverview() {
+  const onSelectTab = useNavigate();
   const {
     properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets,
-    selectedPropertyId, setProperty,
+    selectedPropertyId,
   } = useProperty();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
-
-  // ── Cross-property stats ──────────────────────────────────────────────────
-  const crossStats = useMemo(() => properties.map(prop => {
-    const tasks   = propertyTasks.filter(t => t.propertyId === prop.id && t.status !== 'Done' && t.status !== 'Cancelled');
-    const overdue = tasks.filter(t => t.dueDate && t.dueDate < TODAY);
-    return { prop, openTasks: tasks.length, overdueTasks: overdue.length };
-  }), [properties, propertyTasks]);
 
   // ── Per-property detail ───────────────────────────────────────────────────
   const detail = useMemo(() => {
@@ -62,12 +54,18 @@ export default function PropertyOverview({ onSelectTab }) {
       <div className="page-content">
         <EmptyState
           icon={<Icon name="building" size={38} />}
-          title="No properties yet. Add your first property to start tracking tasks, maintenance, and improvements."
-          action={
-            <button className="btn-ghost small" onClick={() => onSelectTab('prop-register')}>
-              <Icon name="plus" size={12} /> Add Property
-            </button>
-          }
+          title="No properties yet. Use the selector above to add your first property."
+        />
+      </div>
+    );
+  }
+
+  if (!selProp) {
+    return (
+      <div className="page-content">
+        <EmptyState
+          icon={<Icon name="building" size={38} />}
+          title="Select a property above to view its overview."
         />
       </div>
     );
@@ -76,61 +74,8 @@ export default function PropertyOverview({ onSelectTab }) {
   return (
     <div className="page-content">
 
-      {/* ── Properties ─────────────────────────────────────────────────── */}
-      <Card variant="section">
-        <SectionHeader
-          title={<><Icon name="building" size={15} /> Properties</>}
-          subtitle={`${properties.length} ${properties.length === 1 ? 'property' : 'properties'} · click to select`}
-          actions={<button className="btn-ghost small" onClick={() => onSelectTab('prop-register')}><Icon name="plus" size={12} /> Add Property</button>}
-        />
-        <div className="income-grid">
-          {crossStats.map(({ prop, openTasks, overdueTasks }) => {
-            const isSelected = prop.id === selectedPropertyId;
-            return (
-              <div
-                key={prop.id}
-                className="income-card"
-                style={{
-                  cursor: 'pointer',
-                  border: isSelected ? '1px solid var(--teal)' : '1px solid transparent',
-                  background: isSelected ? 'rgba(0,113,227,0.04)' : undefined,
-                }}
-                onClick={() => setProperty('selectedPropertyId', prop.id)}
-              >
-                <div className="ic-header">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="ic-name">{prop.name}</div>
-                    {prop.address && <div className="ic-employer-line">{prop.address}</div>}
-                  </div>
-                  <div className="ic-tags">
-                    <span className="tag">{prop.type || 'Property'}</span>
-                    {isSelected && <span className="tag teal">Selected</span>}
-                  </div>
-                </div>
-                <div className="ic-stats" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                  <div className="ic-stat">
-                    <span className="ic-stat-label">Open Tasks</span>
-                    <span className={`mono ic-stat-val ${openTasks > 0 ? '' : 'text3'}`}>{openTasks}</span>
-                  </div>
-                  <div className="ic-stat">
-                    <span className="ic-stat-label">Overdue</span>
-                    <span className={`mono ic-stat-val ${overdueTasks > 0 ? 'red' : 'text3'}`}>{overdueTasks}</span>
-                  </div>
-                </div>
-                <div className="ic-deductions">
-                  <span className="ic-ded" style={{ color: 'var(--text3)' }}>
-                    {(prop.areas || []).length} area{(prop.areas || []).length !== 1 ? 's' : ''} ·{' '}
-                    {[prop.bedrooms && `${prop.bedrooms} bed`, prop.floorArea && `${prop.floorArea}m²`].filter(Boolean).join(' · ') || 'No profile details'}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
       {/* ── Per-property detail ─────────────────────────────────────────── */}
-      {selProp && detail && (
+      {detail && (
         <>
           {/* Row 2 — Property Snapshot section */}
           <Card variant="section">

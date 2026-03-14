@@ -4,3 +4,6 @@ export { default as Button }        from './Button.jsx';
 export { default as Modal }         from './Modal.jsx';
 export { default as SectionHeader } from './SectionHeader.jsx';
 export { default as EmptyState }    from './EmptyState.jsx';
+export { default as ConfirmDialog } from './ConfirmDialog.jsx';
+export { default as ExpandableRow } from './ExpandableRow.jsx';
+export { default as ActiveChip }    from './ActiveChip.jsx';

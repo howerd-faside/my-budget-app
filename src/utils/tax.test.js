@@ -5,7 +5,7 @@ import {
   calcKiwiSaver,
   calcStudentLoan,
   calcNetPay,
-} from './tax';
+} from './finance/tax';
 
 // ── calcIncomeTax ─────────────────────────────────────────────────────────────
 describe('calcIncomeTax', () => {

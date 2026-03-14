@@ -69,7 +69,6 @@ function seedHolding(overrides = {}) {
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'info').mockImplementation(() => {});
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
   useInvestmentStore.setState({
     investmentPortfolios: [], selectedPortfolioId: null,
     investments: [], investmentContributions: [], investmentDividends: [],
@@ -200,12 +199,15 @@ describe('InvestmentHoldings — deleting a holding', () => {
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
     await user.click(dangerBtns[0]);
 
-    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
     expect(useInvestmentStore.getState().investments).toHaveLength(0);
   });
 
-  it('cascade-deletes contributions and dividends linked to the holding', () => {
+  it('cascade-deletes contributions and dividends linked to the holding', async () => {
     const holding = seedHolding();
+    const user = userEvent.setup();
     useInvestmentStore.setState({
       investmentPortfolios: [{ id: PORTFOLIO_ID, name: 'Main', createdAt: '' }],
       selectedPortfolioId: PORTFOLIO_ID,
@@ -221,7 +223,8 @@ describe('InvestmentHoldings — deleting a holding', () => {
     renderHoldings();
 
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    fireEvent.click(dangerBtns[0]);
+    await user.click(dangerBtns[0]);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     const state = useInvestmentStore.getState();
     expect(state.investments).toHaveLength(0);
@@ -230,13 +233,16 @@ describe('InvestmentHoldings — deleting a holding', () => {
     expect(state.investmentDividends[0].holdingId).toBe('');
   });
 
-  it('does not delete when confirm returns false', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('does not delete when confirm is cancelled', async () => {
     seedHolding();
+    const user = userEvent.setup();
     renderHoldings();
 
     const dangerBtns = document.querySelectorAll('.btn-icon.danger');
-    fireEvent.click(dangerBtns[0]);
+    await user.click(dangerBtns[0]);
+
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(useInvestmentStore.getState().investments).toHaveLength(1);
   });

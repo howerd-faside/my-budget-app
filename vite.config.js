@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    pool: 'forks',
     include: ['src/**/*.test.{js,jsx}'],
     environmentMatchGlobs: [
       ['src/**/*.test.jsx', 'jsdom'],
@@ -14,7 +15,8 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.js'],
     coverage: {
       provider: 'v8',
-      include: ['src/utils/**/*.js'],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/test/**', 'src/**/*.test.*', 'src/**/__tests__/**'],
     },
   },
   server: {

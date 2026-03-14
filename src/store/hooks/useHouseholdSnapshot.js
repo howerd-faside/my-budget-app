@@ -5,7 +5,7 @@ import {
   calcFortnightlyIncomeAt,
   calcFortnightlyAssetIncome,
   calcFortnightlyExpensesAt,
-} from '../../store';
+} from '../../utils/finance/savings';
 
 /**
  * Derived hook — household-level financial snapshot.
