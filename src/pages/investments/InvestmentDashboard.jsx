@@ -6,9 +6,7 @@ import { getPortfolioActivity } from '../../utils/finance/transactions';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { useNavigate } from '../../contexts/NavigationContext';
 import { CATEGORY_COLORS as CAT_COLOR } from '../../utils/colors';
-
-const fmt = (n) =>
-  `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency as fmt } from '../../utils/format';
 
 export default function InvestmentDashboard() {
   const onSelectTab = useNavigate();

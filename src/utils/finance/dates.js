@@ -16,6 +16,7 @@ export function getFortnight(year, idx) {
   start.setDate(start.getDate() + idx * 14);
   const end = new Date(start);
   end.setDate(end.getDate() + 13);
+  end.setHours(23, 59, 59, 999);
   return { start, end };
 }
 

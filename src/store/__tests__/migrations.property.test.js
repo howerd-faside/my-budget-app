@@ -10,6 +10,8 @@
  *   - v0 → v1: initializes selectedPropertyId when missing
  *   - v0 → v1: initializes all missing slices to []
  *   - v0 → v1: preserves existing data
+ *   - v2 → v3: coerces property numeric fields (landArea etc.) to number | null
+ *   - v2 → v3: coerces valuation sub-object numerics to number | null
  */
 import { describe, it, expect } from 'vitest';
 import { PROPERTY_MIGRATIONS } from '../migrations/property';
@@ -159,5 +161,101 @@ describe('property migration v0 → v1', () => {
       const result = migrateV1({ selectedPropertyId: null });
       expect(result.selectedPropertyId).toBeNull();
     });
+  });
+});
+
+const migrateV3 = PROPERTY_MIGRATIONS.find(m => m.toVersion === 3).migrate;
+
+describe('property migration v2 → v3', () => {
+  describe('property numeric field coercion', () => {
+    it('coerces string landArea to number', () => {
+      const slice = {
+        properties: [{ id: 'p1', name: 'Home', landArea: '650' }],
+      };
+      const result = migrateV3(slice);
+      expect(result.properties[0].landArea).toBe(650);
+      expect(typeof result.properties[0].landArea).toBe('number');
+    });
+
+    it('coerces string floorArea, bedrooms, bathrooms, yearBuilt to numbers', () => {
+      const slice = {
+        properties: [{
+          id: 'p1', name: 'Home',
+          floorArea: '180', bedrooms: '3', bathrooms: '2', yearBuilt: '1985',
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.properties[0].floorArea).toBe(180);
+      expect(result.properties[0].bedrooms).toBe(3);
+      expect(result.properties[0].bathrooms).toBe(2);
+      expect(result.properties[0].yearBuilt).toBe(1985);
+    });
+
+    it('normalizes empty string numeric fields to null', () => {
+      const slice = {
+        properties: [{
+          id: 'p1', name: 'Home',
+          landArea: '', floorArea: '', bedrooms: '', bathrooms: '', yearBuilt: '',
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.properties[0].landArea).toBeNull();
+      expect(result.properties[0].floorArea).toBeNull();
+      expect(result.properties[0].bedrooms).toBeNull();
+      expect(result.properties[0].bathrooms).toBeNull();
+      expect(result.properties[0].yearBuilt).toBeNull();
+    });
+
+    it('preserves already-numeric values', () => {
+      const slice = {
+        properties: [{ id: 'p1', name: 'Home', landArea: 800, bedrooms: 4 }],
+      };
+      const result = migrateV3(slice);
+      expect(result.properties[0].landArea).toBe(800);
+      expect(result.properties[0].bedrooms).toBe(4);
+    });
+  });
+
+  describe('valuation sub-object coercion', () => {
+    it('coerces string valuation numerics to numbers', () => {
+      const slice = {
+        properties: [{
+          id: 'p1', name: 'Home',
+          valuation: {
+            rv: '850000', landValue: '500000', improvementsValue: '350000',
+            valuationDate: '2024-09-01', estimatedValue: '900000', fetchedAt: '2026-01-15T10:00:00Z',
+          },
+        }],
+      };
+      const result = migrateV3(slice);
+      const val = result.properties[0].valuation;
+      expect(val.rv).toBe(850000);
+      expect(val.landValue).toBe(500000);
+      expect(val.improvementsValue).toBe(350000);
+      expect(val.estimatedValue).toBe(900000);
+      expect(val.valuationDate).toBe('2024-09-01');
+      expect(val.fetchedAt).toBe('2026-01-15T10:00:00Z');
+    });
+
+    it('preserves null valuation', () => {
+      const slice = {
+        properties: [{ id: 'p1', name: 'Home', valuation: null }],
+      };
+      const result = migrateV3(slice);
+      expect(result.properties[0].valuation).toBeNull();
+    });
+
+    it('normalizes missing valuation to null', () => {
+      const slice = {
+        properties: [{ id: 'p1', name: 'Home' }],
+      };
+      const result = migrateV3(slice);
+      expect(result.properties[0].valuation).toBeNull();
+    });
+  });
+
+  it('skips migration when properties is missing', () => {
+    const result = migrateV3({});
+    expect(result.properties).toBeUndefined();
   });
 });

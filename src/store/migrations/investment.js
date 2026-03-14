@@ -8,11 +8,12 @@
  *   1 → 2  Coerce numeric fields — units, avgCost, currentPrice on holdings;
  *           amount on contributions; grossAmount, taxAmount, netAmount on dividends —
  *           from strings to actual numbers.
+ *   2 → 3  Normalize priceUpdatedAt on holdings from undefined to null.
  *
- * Adding a future v3 migration:
- *   1. Bump INVESTMENT_VERSION to 3.
+ * Adding a future v4 migration:
+ *   1. Bump INVESTMENT_VERSION to 4.
  *   2. Append to INVESTMENT_MIGRATIONS:
- *        { toVersion: 3, description: '…', migrate(slice) { …; return slice; } }
+ *        { toVersion: 4, description: '…', migrate(slice) { …; return slice; } }
  *   toVersion values must be consecutive integers (1, 2, 3, …) — a gap throws at startup.
  */
 import { normalizePortfolio }              from '../../models/Portfolio';
@@ -20,7 +21,7 @@ import { normalizeHolding }                from '../../models/Holding';
 import { normalizeInvestmentContribution } from '../../models/InvestmentContribution';
 import { normalizeDividend }               from '../../models/Dividend';
 
-export const INVESTMENT_VERSION     = 2;
+export const INVESTMENT_VERSION     = 3;
 export const INVESTMENT_VERSION_KEY = '_investmentVersion';
 
 export const INVESTMENT_MIGRATIONS = [
@@ -80,6 +81,20 @@ export const INVESTMENT_MIGRATIONS = [
       }
       if (Array.isArray(slice.investmentDividends)) {
         slice.investmentDividends = slice.investmentDividends.map(normalizeDividend);
+      }
+      return slice;
+    },
+  },
+  {
+    toVersion:   3,
+    description: 'normalize priceUpdatedAt on holdings from undefined to null',
+    /**
+     * @param {object} slice  Investment slice at v2 (holdings may have undefined priceUpdatedAt).
+     * @returns {object}      Investment slice with priceUpdatedAt normalized to null.
+     */
+    migrate(slice) {
+      if (Array.isArray(slice.investments)) {
+        slice.investments = slice.investments.map(normalizeHolding);
       }
       return slice;
     },

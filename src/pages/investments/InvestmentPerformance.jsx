@@ -10,16 +10,12 @@ import { useToast } from '../../components/Toast';
 import { calcPortfolioStats, enrichHoldings } from '../../utils/finance/savings';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { CATEGORY_COLORS as CAT_COLOR } from '../../utils/colors';
-
-const fmt = (n) =>
-  `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency as fmt, fmtPct, timeAgo } from '../../utils/format';
 
 const fmtK = (n) => {
   const abs = Math.abs(+n || 0);
   return abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs.toFixed(0)}`;
 };
-
-const fmtPct = (n) => `${n >= 0 ? '+' : ''}${(+n || 0).toFixed(2)}%`;
 
 function formatAxisDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
@@ -28,15 +24,6 @@ function formatAxisDate(dateStr) {
 function formatAxisDateShort(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-NZ', { month: 'short', year: '2-digit' });
-}
-
-function timeAgo(isoStr) {
-  if (!isoStr) return null;
-  const secs = Math.floor((Date.now() - new Date(isoStr)) / 1000);
-  if (secs < 60)    return 'just now';
-  if (secs < 3600)  return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
 }
 
 // ── Chart tooltip ─────────────────────────────────────────────────────────────

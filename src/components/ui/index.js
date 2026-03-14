@@ -7,3 +7,7 @@ export { default as EmptyState }    from './EmptyState.jsx';
 export { default as ConfirmDialog } from './ConfirmDialog.jsx';
 export { default as ExpandableRow } from './ExpandableRow.jsx';
 export { default as ActiveChip }    from './ActiveChip.jsx';
+export { default as FilterBar }     from './FilterBar.jsx';
+export { default as FilterChips }   from './FilterChips.jsx';
+export { default as GroupedList }   from './GroupedList.jsx';
+export { default as NotesLog }      from './NotesLog.jsx';

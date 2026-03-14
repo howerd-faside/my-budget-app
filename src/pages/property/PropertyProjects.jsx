@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
   createPropertyProject,
   PROJECT_STATUSES, PROJECT_PRIORITIES, STATUS_DPILL,
@@ -316,7 +316,7 @@ export default function PropertyProjects() {
       {/* ── 3. Filters ───────────────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader title={<><Icon name="filter" size={15} /> Filters</>} />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <FilterBar>
           <input
             className="input small"
             style={{ flex: '1 1 160px', minWidth: 140 }}
@@ -339,16 +339,15 @@ export default function PropertyProjects() {
             <option value="title">Sort: Title</option>
             <option value="targetEnd">Sort: Target date</option>
           </select>
-        </div>
-        {isFiltered && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)' }}>
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Active:</span>
-            {filterSearch            && <ActiveChip label={`"${filterSearch}"`}                                       onClear={() => setFilterSearch('')} />}
-            {filterStatus !== 'All'  && <ActiveChip label={filterStatus}                                              onClear={() => setFilterStatus('All')} />}
-            {filterArea   !== 'All'  && <ActiveChip label={areas.find(a => a.id === filterArea)?.name ?? filterArea}  onClear={() => setFilterArea('All')} />}
-            <button className="btn-ghost small" onClick={clearAllFilters} style={{ fontSize: 11, padding: '2px 8px' }}>Clear all</button>
-          </div>
-        )}
+        </FilterBar>
+        <FilterChips
+          chips={[
+            { key: 'search', label: filterSearch ? `"${filterSearch}"` : '', onClear: () => setFilterSearch('') },
+            { key: 'status', label: filterStatus !== 'All' ? filterStatus : '', onClear: () => setFilterStatus('All') },
+            { key: 'area', label: filterArea !== 'All' ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : '', onClear: () => setFilterArea('All') },
+          ]}
+          onClearAll={clearAllFilters}
+        />
       </Card>
 
       {/* ── 4. Project list ──────────────────────────────────────────────── */}
@@ -375,34 +374,37 @@ export default function PropertyProjects() {
             action={selProp && <button className="btn-ghost" onClick={openNew}><Icon name="plus" size={14} /> Add Project</button>}
           />
         ) : (
-          grouped.map(({ status, items }, gi) => (
-            <Fragment key={status}>
-              <div className="section-subheader" style={{ marginTop: gi === 0 ? 4 : undefined }}>
+          <GroupedList
+            groups={grouped.map(({ status, items }) => ({
+              key: status,
+              label: status,
+              count: items.length,
+              items: items.map(proj => {
+                const property = properties.find(p => p.id === proj.propertyId);
+                return (
+                  <ProjectRow
+                    key={proj.id}
+                    proj={proj}
+                    property={property}
+                    propertyTasks={propertyTasks.filter(t => t.propertyId === proj.propertyId)}
+                    onEdit={openEdit}
+                    onDelete={deleteProject}
+                    onStatusChange={cycleStatus}
+                    onAddNote={addNote}
+                  />
+                );
+              }),
+            }))}
+            labelElement={(group) => (
+              <>
                 <span
-                  className={`dpill ${STATUS_DPILL[status] || ''}`}
-                  style={!STATUS_DPILL[status] ? { color: 'var(--text3)', background: 'var(--card2)' } : {}}
-                >{status}</span>
-                <span style={{ color: 'var(--text3)', fontSize: 11 }}>{items.length} project{items.length !== 1 ? 's' : ''}</span>
-              </div>
-              <div className="expense-list">
-                {items.map(proj => {
-                  const property = properties.find(p => p.id === proj.propertyId);
-                  return (
-                    <ProjectRow
-                      key={proj.id}
-                      proj={proj}
-                      property={property}
-                      propertyTasks={propertyTasks.filter(t => t.propertyId === proj.propertyId)}
-                      onEdit={openEdit}
-                      onDelete={deleteProject}
-                      onStatusChange={cycleStatus}
-                      onAddNote={addNote}
-                    />
-                  );
-                })}
-              </div>
-            </Fragment>
-          ))
+                  className={`dpill ${STATUS_DPILL[group.label] || ''}`}
+                  style={!STATUS_DPILL[group.label] ? { color: 'var(--text3)', background: 'var(--card2)' } : {}}
+                >{group.label}</span>
+                <span style={{ color: 'var(--text3)', fontSize: 11 }}>{group.count} project{group.count !== 1 ? 's' : ''}</span>
+              </>
+            )}
+          />
         )}
       </Card>
 

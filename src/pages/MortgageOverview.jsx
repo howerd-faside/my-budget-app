@@ -13,15 +13,7 @@ import Icon from '../components/Icon';
 import { SectionHeader, StatTile, Card } from '../components/ui';
 import { fmtMoney } from '../utils/finance/tax';
 import { RATE_COLORS } from '../utils/colors';
-
-const TOOLTIP_STYLE = {
-  background: 'rgba(255,255,255,0.97)',
-  border: '1px solid rgba(0,0,0,0.1)',
-  borderRadius: 12, fontSize: 11,
-  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-};
-
-const fmtK = v => `$${(v / 1000).toFixed(0)}k`;
+import { TOOLTIP_STYLE, fmtK } from '../utils/format';
 
 // ── Current Position ──────────────────────────────────────────────────────────
 function CurrentPositionSection() {

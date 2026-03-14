@@ -6,9 +6,7 @@ import { createDividend } from '../../models/Dividend';
 import { transactionFromDividend } from '../../models/Transaction';
 import { sumTransactions, sumField } from '../../utils/finance/transactions';
 import { today } from '../../utils/finance/dates';
-
-const fmt = (n) =>
-  `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency as fmt } from '../../utils/format';
 
 const EMPTY = createDividend({ date: today() });
 

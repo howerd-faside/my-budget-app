@@ -91,16 +91,7 @@ export default function DataManagement() {
     : null;
 
   return (
-    <div className="dm-page">
-
-      <div className="dm-header">
-        <div className="dm-header-icon"><Icon name="shield" size={22} strokeWidth={1.4} /></div>
-        <div>
-          <h1 className="dm-title">Data Management</h1>
-          <p className="dm-subtitle">Export a backup of your data or restore from a previous backup.</p>
-        </div>
-      </div>
-
+    <>
       <div className="dm-cards">
 
         {/* ── Export card ─────────────────────────────────────────────────── */}
@@ -192,6 +183,6 @@ export default function DataManagement() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

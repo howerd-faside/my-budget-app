@@ -37,7 +37,7 @@ export const HOLDING_CATEGORIES = /** @type {const} */ (
  * @property {number}          units          - Number of units/shares held
  * @property {number}          avgCost        - Average cost per unit (NZD)
  * @property {number}          currentPrice   - Latest price per unit (NZD)
- * @property {string}          [priceUpdatedAt] - ISO timestamp of last price fetch
+ * @property {string|null}      priceUpdatedAt - ISO timestamp of last price fetch, or null
  * @property {string}          notes          - Free-text notes
  * @property {string}          createdAt      - ISO timestamp of record creation
  */
@@ -91,7 +91,7 @@ export function normalizeHolding(raw = {}) {
     units:          toNum(raw.units),
     avgCost:        toNum(raw.avgCost),
     currentPrice:   toNum(raw.currentPrice),
-    priceUpdatedAt: raw.priceUpdatedAt ?? undefined,
+    priceUpdatedAt: raw.priceUpdatedAt ?? null,
     notes:          raw.notes          ?? '',
     createdAt:      raw.createdAt      ?? '',
   });

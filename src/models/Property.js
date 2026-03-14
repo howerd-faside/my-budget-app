@@ -51,6 +51,21 @@ export const INSULATION_OPTIONS = /** @type {const} */ (['yes', 'no', 'unknown']
 
 export const AREA_GROUPS = /** @type {const} */ (['Interior', 'Exterior', 'Grounds', 'Other']);
 
+// ── Private helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Parse a numeric value; returns `null` for empty/absent/invalid values.
+ * Used for optional numeric fields (landArea, bedrooms, etc.) where absence
+ * is semantically different from zero.
+ * @param {*} val
+ * @returns {number|null}
+ */
+function toNumOrNull(val) {
+  if (val === '' || val == null) return null;
+  const n = parseFloat(val);
+  return isFinite(n) ? n : null;
+}
+
 /**
  * @typedef {Object} PropertyArea
  * @property {string}     id    - Unique identifier
@@ -133,16 +148,17 @@ export function createProperty(overrides = {}) {
  */
 export function normalizeProperty(raw = {}) {
   const ins = raw.insulation ?? {};
+  const val = raw.valuation ?? null;
   return createProperty({
     id:               raw.id               ?? '',
     name:             raw.name             ?? '',
     type:             raw.type             ?? 'Primary Home',
     address:          raw.address          ?? '',
-    landArea:         raw.landArea         ?? '',
-    floorArea:        raw.floorArea        ?? '',
-    bedrooms:         raw.bedrooms         ?? '',
-    bathrooms:        raw.bathrooms        ?? '',
-    yearBuilt:        raw.yearBuilt        ?? '',
+    landArea:         toNumOrNull(raw.landArea),
+    floorArea:        toNumOrNull(raw.floorArea),
+    bedrooms:         toNumOrNull(raw.bedrooms),
+    bathrooms:        toNumOrNull(raw.bathrooms),
+    yearBuilt:        toNumOrNull(raw.yearBuilt),
     constructionType: raw.constructionType ?? '',
     roofType:         raw.roofType         ?? '',
     cladding:         raw.cladding         ?? '',
@@ -156,6 +172,13 @@ export function normalizeProperty(raw = {}) {
     wastewater:  raw.wastewater  ?? '',
     notes:       raw.notes       ?? '',
     areas:       (raw.areas ?? []).map(a => createPropertyArea(a)),
-    valuation:   raw.valuation   ?? null,
+    valuation:   val ? {
+      rv:                toNumOrNull(val.rv),
+      landValue:         toNumOrNull(val.landValue),
+      improvementsValue: toNumOrNull(val.improvementsValue),
+      valuationDate:     val.valuationDate ?? '',
+      estimatedValue:    toNumOrNull(val.estimatedValue),
+      fetchedAt:         val.fetchedAt     ?? '',
+    } : null,
   });
 }

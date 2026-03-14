@@ -5,8 +5,7 @@ import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { transactionFromContribution, transactionFromDividend } from '../../models/Transaction';
 import { filterByYear, sumTransactions, sumField, groupSumByCategory } from '../../utils/finance/transactions';
 
-const fmt = (n) =>
-  `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency as fmt } from '../../utils/format';
 
 const YEAR_WINDOW = 7;
 const THIS_YEAR   = new Date().getFullYear();

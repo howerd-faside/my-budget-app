@@ -10,6 +10,7 @@
  *   - v0 → v1: normalizes wishlist items
  *   - v0 → v1: initializes missing slices to []
  *   - v0 → v1: preserves existing non-empty slices
+ *   - v2 → v3: normalizes endDate '' to null on incomeEvents and employmentHistory
  */
 import { describe, it, expect } from 'vitest';
 import { PEOPLE_MIGRATIONS } from '../migrations/people';
@@ -261,5 +262,62 @@ describe('people migration v1 → v2', () => {
       const result = migrateV2(slice);
       expect(result.wishlist[0].estimatedCost).toBe(2500);
     });
+  });
+});
+
+const migrateV3 = PEOPLE_MIGRATIONS.find(m => m.toVersion === 3).migrate;
+
+describe('people migration v2 → v3', () => {
+  describe('incomeEvent endDate normalization', () => {
+    it('normalizes empty string endDate to null (ongoing event)', () => {
+      const slice = {
+        people: [{
+          id: 'p1', name: 'Alice', grossAnnual: 80000,
+          incomeEvents: [{ id: 'e1', label: 'Parental Leave', startDate: '2026-01-01', endDate: '', grossAnnual: 25000 }],
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.people[0].incomeEvents[0].endDate).toBeNull();
+    });
+
+    it('preserves existing endDate string', () => {
+      const slice = {
+        people: [{
+          id: 'p1', name: 'Alice', grossAnnual: 80000,
+          incomeEvents: [{ id: 'e1', label: 'Leave', startDate: '2026-01-01', endDate: '2026-06-01', grossAnnual: 25000 }],
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.people[0].incomeEvents[0].endDate).toBe('2026-06-01');
+    });
+  });
+
+  describe('employmentRole endDate normalization', () => {
+    it('normalizes empty string endDate to null (current role)', () => {
+      const slice = {
+        people: [{
+          id: 'p1', name: 'Alice', grossAnnual: 80000,
+          employmentHistory: [{ id: 'r1', employer: 'ACME', role: 'Dev', startDate: '2023-01-01', endDate: '', grossAnnual: 90000 }],
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.people[0].employmentHistory[0].endDate).toBeNull();
+    });
+
+    it('preserves existing endDate on past roles', () => {
+      const slice = {
+        people: [{
+          id: 'p1', name: 'Alice', grossAnnual: 80000,
+          employmentHistory: [{ id: 'r1', employer: 'ACME', role: 'Dev', startDate: '2020-01-01', endDate: '2022-12-31', grossAnnual: 75000 }],
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.people[0].employmentHistory[0].endDate).toBe('2022-12-31');
+    });
+  });
+
+  it('skips migration when people is missing', () => {
+    const result = migrateV3({});
+    expect(result.people).toBeUndefined();
   });
 });

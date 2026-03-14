@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
   createPropertyMaintenance,
   MAINTENANCE_CATEGORIES, PERFORMED_BY_OPTIONS,
@@ -253,8 +253,33 @@ export default function PropertyMaintenance() {
           }
         />
 
-        {/* Primary toolbar */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <FilterBar
+          showMore={showMoreFilters}
+          secondary={
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>From</span>
+                <input
+                  className="input small"
+                  type="date"
+                  style={{ width: 140 }}
+                  value={filterDateFrom}
+                  onChange={e => setFilterDateFrom(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>To</span>
+                <input
+                  className="input small"
+                  type="date"
+                  style={{ width: 140 }}
+                  value={filterDateTo}
+                  onChange={e => setFilterDateTo(e.target.value)}
+                />
+              </div>
+            </>
+          }
+        >
           <input
             className="input small"
             style={{ flex: '1 1 160px', minWidth: 140 }}
@@ -282,47 +307,19 @@ export default function PropertyMaintenance() {
             <option value="title">Sort: Title</option>
             <option value="category">Sort: Category</option>
           </select>
-        </div>
+        </FilterBar>
 
-        {/* Secondary filters */}
-        {showMoreFilters && (
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--sep)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>From</span>
-              <input
-                className="input small"
-                type="date"
-                style={{ width: 140 }}
-                value={filterDateFrom}
-                onChange={e => setFilterDateFrom(e.target.value)}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>To</span>
-              <input
-                className="input small"
-                type="date"
-                style={{ width: 140 }}
-                value={filterDateTo}
-                onChange={e => setFilterDateTo(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Active filter chips */}
-        {isFiltered && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)' }}>
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Active:</span>
-            {search        && <ActiveChip label={`"${search}"`}                                              onClear={() => setSearch('')} />}
-            {filterCat  !== 'All' && <ActiveChip label={filterCat}                                           onClear={() => setFilterCat('All')} />}
-            {filterArea !== 'All' && <ActiveChip label={areas.find(a => a.id === filterArea)?.name ?? filterArea} onClear={() => setFilterArea('All')} />}
-            {filterBy   !== 'All' && <ActiveChip label={filterBy}                                            onClear={() => setFilterBy('All')} />}
-            {filterDateFrom       && <ActiveChip label={`From ${filterDateFrom}`}                            onClear={() => setFilterDateFrom('')} />}
-            {filterDateTo         && <ActiveChip label={`To ${filterDateTo}`}                                onClear={() => setFilterDateTo('')} />}
-            <button className="btn-ghost small" onClick={clearAllFilters} style={{ fontSize: 11, padding: '2px 8px' }}>Clear all</button>
-          </div>
-        )}
+        <FilterChips
+          chips={[
+            { key: 'search', label: search ? `"${search}"` : '', onClear: () => setSearch('') },
+            { key: 'category', label: filterCat !== 'All' ? filterCat : '', onClear: () => setFilterCat('All') },
+            { key: 'area', label: filterArea !== 'All' ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : '', onClear: () => setFilterArea('All') },
+            { key: 'by', label: filterBy !== 'All' ? filterBy : '', onClear: () => setFilterBy('All') },
+            { key: 'dateFrom', label: filterDateFrom ? `From ${filterDateFrom}` : '', onClear: () => setFilterDateFrom('') },
+            { key: 'dateTo', label: filterDateTo ? `To ${filterDateTo}` : '', onClear: () => setFilterDateTo('') },
+          ]}
+          onClearAll={clearAllFilters}
+        />
       </Card>
 
       {/* ── 4. Maintenance log ───────────────────────────────────────────── */}
@@ -350,31 +347,28 @@ export default function PropertyMaintenance() {
             action={selProp && <button className="btn-ghost" onClick={openNew}><Icon name="plus" size={14} /> Log Work</button>}
           />
         ) : (
-          groups.map(({ month, items }, gi) => (
-            <Fragment key={month}>
-              <div className="section-subheader" style={{ marginTop: gi === 0 ? 4 : undefined }}>
-                <span>{fmtMonth(month)}</span>
-                <span className="dpill">{items.length}</span>
-              </div>
-              <div className="expense-list">
-                {items.map(rec => {
-                  const prop = properties.find(p => p.id === rec.propertyId);
-                  return (
-                    <MaintenanceRow
-                      key={rec.id}
-                      rec={rec}
-                      areas={prop?.areas || []}
-                      propName={prop?.name}
-                      showProp={selectedPropertyId === null && properties.length > 1}
-                      propertyAssets={propertyAssets}
-                      onEdit={openEdit}
-                      onDelete={deleteRecord}
-                    />
-                  );
-                })}
-              </div>
-            </Fragment>
-          ))
+          <GroupedList
+            groups={groups.map(({ month, items }) => ({
+              key: month,
+              label: fmtMonth(month),
+              count: items.length,
+              items: items.map(rec => {
+                const prop = properties.find(p => p.id === rec.propertyId);
+                return (
+                  <MaintenanceRow
+                    key={rec.id}
+                    rec={rec}
+                    areas={prop?.areas || []}
+                    propName={prop?.name}
+                    showProp={selectedPropertyId === null && properties.length > 1}
+                    propertyAssets={propertyAssets}
+                    onEdit={openEdit}
+                    onDelete={deleteRecord}
+                  />
+                );
+              }),
+            }))}
+          />
         )}
       </Card>
 

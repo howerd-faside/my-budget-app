@@ -13,6 +13,7 @@
  *   - v1 → v2: coerces contribution amount to number
  *   - v1 → v2: coerces dividend amounts (gross, tax, net) to numbers
  *   - v1 → v2: preserves non-numeric fields unchanged
+ *   - v2 → v3: normalizes priceUpdatedAt from undefined to null
  */
 import { describe, it, expect } from 'vitest';
 import { INVESTMENT_MIGRATIONS } from '../migrations/investment';
@@ -233,5 +234,36 @@ describe('investment migration v1 → v2', () => {
       expect(result.investmentDividends[0].grossAmount).toBe(0);
       expect(result.investmentDividends[0].taxAmount).toBe(0);
     });
+  });
+});
+
+const migrateV3 = INVESTMENT_MIGRATIONS.find(m => m.toVersion === 3).migrate;
+
+describe('investment migration v2 → v3', () => {
+  describe('priceUpdatedAt normalization', () => {
+    it('normalizes undefined priceUpdatedAt to null', () => {
+      const slice = {
+        investments: [{ id: 'h1', portfolioId: 'p1', name: 'Test', units: 10, avgCost: 5, currentPrice: 6 }],
+      };
+      const result = migrateV3(slice);
+      expect(result.investments[0].priceUpdatedAt).toBeNull();
+    });
+
+    it('preserves existing priceUpdatedAt timestamp', () => {
+      const slice = {
+        investments: [{
+          id: 'h1', portfolioId: 'p1', name: 'Test',
+          units: 10, avgCost: 5, currentPrice: 6,
+          priceUpdatedAt: '2026-03-01T12:00:00Z',
+        }],
+      };
+      const result = migrateV3(slice);
+      expect(result.investments[0].priceUpdatedAt).toBe('2026-03-01T12:00:00Z');
+    });
+  });
+
+  it('skips migration when investments is missing', () => {
+    const result = migrateV3({});
+    expect(result.investments).toBeUndefined();
   });
 });

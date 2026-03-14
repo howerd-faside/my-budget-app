@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import './utils/theme'; // init theme before first render
 import { totalBalance } from './utils/finance/savings';
 import { useFinance }    from './store/hooks';
 import { useInvestment } from './store/hooks';
@@ -23,7 +24,7 @@ import InvestmentDividends from './pages/investments/InvestmentDividends';
 import InvestmentPerformance from './pages/investments/InvestmentPerformance';
 import InvestmentTaxSummary from './pages/investments/InvestmentTaxSummary';
 import { getPortfolioDependents, cascadeDeletePortfolio, portfolioDeleteMessage } from './utils/cascade';
-import DataManagement from './components/DataManagement';
+import Settings from './pages/Settings';
 import Icon from './components/Icon';
 import { Card, SectionHeader, ConfirmDialog } from './components/ui';
 import fasideLogo from './assets/faside-logo.png';
@@ -65,6 +66,7 @@ const SIDEBAR_SECTIONS = [
   { id: 'finances',    label: 'Finances',    icon: 'wallet'   },
   { id: 'investments', label: 'Investments', icon: 'trend'    },
   { id: 'property',    label: 'Property',    icon: 'building' },
+  { id: 'settings',    label: 'Settings',    icon: 'settings' },
 ];
 
 import { ACCOUNT_COLORS } from './utils/colors';
@@ -452,7 +454,7 @@ function Shell() {
             {section === 'property'    && <PropertyBar currentTab={tab} onAddProperty={() => { if (tab !== 'prop-register') goTab('prop-register'); setPropNewTrigger(t => t + 1); }} />}
             <div key={animKey} className={`page-anim ${animClass}`}>
               <ErrorBoundary key={tab} label={currentTabs.find(t => t.id === tab)?.label}>
-                {section === 'home' ? <DataManagement /> : renderPage()}
+                {section === 'home' ? null : section === 'settings' ? <Settings /> : renderPage()}
               </ErrorBoundary>
             </div>
           </div>

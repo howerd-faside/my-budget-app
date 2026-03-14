@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
   createPropertyAsset,
   ASSET_TYPES, ASSET_CONDITIONS, CONDITION_PILL,
@@ -268,7 +268,7 @@ export default function PropertyAssets() {
       {/* ── 3. Filter toolbar ────────────────────────────────────────────── */}
       <Card variant="section">
         <SectionHeader title={<><Icon name="filter" size={15} /> Filters</>} />
-        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
+        <FilterBar>
           <input
             className="input small"
             style={{ flex: '1 1 160px', minWidth: 140 }}
@@ -295,17 +295,16 @@ export default function PropertyAssets() {
             <option value="name">Sort: Name</option>
             <option value="type">Sort: Type</option>
           </select>
-        </div>
-        {isFiltered && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)' }}>
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Active:</span>
-            {filterSearch         && <ActiveChip label={`"${filterSearch}"`}                                        onClear={() => setFilterSearch('')} />}
-            {filterType !== 'All' && <ActiveChip label={filterType}                                                 onClear={() => setFilterType('All')} />}
-            {filterCond !== 'All' && <ActiveChip label={filterCond}                                                 onClear={() => setFilterCond('All')} />}
-            {filterArea !== 'All' && <ActiveChip label={areas.find(a => a.id === filterArea)?.name ?? filterArea}   onClear={() => setFilterArea('All')} />}
-            <button className="btn-ghost small" onClick={clearFilters} style={{ fontSize: 11, padding: '2px 8px' }}>Clear all</button>
-          </div>
-        )}
+        </FilterBar>
+        <FilterChips
+          chips={[
+            { key: 'search', label: filterSearch ? `"${filterSearch}"` : '', onClear: () => setFilterSearch('') },
+            { key: 'type', label: filterType !== 'All' ? filterType : '', onClear: () => setFilterType('All') },
+            { key: 'condition', label: filterCond !== 'All' ? filterCond : '', onClear: () => setFilterCond('All') },
+            { key: 'area', label: filterArea !== 'All' ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : '', onClear: () => setFilterArea('All') },
+          ]}
+          onClearAll={clearFilters}
+        />
       </Card>
 
       {/* ── 4. Asset register ────────────────────────────────────────────── */}
@@ -332,33 +331,31 @@ export default function PropertyAssets() {
             action={selProp && <button className="btn-ghost" onClick={openNew}><Icon name="plus" size={14} /> Add Asset</button>}
           />
         ) : (
-          groupedAssets.map(({ type, items }, gi) => (
-            <Fragment key={type}>
-              <div className="section-subheader" style={{ marginTop: gi === 0 ? 'var(--space-1)' : undefined }}>
-                <span>{type}</span>
-                <span className="dpill">{items.length}</span>
-              </div>
-              <div className="fn-list">
-                {items.map(asset => {
-                  const prop = properties.find(p => p.id === asset.propertyId);
-                  const area = (prop?.areas || []).find(a => a.id === asset.areaId);
-                  const maintRecords = propertyMaintenance.filter(m => m.propertyId === asset.propertyId);
-                  return (
-                    <AssetRow
-                      key={asset.id}
-                      asset={asset}
-                      area={area}
-                      propName={prop?.name}
-                      showProp={selectedPropertyId === null && properties.length > 1}
-                      maintenanceRecords={maintRecords}
-                      onEdit={openEdit}
-                      onDelete={deleteAsset}
-                    />
-                  );
-                })}
-              </div>
-            </Fragment>
-          ))
+          <GroupedList
+            listClass="fn-list"
+            groups={groupedAssets.map(({ type, items }) => ({
+              key: type,
+              label: type,
+              count: items.length,
+              items: items.map(asset => {
+                const prop = properties.find(p => p.id === asset.propertyId);
+                const area = (prop?.areas || []).find(a => a.id === asset.areaId);
+                const maintRecords = propertyMaintenance.filter(m => m.propertyId === asset.propertyId);
+                return (
+                  <AssetRow
+                    key={asset.id}
+                    asset={asset}
+                    area={area}
+                    propName={prop?.name}
+                    showProp={selectedPropertyId === null && properties.length > 1}
+                    maintenanceRecords={maintRecords}
+                    onEdit={openEdit}
+                    onDelete={deleteAsset}
+                  />
+                );
+              }),
+            }))}
+          />
         )}
       </Card>
 

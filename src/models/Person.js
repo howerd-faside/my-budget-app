@@ -81,7 +81,7 @@ function toNum(val, fallback = 0) {
  * @property {string} id          - Unique identifier
  * @property {string} label       - Event name (e.g. 'Maternity Leave', 'Pay Rise')
  * @property {string} startDate   - ISO date when the event starts (YYYY-MM-DD)
- * @property {string} endDate     - ISO date when the event ends, or '' for ongoing
+ * @property {string|null} endDate - ISO date when the event ends, or null for ongoing
  * @property {number} grossAnnual - Override gross annual income during this event
  */
 
@@ -91,7 +91,7 @@ function toNum(val, fallback = 0) {
  * @property {string} employer    - Employer name
  * @property {string} role        - Job title / role
  * @property {string} startDate   - ISO date role started (YYYY-MM-DD)
- * @property {string} endDate     - ISO date role ended, or '' if current
+ * @property {string|null} endDate - ISO date role ended, or null if current
  * @property {number} grossAnnual - Gross annual salary for this role
  */
 
@@ -187,7 +187,7 @@ export function normalizeIncomeEvent(raw = {}) {
     id:          raw.id          ?? '',
     label:       raw.label       ?? '',
     startDate:   raw.startDate   ?? '',
-    endDate:     raw.endDate     ?? '',
+    endDate:     raw.endDate     || null,
     grossAnnual: toNum(raw.grossAnnual),
   });
 }
@@ -203,7 +203,7 @@ export function normalizeEmploymentRole(raw = {}) {
     employer:    raw.employer    ?? '',
     role:        raw.role        ?? '',
     startDate:   raw.startDate   ?? '',
-    endDate:     raw.endDate     ?? '',
+    endDate:     raw.endDate     || null,
     grossAnnual: toNum(raw.grossAnnual),
   });
 }

@@ -9,13 +9,11 @@ import { CATEGORY_COLORS } from '../../utils/colors';
 import { getHoldingDependents, cascadeDeleteHolding, holdingDeleteMessage } from '../../utils/cascade';
 import { validate, holdingSchema } from '../../utils/validation';
 import { today } from '../../utils/finance/dates';
+import { fmtCurrency as fmt, timeAgo } from '../../utils/format';
 
 const CATEGORIES = HOLDING_CATEGORIES;
 const CAT_FILTER  = ['All', ...CATEGORIES];
 const CAT_COLOR   = CATEGORY_COLORS;
-
-const fmt = (n) =>
-  `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const EMPTY = createHolding();
 
@@ -36,15 +34,6 @@ function initForm(holding) {
     ? holding.tranches.map(t => ({ ...t }))
     : [{ id: crypto.randomUUID(), date: holding.createdAt?.slice(0, 10) || today(), units: holding.units || '', costPerUnit: holding.avgCost || '' }];
   return { ...holding, tranches };
-}
-
-function timeAgo(isoStr) {
-  if (!isoStr) return null;
-  const secs = Math.floor((Date.now() - new Date(isoStr)) / 1000);
-  if (secs < 60)   return 'just now';
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
 }
 
 // ── Holding row ───────────────────────────────────────────────────────────────

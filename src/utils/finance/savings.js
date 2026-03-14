@@ -94,7 +94,7 @@ export function buildSavingsTrajectory(state) {
 
   const now = new Date();
   const currentYear = now.getFullYear();
-  const allYears = Array.from({ length: 6 }, (_, i) => currentYear - 1 + i);
+  const allYears = Array.from({ length: 12 }, (_, i) => currentYear - 1 + i);
 
   const rows = [];
   for (const year of allYears) {

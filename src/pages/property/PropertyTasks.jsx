@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, memo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useProperty } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ActiveChip, ConfirmDialog } from '../../components/ui';
+import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
   createPropertyTask,
   TASK_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, TASK_EFFORTS, RECUR_UNITS,
@@ -394,8 +394,35 @@ export default function PropertyTasks() {
           }
         />
 
-        {/* Primary toolbar */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <FilterBar
+          showMore={showMore}
+          secondary={
+            <>
+              <select className="input small" value={filterCategory} onChange={e => setFilterCategory(e.target.value)} aria-label="Filter by category">
+                <option value="All">All categories</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={filterRecurring} onChange={e => setFilterRecurring(e.target.checked)} />
+                Recurring only
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={filterShowDone} onChange={e => setFilterShowDone(e.target.checked)} />
+                Show completed
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>Due before</span>
+                <input
+                  className="input small"
+                  type="date"
+                  style={{ width: 140 }}
+                  value={filterDueBefore}
+                  onChange={e => setFilterDueBefore(e.target.value)}
+                />
+              </div>
+            </>
+          }
+        >
           <input
             className="input small"
             style={{ flex: '1 1 160px', minWidth: 140 }}
@@ -423,51 +450,21 @@ export default function PropertyTasks() {
             <option value="title">Sort: Title</option>
             <option value="category">Sort: Category</option>
           </select>
-        </div>
+        </FilterBar>
 
-        {/* Secondary filters */}
-        {showMore && (
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--sep)' }}>
-            <select className="input small" value={filterCategory} onChange={e => setFilterCategory(e.target.value)} aria-label="Filter by category">
-              <option value="All">All categories</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={filterRecurring} onChange={e => setFilterRecurring(e.target.checked)} />
-              Recurring only
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={filterShowDone} onChange={e => setFilterShowDone(e.target.checked)} />
-              Show completed
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="text3" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>Due before</span>
-              <input
-                className="input small"
-                type="date"
-                style={{ width: 140 }}
-                value={filterDueBefore}
-                onChange={e => setFilterDueBefore(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Active filter chips */}
-        {isFiltered && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--space-3)' }}>
-            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500 }}>Active:</span>
-            {filterSearch             && <ActiveChip label={`"${filterSearch}"`}                                       onClear={() => setFilterSearch('')} />}
-            {filterStatus   !== 'All' && <ActiveChip label={filterStatus}                                              onClear={() => setFilterStatus('All')} />}
-            {filterPriority !== 'All' && <ActiveChip label={filterPriority}                                            onClear={() => setFilterPriority('All')} />}
-            {filterArea     !== 'All' && <ActiveChip label={areas.find(a => a.id === filterArea)?.name ?? filterArea}  onClear={() => setFilterArea('All')} />}
-            {filterCategory !== 'All' && <ActiveChip label={filterCategory}                                            onClear={() => setFilterCategory('All')} />}
-            {filterRecurring          && <ActiveChip label="Recurring"                                                 onClear={() => setFilterRecurring(false)} />}
-            {!filterShowDone          && <ActiveChip label="Hiding completed"                                          onClear={() => setFilterShowDone(true)} />}
-            {filterDueBefore          && <ActiveChip label={`Due before ${filterDueBefore}`}                           onClear={() => setFilterDueBefore('')} />}
-            <button className="btn-ghost small" onClick={clearAllFilters} style={{ fontSize: 11, padding: '2px 8px' }}>Clear all</button>
-          </div>
-        )}
+        <FilterChips
+          chips={[
+            { key: 'search', label: filterSearch ? `"${filterSearch}"` : '', onClear: () => setFilterSearch('') },
+            { key: 'status', label: filterStatus !== 'All' ? filterStatus : '', onClear: () => setFilterStatus('All') },
+            { key: 'priority', label: filterPriority !== 'All' ? filterPriority : '', onClear: () => setFilterPriority('All') },
+            { key: 'area', label: filterArea !== 'All' ? (areas.find(a => a.id === filterArea)?.name ?? filterArea) : '', onClear: () => setFilterArea('All') },
+            { key: 'category', label: filterCategory !== 'All' ? filterCategory : '', onClear: () => setFilterCategory('All') },
+            { key: 'recurring', label: filterRecurring ? 'Recurring' : '', onClear: () => setFilterRecurring(false) },
+            { key: 'showDone', label: !filterShowDone ? 'Hiding completed' : '', onClear: () => setFilterShowDone(true) },
+            { key: 'dueBefore', label: filterDueBefore ? `Due before ${filterDueBefore}` : '', onClear: () => setFilterDueBefore('') },
+          ]}
+          onClearAll={clearAllFilters}
+        />
       </Card>
 
       {/* ── 4. Task list ────────────────────────────────────────────────── */}
@@ -491,37 +488,30 @@ export default function PropertyTasks() {
             action={selProp && <button className="btn-ghost" onClick={openNew}><Icon name="plus" size={14} /> Add Task</button>}
           />
         ) : (
-          grouped.map((bucket, bi) => {
-            const headerColor = bucket.color ? { color: `var(--${bucket.color})` } : {};
-            return (
-              <Fragment key={bucket.key}>
-                <div className="section-subheader" style={{ marginTop: bi === 0 ? 4 : undefined }}>
-                  <span style={headerColor}>{bucket.label}</span>
-                  <span className={bucket.color ? `dpill ${bucket.color}` : 'dpill'}>
-                    {bucket.tasks.length}
-                  </span>
-                </div>
-                <div className="expense-list">
-                  {bucket.tasks.map(task => {
-                    const prop = properties.find(p => p.id === task.propertyId);
-                    return (
-                      <TaskRow
-                        key={task.id}
-                        task={task}
-                        areas={prop?.areas || []}
-                        propName={prop?.name}
-                        showProp={selectedPropertyId === null && properties.length > 1}
-                        onEdit={openEdit}
-                        onDelete={deleteTask}
-                        onStatusChange={cycleStatus}
-                        onAddNote={addNote}
-                      />
-                    );
-                  })}
-                </div>
-              </Fragment>
-            );
-          })
+          <GroupedList
+            groups={grouped.map(bucket => ({
+              key: bucket.key,
+              label: bucket.label,
+              color: bucket.color,
+              count: bucket.tasks.length,
+              items: bucket.tasks.map(task => {
+                const prop = properties.find(p => p.id === task.propertyId);
+                return (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    areas={prop?.areas || []}
+                    propName={prop?.name}
+                    showProp={selectedPropertyId === null && properties.length > 1}
+                    onEdit={openEdit}
+                    onDelete={deleteTask}
+                    onStatusChange={cycleStatus}
+                    onAddNote={addNote}
+                  />
+                );
+              }),
+            }))}
+          />
         )}
       </Card>
 

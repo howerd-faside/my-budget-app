@@ -8,18 +8,20 @@
  *   1 → 2  Coerce all numeric fields (grossAnnual, amounts, rates, estimatedCost, ddDay,
  *           facility balance/rate/amount) to numbers or null. Re-runs the updated
  *           normalizers against data stored at v1 with string-typed numerics.
+ *   2 → 3  Normalize endDate on incomeEvents and employmentHistory from '' to null
+ *           for "ongoing" semantics.
  *
- * Adding a future v3 migration:
- *   1. Bump PEOPLE_VERSION to 3.
+ * Adding a future v4 migration:
+ *   1. Bump PEOPLE_VERSION to 4.
  *   2. Append to PEOPLE_MIGRATIONS:
- *        { toVersion: 3, description: '…', migrate(slice) { …; return slice; } }
+ *        { toVersion: 4, description: '…', migrate(slice) { …; return slice; } }
  *   toVersion values must be consecutive integers (1, 2, 3, …) — a gap throws at startup.
  */
 import { normalizePerson }       from '../../models/Person';
 import { normalizeExpense }      from '../../models/Expense';
 import { normalizeWishlistItem } from '../../models/WishlistItem';
 
-export const PEOPLE_VERSION     = 2;
+export const PEOPLE_VERSION     = 3;
 export const PEOPLE_VERSION_KEY = '_peopleVersion';
 
 export const PEOPLE_MIGRATIONS = [
@@ -75,6 +77,20 @@ export const PEOPLE_MIGRATIONS = [
       }
       if (Array.isArray(slice.wishlist)) {
         slice.wishlist = slice.wishlist.map(normalizeWishlistItem);
+      }
+      return slice;
+    },
+  },
+  {
+    toVersion:   3,
+    description: 'normalize endDate on incomeEvents/employmentHistory from empty string to null',
+    /**
+     * @param {object} slice  People slice at v2 (may have '' endDate for ongoing events/roles).
+     * @returns {object}      People slice with endDate normalized to null for ongoing.
+     */
+    migrate(slice) {
+      if (Array.isArray(slice.people)) {
+        slice.people = slice.people.map(normalizePerson);
       }
       return slice;
     },

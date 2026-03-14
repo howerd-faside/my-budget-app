@@ -10,8 +10,7 @@ import { today } from '../../utils/finance/dates';
 const CONTRIB_TYPES = CONTRIBUTION_TYPES;
 const TYPE_DPILL    = CONTRIBUTION_TYPE_PILL;
 
-const fmt = (n) =>
-  `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { fmtCurrency as fmt } from '../../utils/format';
 
 const EMPTY = createInvestmentContribution({ date: today() });
 
