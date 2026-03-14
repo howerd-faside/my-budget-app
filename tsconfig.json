@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    /* Incremental migration — JS files keep working, TS files get checked */
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    /* Mixed JS/TS coexistence */
+    "allowJs": true,
+    "checkJs": false,
+
+    /* Type-checking only — Vite handles transpilation */
+    "noEmit": true,
+    "isolatedModules": true,
+
+    /* Phase 2: incremental hardening — safe flags enabled */
+    "strict": false,
+    "noImplicitAny": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUncheckedIndexedAccess": true,
+
+    /* Deferred — Zod v4 .optional().nullable() pipe triggers false positives */
+    "strictNullChecks": false,
+
+    "skipLibCheck": true,
+
+    /* Useful even in phase 1 */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+
+    /* Path mapping matches Vite defaults */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

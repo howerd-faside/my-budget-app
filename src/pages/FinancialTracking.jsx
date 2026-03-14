@@ -254,7 +254,6 @@ export default function FinancialTracking() {
             label={`Projected Dec ${year}`}
             value={fmtMoneyRound(closingBal)}
             valueClassName="teal"
-            icon={<span className={`trend-indicator ${balDelta >= 0 ? 'up' : 'down'}`}>{balDelta >= 0 ? '▲' : '▼'} {fmtMoneyRound(Math.abs(balDelta))}</span>}
           />
         )}
       </div>

@@ -15,7 +15,8 @@
       "Bash(grep -r \"vi\\\\.mock\\\\|vi\\\\.spyOn\" /c/Users/Billy/my-budget-app/src --include=*.test.*)",
       "Bash(grep -c \"describe\\\\|it\\(\" /c/Users/Billy/my-budget-app/src/store/__tests__/*.js /c/Users/Billy/my-budget-app/src/pages/__tests__/*.jsx /c/Users/Billy/my-budget-app/src/utils/*.test.js)",
       "Read(//c/Users/Billy/my-budget-app/**)",
-      "Bash(bc)"
+      "Bash(bc)",
+      "Bash(npx tsc:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Billy\\my-budget-app\\src\\pages",
