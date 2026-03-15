@@ -8,6 +8,7 @@
  *   - v0 → v1: creates default accounts when slice.accounts is missing
  *   - v0 → v1: initializes all missing slices to empty defaults
  *   - v0 → v1: preserves existing non-empty slices
+ *   - v2 → v3: adds lastSettledFortnight field
  */
 import { describe, it, expect } from 'vitest';
 import { FINANCE_MIGRATIONS } from '../migrations/finance';
@@ -100,5 +101,34 @@ describe('finance migration v0 → v1', () => {
   it('preserves existing settings', () => {
     const result = migrateV1({ accounts: [], settings: { currentBalance: 100 } });
     expect(result.settings.currentBalance).toBe(100);
+  });
+});
+
+// ── v2 → v3 ───────────────────────────────────────────────────────────────────
+
+const migrateV3 = FINANCE_MIGRATIONS.find(m => m.toVersion === 3).migrate;
+
+describe('finance migration v2 → v3', () => {
+  it('adds lastSettledFortnight as null when missing', () => {
+    const slice = { accounts: [{ id: 'main', balance: 1000 }] };
+    const result = migrateV3(slice);
+    expect(result.lastSettledFortnight).toBeNull();
+  });
+
+  it('preserves an existing lastSettledFortnight value', () => {
+    const existing = { year: 2026, idx: 4 };
+    const slice = { lastSettledFortnight: existing };
+    const result = migrateV3(slice);
+    expect(result.lastSettledFortnight).toEqual(existing);
+  });
+
+  it('does not alter other slice keys', () => {
+    const slice = {
+      accounts: [{ id: 'main', balance: 500 }],
+      goals: [{ id: 'g1' }],
+    };
+    const result = migrateV3(slice);
+    expect(result.accounts[0].balance).toBe(500);
+    expect(result.goals).toEqual([{ id: 'g1' }]);
   });
 });

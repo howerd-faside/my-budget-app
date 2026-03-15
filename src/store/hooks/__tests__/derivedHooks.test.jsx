@@ -208,7 +208,10 @@ describe('useCashflowTrend', () => {
   it('last point is within the current fortnight', () => {
     const { result } = renderHook(() => useCashflowTrend());
     const now = new Date();
-    const lastDate = new Date(result.current.points[result.current.points.length - 1].date);
+    const lastDateStr = result.current.points[result.current.points.length - 1].date;
+    // Parse as local time (the hook formats dates using local date components)
+    const [y, m, d] = lastDateStr.split('-').map(Number);
+    const lastDate = new Date(y, m - 1, d);
     const diffDays = (now - lastDate) / (1000 * 60 * 60 * 24);
     expect(diffDays).toBeGreaterThanOrEqual(0);
     expect(diffDays).toBeLessThan(14);

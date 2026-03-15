@@ -2,13 +2,15 @@
  * Tests for finance store actions.
  *
  * Covers:
- *   - updateAccount: updates a single account balance, leaves others intact
+ *   - updateAccount: updates a single account balance, leaves others intact,
+ *     resets lastSettledFortnight to current fortnight
  *   - addTransfer: deducts from source, credits target, records transfer, ignores
  *     zero/negative/non-numeric amounts
  *   - removeTransfer: reverses both account balances, removes the record,
  *     is a no-op for unknown txId
  *   - updateFortnight: creates nested entry when absent, merges data into existing
  *     entry, preserves sibling fortnights and sibling years
+ *   - settleFortnight: adds amount to main account and updates anchor
  *   - setSlice / mergeSlices: single and multi-key state updates, unrelated keys
  *     untouched
  *
@@ -78,6 +80,17 @@ describe('updateAccount', () => {
   it('can set balance to zero', () => {
     state().updateAccount('travel', 0);
     expect(state().accounts.find(a => a.id === 'travel').balance).toBe(0);
+  });
+
+  it('resets lastSettledFortnight to the current fortnight', () => {
+    // Pre-set an old anchor
+    useFinanceStore.setState({ lastSettledFortnight: { year: 2025, idx: 0 } });
+    state().updateAccount('main', 2000);
+    const anchor = state().lastSettledFortnight;
+    expect(anchor).not.toBeNull();
+    // Should be today's fortnight — at minimum the year should be current
+    expect(anchor.year).toBe(new Date().getFullYear());
+    expect(typeof anchor.idx).toBe('number');
   });
 });
 
@@ -290,5 +303,55 @@ describe('mergeSlices', () => {
     state().mergeSlices({ accounts, transfers });
     expect(state().accounts[0].balance).toBe(9000);
     expect(state().transfers[0].id).toBe('tx1');
+  });
+});
+
+// ── settleFortnight ───────────────────────────────────────────────────────────
+
+describe('settleFortnight', () => {
+  it('adds a positive settlement to the main account', () => {
+    state().settleFortnight(1200, { year: 2026, idx: 5 });
+    expect(state().accounts.find(a => a.id === 'main').balance).toBe(2200);
+  });
+
+  it('subtracts a negative settlement from the main account', () => {
+    state().settleFortnight(-300, { year: 2026, idx: 5 });
+    expect(state().accounts.find(a => a.id === 'main').balance).toBe(700);
+  });
+
+  it('updates lastSettledFortnight to the given fortnight', () => {
+    state().settleFortnight(500, { year: 2026, idx: 5 });
+    expect(state().lastSettledFortnight).toEqual({ year: 2026, idx: 5 });
+  });
+
+  it('sets lastSettledFortnight even when amount is zero', () => {
+    state().settleFortnight(0, { year: 2026, idx: 3 });
+    expect(state().lastSettledFortnight).toEqual({ year: 2026, idx: 3 });
+    // Account should be unchanged
+    expect(state().accounts.find(a => a.id === 'main').balance).toBe(1000);
+  });
+
+  it('does not alter other accounts', () => {
+    state().settleFortnight(999, { year: 2026, idx: 5 });
+    expect(state().accounts.find(a => a.id === 'emergency').balance).toBe(500);
+    expect(state().accounts.find(a => a.id === 'travel').balance).toBe(200);
+  });
+
+  it('rounds the result to 2 decimal places', () => {
+    state().settleFortnight(1234.5678, { year: 2026, idx: 5 });
+    const bal = state().accounts.find(a => a.id === 'main').balance;
+    expect(bal).toBe(2234.57);
+  });
+
+  it('falls back to the first account when no "main" id exists', () => {
+    useFinanceStore.setState({
+      accounts: [
+        { id: 'custom', name: 'Custom', balance: 100 },
+        { id: 'other',  name: 'Other',  balance: 50  },
+      ],
+    });
+    state().settleFortnight(400, { year: 2026, idx: 5 });
+    expect(state().accounts.find(a => a.id === 'custom').balance).toBe(500);
+    expect(state().accounts.find(a => a.id === 'other').balance).toBe(50);
   });
 });
