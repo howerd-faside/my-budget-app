@@ -2,8 +2,8 @@
 /**
  * Unit tests for the InvestmentTaxSummary page component (new model).
  *
- * Covers: empty state, summary tiles, dividend report table, realised
- * gains table, cash flow summary, fee detail, year navigation,
+ * Covers: empty state, annual summary (capital/dividend/totals), dividend
+ * report table, realised gains table, fee detail, year navigation,
  * export button, disclaimer.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -94,33 +94,36 @@ describe('InvestmentTaxSummary — empty state', () => {
   it('renders empty state when no activity for selected year', () => {
     seedPortfolio();
     render(<InvestmentTaxSummary />);
-    expect(screen.getByText(new RegExp(`No investment activity recorded for ${THIS_YEAR}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`No activity for ${THIS_YEAR}`))).toBeInTheDocument();
   });
 });
 
-describe('InvestmentTaxSummary — summary tiles', () => {
-  it('renders all summary tiles with data', () => {
+describe('InvestmentTaxSummary — annual summary', () => {
+  it('renders annual summary with capital and dividend sections', () => {
     seedPortfolio();
     seedAsset();
     seedTx({ type: 'buy', units: 10, price: 100, amount: 1000 });
     seedTx({ id: 'div-1', type: 'dividend', units: null, price: null, amount: 80, grossAmount: 100, taxAmount: 20 });
     render(<InvestmentTaxSummary />);
 
-    expect(screen.getByText('Dividends Received')).toBeInTheDocument();
-    expect(screen.getByText('Tax Withheld')).toBeInTheDocument();
+    expect(screen.getByText(/Annual Summary/)).toBeInTheDocument();
+    expect(screen.getByText('Capital Activity')).toBeInTheDocument();
+    expect(screen.getByText('Dividend Income')).toBeInTheDocument();
+    expect(screen.getByText('Period Totals')).toBeInTheDocument();
+    // Capital rows
+    expect(screen.getByText('Invested', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Disposed', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('Realised G/L')).toBeInTheDocument();
-    expect(screen.getByText('Invested')).toBeInTheDocument();
-    expect(screen.getByText('Disposed')).toBeInTheDocument();
   });
 
-  it('shows fees tile when fees exist', () => {
+  it('shows fees row when fees exist', () => {
     seedPortfolio();
     seedAsset();
     seedTx({ type: 'buy', units: 10, price: 100, amount: 1000 });
     seedTx({ id: 'fee-1', type: 'fee', units: null, price: null, amount: 25, assetId: '' });
     render(<InvestmentTaxSummary />);
 
-    expect(screen.getByText('Fees Paid')).toBeInTheDocument();
+    expect(screen.getByText('Fees paid')).toBeInTheDocument();
   });
 });
 
@@ -132,9 +135,10 @@ describe('InvestmentTaxSummary — dividend report', () => {
     render(<InvestmentTaxSummary />);
 
     expect(screen.getByText(/Dividend Report/)).toBeInTheDocument();
-    expect(screen.getByText('Gross dividends')).toBeInTheDocument();
+    // Annual summary has dividend breakdown
+    expect(screen.getByText('Gross dividends', { exact: false })).toBeInTheDocument();
     expect(screen.getByText(/Tax withheld/)).toBeInTheDocument();
-    expect(screen.getByText('Net dividends received')).toBeInTheDocument();
+    expect(screen.getByText('Net received')).toBeInTheDocument();
   });
 
   it('shows asset name in dividend rows', () => {
@@ -174,17 +178,16 @@ describe('InvestmentTaxSummary — realised gains', () => {
   });
 });
 
-describe('InvestmentTaxSummary — cash flow', () => {
-  it('renders cash flow summary section', () => {
+describe('InvestmentTaxSummary — period totals', () => {
+  it('renders transaction count and net position in annual summary', () => {
     seedPortfolio();
     seedAsset();
     seedTx({ type: 'buy', units: 10, price: 100, amount: 1000 });
     seedTx({ id: 'div-1', type: 'dividend', units: null, price: null, amount: 50, grossAmount: 60, taxAmount: 10 });
     render(<InvestmentTaxSummary />);
 
-    expect(screen.getByText(/Cash Flow/)).toBeInTheDocument();
-    expect(screen.getByText('Purchases')).toBeInTheDocument();
-    expect(screen.getByText('Dividends')).toBeInTheDocument();
+    expect(screen.getByText('Transactions')).toBeInTheDocument();
+    expect(screen.getByText('Net position change')).toBeInTheDocument();
   });
 });
 
@@ -218,7 +221,7 @@ describe('InvestmentTaxSummary — export', () => {
     seedTx({ type: 'buy', units: 10, price: 100, amount: 1000 });
     render(<InvestmentTaxSummary />);
 
-    expect(screen.getByText('↓ Export CSV')).toBeInTheDocument();
+    expect(screen.getByText('Export CSV')).toBeInTheDocument();
   });
 });
 
@@ -240,6 +243,6 @@ describe('InvestmentTaxSummary — year navigation', () => {
     const yearBtn = screen.getByText(String(prevYear));
     await user.click(yearBtn);
 
-    expect(screen.getByText(new RegExp(`No investment activity recorded for ${prevYear}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`No activity for ${prevYear}`))).toBeInTheDocument();
   });
 });

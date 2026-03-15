@@ -2,8 +2,8 @@
 /**
  * Unit tests for the InvestmentDashboard (Overview) page component.
  *
- * Covers: no portfolios state, no data state, populated snapshot,
- * allocation section, top assets list, recent activity, returns & income.
+ * Covers: no portfolios state, no data state, populated snapshot (6 KPI tiles),
+ * allocation section, top assets list, recent activity.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -117,7 +117,7 @@ describe('InvestmentDashboard — empty states', () => {
   it('renders no-data state when portfolio exists but empty', () => {
     seedPortfolio();
     renderDashboard();
-    expect(screen.getByText(/No investment data yet/)).toBeInTheDocument();
+    expect(screen.getByText(/No assets yet/)).toBeInTheDocument();
   });
 });
 
@@ -174,12 +174,13 @@ describe('InvestmentDashboard — populated state', () => {
     expect(screen.getByText('Recent Activity')).toBeInTheDocument();
   });
 
-  it('renders returns and income section', () => {
+  it('renders total return and dividend income in snapshot', () => {
     seedPortfolio();
     seedAsset();
     seedTransaction({ units: 10, price: 400, amount: 4000 });
     seedPrice({ price: 450 });
     renderDashboard();
     expect(screen.getByText('Total Return')).toBeInTheDocument();
+    expect(screen.getByText('Dividend Income')).toBeInTheDocument();
   });
 });

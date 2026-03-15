@@ -1,11 +1,10 @@
 /**
  * @fileoverview Domain model for an investment holding within a portfolio.
  *
- * Inconsistencies detected:
- * - The EMPTY template in InvestmentHoldings.jsx does not include `units` or
- *   `avgCost` fields; they are only filled in when a purchase is logged.
- * - `priceUpdatedAt` is set by the price-fetch service but has no field in the
- *   EMPTY template, so older holdings lack it entirely.
+ * Legacy model — retained for backward compatibility with persisted data and
+ * migration pipelines. Active UI now uses Asset + InvestmentTransaction models.
+ *
+ * Notes:
  * - `ticker` is optional — holdings like KiwiSaver managed funds often have no
  *   ticker, which causes the price-fetch service to skip them silently.
  *

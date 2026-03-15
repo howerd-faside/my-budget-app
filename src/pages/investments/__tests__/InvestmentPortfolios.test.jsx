@@ -119,7 +119,7 @@ describe('InvestmentPortfolios — portfolio cards', () => {
   it('renders portfolio card with name', () => {
     seedPortfolio({ id: 'p1', name: 'Growth' });
     render(<InvestmentPortfolios />);
-    expect(screen.getByText('Growth')).toBeInTheDocument();
+    expect(screen.getAllByText('Growth').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows Active pill for selected portfolio', () => {
@@ -136,7 +136,8 @@ describe('InvestmentPortfolios — portfolio cards', () => {
     seedPrice(a.id, 120);
     render(<InvestmentPortfolios />);
 
-    expect(screen.getByText('Assets')).toBeInTheDocument();
+    // Card stats + settings summary may duplicate labels
+    expect(screen.getAllByText('Assets').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Value')).toBeInTheDocument();
     expect(screen.getByText('Cost')).toBeInTheDocument();
     expect(screen.getByText('Return')).toBeInTheDocument();
@@ -153,8 +154,8 @@ describe('InvestmentPortfolios — create', () => {
     await user.type(input, 'New Fund');
     await user.keyboard('{Enter}');
 
-    // Portfolio should now appear
-    expect(screen.getByText('New Fund')).toBeInTheDocument();
+    // Portfolio should now appear (card name + settings subtitle)
+    expect(screen.getAllByText('New Fund').length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -255,5 +256,55 @@ describe('InvestmentPortfolios — rename', () => {
     seedPortfolio({ id: 'p1', name: 'Main' });
     render(<InvestmentPortfolios />);
     expect(screen.getByTitle('Rename')).toBeInTheDocument();
+  });
+});
+
+describe('InvestmentPortfolios — settings', () => {
+  it('renders Portfolio Settings card for selected portfolio', () => {
+    seedPortfolio({ id: 'p1', name: 'Growth' });
+    render(<InvestmentPortfolios />);
+    expect(screen.getByText('Portfolio Settings')).toBeInTheDocument();
+  });
+
+  it('shows currency and cost basis method selectors', () => {
+    seedPortfolio({ id: 'p1', name: 'Growth' });
+    render(<InvestmentPortfolios />);
+    expect(screen.getByText('Base Currency')).toBeInTheDocument();
+    expect(screen.getByText('Cost Basis Method')).toBeInTheDocument();
+  });
+
+  it('shows portfolio summary stats in settings', () => {
+    const p = seedPortfolio({ id: 'p1', name: 'Growth' });
+    const a = seedAsset('p1');
+    seedTx('p1', a.id, { type: 'buy', units: 10, price: 100, amount: 1000 });
+    seedPrice(a.id, 120);
+    render(<InvestmentPortfolios />);
+    expect(screen.getByText('Market Value')).toBeInTheDocument();
+    expect(screen.getByText('Cost Basis')).toBeInTheDocument();
+    expect(screen.getByText('Unrealised G/L')).toBeInTheDocument();
+  });
+
+  it('updates currency when changed', async () => {
+    const user = userEvent.setup();
+    seedPortfolio({ id: 'p1', name: 'Test' });
+    render(<InvestmentPortfolios />);
+
+    const currSelect = screen.getByDisplayValue('NZD');
+    await user.selectOptions(currSelect, 'USD');
+
+    const updated = useInvestmentStore.getState().investmentPortfolios.find(p => p.id === 'p1');
+    expect(updated.currency).toBe('USD');
+  });
+
+  it('updates cost basis method when changed', async () => {
+    const user = userEvent.setup();
+    seedPortfolio({ id: 'p1', name: 'Test' });
+    render(<InvestmentPortfolios />);
+
+    const cbmSelect = screen.getByDisplayValue('Weighted Average');
+    await user.selectOptions(cbmSelect, 'fifo');
+
+    const updated = useInvestmentStore.getState().investmentPortfolios.find(p => p.id === 'p1');
+    expect(updated.costBasisMethod).toBe('fifo');
   });
 });

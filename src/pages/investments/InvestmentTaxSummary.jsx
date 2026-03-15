@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { usePortfolioAnalytics } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
+import { SectionHeader, EmptyState, Card } from '../../components/ui';
 import {
   filterTxByYear,
   calcPeriodReturns,
@@ -67,6 +67,20 @@ export default function InvestmentTaxSummary() {
       .map(tx => ({ ...tx, assetName: nameMap[tx.assetId] || '' }));
   }, [yearTxs, assets]);
 
+  // Dividends grouped by asset
+  const dividendsByAsset = useMemo(() => {
+    const groups = {};
+    for (const d of yearDividends) {
+      const key = d.assetId || '_none';
+      if (!groups[key]) groups[key] = { assetName: d.assetName, gross: 0, tax: 0, net: 0, count: 0 };
+      groups[key].gross += d.grossAmount ?? 0;
+      groups[key].tax   += d.taxAmount   ?? 0;
+      groups[key].net   += d.amount;
+      groups[key].count += 1;
+    }
+    return Object.values(groups).sort((a, b) => b.net - a.net);
+  }, [yearDividends]);
+
   // Year's fees for the detail list
   const yearFees = useMemo(() => {
     const nameMap = {};
@@ -77,17 +91,13 @@ export default function InvestmentTaxSummary() {
       .map(tx => ({ ...tx, assetName: nameMap[tx.assetId] || tx.label || 'Fee' }));
   }, [yearTxs, assets]);
 
-  // Cash flow summary rows
-  const cashFlow = useMemo(() => {
-    const types = ['buy', 'sell', 'deposit', 'withdrawal', 'dividend', 'fee'];
-    const labels = { buy: 'Purchases', sell: 'Sales', deposit: 'Deposits', withdrawal: 'Withdrawals', dividend: 'Dividends', fee: 'Fees' };
-    return types
-      .map(type => {
-        const txs = yearTxs.filter(tx => tx.type === type);
-        const total = txs.reduce((s, tx) => s + tx.amount, 0);
-        return { type, label: labels[type], count: txs.length, total };
-      })
-      .filter(r => r.count > 0);
+  // Cash flow counts for the annual summary
+  const cashFlowCounts = useMemo(() => {
+    const counts = {};
+    for (const tx of yearTxs) {
+      counts[tx.type] = (counts[tx.type] || 0) + 1;
+    }
+    return counts;
   }, [yearTxs]);
 
   const hasData = yearTxs.length > 0;
@@ -97,6 +107,20 @@ export default function InvestmentTaxSummary() {
   const handleExport = () => {
     const rows = [];
 
+    // Annual summary section
+    rows.push(['--- Annual Summary ---', '', '']);
+    rows.push(['Metric', 'Value', '']);
+    rows.push(['Year', yearStr, '']);
+    rows.push(['Total Transactions', String(yearTxs.length), '']);
+    rows.push(['Amount Invested', period.invested.toFixed(2), '']);
+    rows.push(['Amount Disposed', period.disposed.toFixed(2), '']);
+    rows.push(['Realised Gain/Loss', period.realisedGL.toFixed(2), '']);
+    rows.push(['Dividend Income (Gross)', period.dividendGross.toFixed(2), '']);
+    rows.push(['Tax Withheld (RWT)', period.dividendTax.toFixed(2), '']);
+    rows.push(['Dividend Income (Net)', period.dividendNet.toFixed(2), '']);
+    if (period.feesPaid > 0) rows.push(['Fees Paid', period.feesPaid.toFixed(2), '']);
+    rows.push([]);
+
     // Dividends section
     if (yearDividends.length > 0) {
       rows.push(['--- Dividends ---', '', '', '', '']);
@@ -104,7 +128,7 @@ export default function InvestmentTaxSummary() {
       for (const d of yearDividends) {
         rows.push([d.date, d.assetName, (d.grossAmount ?? 0).toFixed(2), (d.taxAmount ?? 0).toFixed(2), d.amount.toFixed(2)]);
       }
-      rows.push(['', '', period.dividendGross.toFixed(2), period.dividendTax.toFixed(2), period.dividendNet.toFixed(2)]);
+      rows.push(['', 'Total', period.dividendGross.toFixed(2), period.dividendTax.toFixed(2), period.dividendNet.toFixed(2)]);
       rows.push([]);
     }
 
@@ -120,16 +144,6 @@ export default function InvestmentTaxSummary() {
       rows.push([]);
     }
 
-    // Cash flow section
-    if (cashFlow.length > 0) {
-      rows.push(['--- Cash Flow ---', '', '']);
-      rows.push(['Type', 'Count', 'Total']);
-      for (const c of cashFlow) {
-        rows.push([c.label, c.count.toString(), c.total.toFixed(2)]);
-      }
-      rows.push([]);
-    }
-
     // Fees section
     if (yearFees.length > 0) {
       rows.push(['--- Fees ---', '', '']);
@@ -137,6 +151,7 @@ export default function InvestmentTaxSummary() {
       for (const f of yearFees) {
         rows.push([f.date, f.assetName, f.amount.toFixed(2)]);
       }
+      rows.push(['', 'Total', period.feesPaid.toFixed(2)]);
     }
 
     const maxCols = Math.max(...rows.map(r => r.length), 1);
@@ -194,65 +209,50 @@ export default function InvestmentTaxSummary() {
         {!hasData ? (
           <EmptyState
             icon={<Icon name="clipboard" size={38} />}
-            title={`No investment activity recorded for ${year}.`}
+            title={`No activity for ${year}.`}
           />
         ) : (
           <>
-            {/* ── Summary tiles ── */}
-            <div className="fn-summary">
-              <StatTile
-                label="Dividends Received"
-                value={fmt(period.dividendNet)}
-                valueClassName="green"
-                meta={period.dividendTax > 0 ? `Gross ${fmt(period.dividendGross)}` : undefined}
+            {/* ── Annual Summary ── */}
+            <Card variant="section">
+              <SectionHeader
+                title={<><Icon name="clipboard" size={15} /> Annual Summary — {year}</>}
+                actions={
+                  <button className="btn-ghost small" onClick={handleExport}>
+                    Export CSV
+                  </button>
+                }
               />
-              <StatTile
-                label="Tax Withheld"
-                value={fmt(period.dividendTax)}
-                valueClassName={period.dividendTax > 0 ? 'red' : undefined}
-                meta={period.dividendGross > 0 ? `${((period.dividendTax / period.dividendGross) * 100).toFixed(1)}% effective` : undefined}
-              />
-              <StatTile
-                label="Realised G/L"
-                value={`${period.realisedGL >= 0 ? '+' : '−'}${fmt(period.realisedGL)}`}
-                valueClassName={period.realisedGL >= 0 ? 'green' : 'red'}
-                meta={realisedSells.length > 0 ? `${realisedSells.length} disposal${realisedSells.length > 1 ? 's' : ''}` : undefined}
-              />
-              <StatTile
-                label="Invested"
-                value={fmt(period.invested)}
-                meta={`${yearTxs.filter(tx => tx.type === 'buy').length} buys`}
-              />
-              <StatTile
-                label="Disposed"
-                value={fmt(period.disposed)}
-                meta={`${yearTxs.filter(tx => tx.type === 'sell').length} sells`}
-              />
-              {period.feesPaid > 0 && (
-                <StatTile
-                  label="Fees Paid"
-                  value={fmt(period.feesPaid)}
-                  valueClassName="red"
-                />
-              )}
-            </div>
 
-            {/* ── Export button ── */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <button className="btn-ghost small" onClick={handleExport}>
-                ↓ Export CSV
-              </button>
-            </div>
-
-            {/* ── Dividend report ── */}
-            {yearDividends.length > 0 && (
-              <Card variant="section">
-                <SectionHeader title={<><Icon name="arrow-down" size={15} /> Dividend Report — {year}</>} />
-
-                <div style={{ marginBottom: 16 }}>
+              <div className="dash-grid" style={{ gap: 12 }}>
+                {/* Capital Activity column */}
+                <div className="dash-col-4" style={{ minWidth: 0 }}>
+                  <div className="tb-section-label">Capital Activity</div>
                   <div className="tax-breakdown">
                     <div className="tb-row">
-                      <span>Gross dividends</span>
+                      <span>Invested {cashFlowCounts.buy > 0 && <span style={{ color: 'var(--text3)', fontSize: 10 }}>{cashFlowCounts.buy} buys</span>}</span>
+                      <span className="mono">{fmt(period.invested)}</span>
+                    </div>
+                    <div className="tb-row">
+                      <span>Disposed {cashFlowCounts.sell > 0 && <span style={{ color: 'var(--text3)', fontSize: 10 }}>{cashFlowCounts.sell} sells</span>}</span>
+                      <span className="mono">{fmt(period.disposed)}</span>
+                    </div>
+                    <div className="tb-divider" />
+                    <div className="tb-row bold">
+                      <span>Realised G/L</span>
+                      <span className="mono" style={{ color: period.realisedGL >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {period.realisedGL >= 0 ? '+' : '−'}{fmt(period.realisedGL)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dividend Income column */}
+                <div className="dash-col-4" style={{ minWidth: 0 }}>
+                  <div className="tb-section-label">Dividend Income</div>
+                  <div className="tax-breakdown">
+                    <div className="tb-row">
+                      <span>Gross dividends {cashFlowCounts.dividend > 0 && <span style={{ color: 'var(--text3)', fontSize: 10 }}>{cashFlowCounts.dividend} payments</span>}</span>
                       <span className="mono">{fmt(period.dividendGross)}</span>
                     </div>
                     <div className="tb-row red">
@@ -261,12 +261,100 @@ export default function InvestmentTaxSummary() {
                     </div>
                     <div className="tb-divider" />
                     <div className="tb-row bold green">
-                      <span>Net dividends received</span>
+                      <span>Net received</span>
                       <span className="mono">{fmt(period.dividendNet)}</span>
                     </div>
                   </div>
                 </div>
 
+                {/* Totals column */}
+                <div className="dash-col-4" style={{ minWidth: 0 }}>
+                  <div className="tb-section-label">Period Totals</div>
+                  <div className="tax-breakdown">
+                    <div className="tb-row">
+                      <span>Transactions</span>
+                      <span className="mono">{yearTxs.length}</span>
+                    </div>
+                    {(cashFlowCounts.deposit || 0) > 0 && (
+                      <div className="tb-row">
+                        <span>Deposits</span>
+                        <span className="mono">{fmt(yearTxs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0))}</span>
+                      </div>
+                    )}
+                    {(cashFlowCounts.withdrawal || 0) > 0 && (
+                      <div className="tb-row">
+                        <span>Withdrawals</span>
+                        <span className="mono">{fmt(yearTxs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0))}</span>
+                      </div>
+                    )}
+                    {period.feesPaid > 0 && (
+                      <div className="tb-row red">
+                        <span>Fees paid</span>
+                        <span className="mono">{fmt(period.feesPaid)}</span>
+                      </div>
+                    )}
+                    <div className="tb-divider" />
+                    <div className="tb-row bold">
+                      <span>Net position change</span>
+                      <span className="mono" style={{
+                        color: (period.dividendNet + period.realisedGL - period.feesPaid) >= 0 ? 'var(--green)' : 'var(--red)',
+                      }}>
+                        {(period.dividendNet + period.realisedGL - period.feesPaid) >= 0 ? '+' : '−'}
+                        {fmt(period.dividendNet + period.realisedGL - period.feesPaid)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* ── Dividend report ── */}
+            {yearDividends.length > 0 && (
+              <Card variant="section">
+                <SectionHeader title={<><Icon name="arrow-down" size={15} /> Dividend Report — {year}</>} />
+
+                {/* By-asset summary */}
+                {dividendsByAsset.length > 1 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div className="perf-table-wrap">
+                      <table className="perf-table">
+                        <thead>
+                          <tr>
+                            <th>Asset</th>
+                            <th className="right">Payments</th>
+                            <th className="right">Gross</th>
+                            <th className="right">Tax</th>
+                            <th className="right">Net</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dividendsByAsset.map(g => (
+                            <tr key={g.assetName}>
+                              <td style={{ fontWeight: 500, fontSize: 13 }}>{g.assetName}</td>
+                              <td className="right mono">{g.count}</td>
+                              <td className="right mono">{fmt(g.gross)}</td>
+                              <td className="right mono" style={{ color: g.tax > 0 ? 'var(--red)' : undefined }}>
+                                {g.tax > 0 ? fmt(g.tax) : '—'}
+                              </td>
+                              <td className="right mono" style={{ fontWeight: 600, color: 'var(--green)' }}>{fmt(g.net)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ fontWeight: 600 }}>
+                            <td>Total</td>
+                            <td className="right mono">{yearDividends.length}</td>
+                            <td className="right mono">{fmt(period.dividendGross)}</td>
+                            <td className="right mono" style={{ color: 'var(--red)' }}>{fmt(period.dividendTax)}</td>
+                            <td className="right mono" style={{ color: 'var(--green)' }}>{fmt(period.dividendNet)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Per-transaction detail */}
                 <div className="perf-table-wrap">
                   <table className="perf-table">
                     <thead>
@@ -353,43 +441,36 @@ export default function InvestmentTaxSummary() {
               </Card>
             )}
 
-            {/* ── Cash flow summary ── */}
-            {cashFlow.length > 0 && (
-              <Card variant="section">
-                <SectionHeader title={<><Icon name="wallet" size={15} /> Cash Flow — {year}</>} />
-
-                <div className="tax-breakdown">
-                  {cashFlow.map(c => (
-                    <div key={c.type} className="tb-row">
-                      <span>{c.label} <span style={{ color: 'var(--text3)', fontSize: 10, marginLeft: 4 }}>×{c.count}</span></span>
-                      <span className="mono">{fmt(c.total)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-
             {/* ── Fee detail ── */}
             {yearFees.length > 0 && (
               <Card variant="section">
                 <SectionHeader title={<><Icon name="tag" size={15} /> Fees — {year}</>} />
 
-                <div className="fn-list">
-                  {yearFees.map(f => (
-                    <div key={f.id} className="fn-row">
-                      <div className="fn-main" style={{ cursor: 'default' }}>
-                        <div className="fn-left">
-                          <div className="fn-dates">
-                            <span className="fn-label">{f.assetName}</span>
-                            <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginTop: 4 }}>{f.date}</span>
-                          </div>
-                        </div>
-                        <div className="fn-right">
-                          <span className="mono" style={{ fontSize: 14, fontWeight: 600, color: 'var(--red)' }}>{fmt(f.amount)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="perf-table-wrap">
+                  <table className="perf-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th className="right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yearFees.map(f => (
+                        <tr key={f.id}>
+                          <td className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>{f.date}</td>
+                          <td style={{ fontWeight: 500, fontSize: 13 }}>{f.assetName}</td>
+                          <td className="right mono" style={{ color: 'var(--red)', fontWeight: 600 }}>{fmt(f.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ fontWeight: 600 }}>
+                        <td colSpan={2}>Total</td>
+                        <td className="right mono" style={{ color: 'var(--red)' }}>{fmt(period.feesPaid)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
               </Card>
             )}

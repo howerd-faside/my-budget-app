@@ -24,7 +24,7 @@ const TYPE_LABELS = {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export default function InvestmentTransactions() {
+export default function InvestmentActivity() {
   const {
     investmentTransactions, investmentAssets,
     setInvestment,
@@ -47,10 +47,6 @@ export default function InvestmentTransactions() {
     const m = {};
     for (const a of assets) m[a.id] = a;
     return m;
-  }, [assets]);
-
-  const assetOptions = useMemo(() => {
-    return ['All', ...assets.map(a => a.id)];
   }, [assets]);
 
   const platforms = useMemo(() => {
@@ -84,16 +80,39 @@ export default function InvestmentTransactions() {
 
   const hasActiveFilters = typeFilter !== 'All' || assetFilter !== 'All' || platFilter !== 'All' || dateFrom || dateTo;
 
-  // Stats
+  // ── Context-aware stats ──────────────────────────────────────────────────
+
   const stats = useMemo(() => {
-    let buys = 0, sells = 0, dividends = 0, fees = 0;
+    let buys = 0, sells = 0, dividendNet = 0, dividendGross = 0, dividendTax = 0;
+    let fees = 0, deposits = 0, withdrawals = 0;
+
     for (const tx of filtered) {
-      if (tx.type === 'buy')      buys += tx.amount;
-      else if (tx.type === 'sell')     sells += tx.amount;
-      else if (tx.type === 'dividend') dividends += tx.amount;
-      else if (tx.type === 'fee')      fees += tx.amount;
+      switch (tx.type) {
+        case 'buy':        buys += tx.amount; break;
+        case 'sell':       sells += tx.amount; break;
+        case 'dividend':
+          dividendNet   += tx.amount;
+          dividendGross += tx.grossAmount ?? 0;
+          dividendTax   += tx.taxAmount   ?? 0;
+          break;
+        case 'fee':        fees += tx.amount; break;
+        case 'deposit':    deposits += tx.amount; break;
+        case 'withdrawal': withdrawals += tx.amount; break;
+      }
     }
-    return { buys, sells, dividends, fees, count: filtered.length };
+
+    // Period totals for deposits
+    const thisYear  = String(new Date().getFullYear());
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const depositThisYear  = filtered.filter(tx => tx.type === 'deposit' && tx.date?.startsWith(thisYear)).reduce((s, tx) => s + tx.amount, 0);
+    const depositThisMonth = filtered.filter(tx => tx.type === 'deposit' && tx.date?.startsWith(thisMonth)).reduce((s, tx) => s + tx.amount, 0);
+
+    return {
+      count: filtered.length,
+      buys, sells, dividendNet, dividendGross, dividendTax,
+      fees, deposits, withdrawals,
+      depositThisYear, depositThisMonth,
+    };
   }, [filtered]);
 
   // ── CRUD handlers ────────────────────────────────────────────────────────
@@ -127,27 +146,78 @@ export default function InvestmentTransactions() {
   };
 
   const openEdit = useCallback((tx) => { setEditTarget(tx); setShowModal(true); }, []);
-  const openAdd  = () => { setEditTarget(null); setShowModal(true); };
+  const openAdd  = (defaultType) => {
+    setEditTarget(null);
+    setShowModal(true);
+    // Store desired default type so TxModal can pick it up
+    if (defaultType) setAddDefaults({ type: defaultType });
+    else setAddDefaults(null);
+  };
+  const [addDefaults, setAddDefaults] = useState(null);
 
   const clearFilters = () => {
     setTypeFilter('All'); setAssetFilter('All'); setPlatFilter('All');
     setDateFrom(''); setDateTo('');
   };
 
+  // ── Render stats (context-aware) ──────────────────────────────────────────
+
+  const renderStats = () => {
+    if (transactions.length === 0) return null;
+
+    // Dividend-focused stats
+    if (typeFilter === 'dividend') {
+      return (
+        <div className="fn-summary">
+          <StatTile label="Transactions" value={String(stats.count)} />
+          <StatTile label="Gross Total"  value={fmt(stats.dividendGross)} />
+          <StatTile label="Tax Withheld" value={fmt(stats.dividendTax)} valueClassName={stats.dividendTax > 0 ? 'red' : undefined} />
+          <StatTile label="Net Received" value={fmt(stats.dividendNet)} valueClassName="green" />
+        </div>
+      );
+    }
+
+    // Deposit-focused stats
+    if (typeFilter === 'deposit') {
+      return (
+        <div className="fn-summary">
+          <StatTile label="Transactions"  value={String(stats.count)} />
+          <StatTile label="All Time"      value={fmt(stats.deposits)} />
+          <StatTile label="This Year"     value={fmt(stats.depositThisYear)} />
+          <StatTile label="This Month"    value={fmt(stats.depositThisMonth)} />
+        </div>
+      );
+    }
+
+    // Default stats
+    return (
+      <div className="fn-summary">
+        <StatTile label="Transactions" value={String(stats.count)} />
+        <StatTile label="Buys"         value={fmt(stats.buys)} />
+        <StatTile label="Sells"        value={fmt(stats.sells)} />
+        <StatTile label="Dividends"    value={fmt(stats.dividendNet)} valueClassName="green" />
+        {stats.deposits > 0 && (
+          <StatTile label="Deposits"   value={fmt(stats.deposits)} />
+        )}
+        {stats.fees > 0 && (
+          <StatTile label="Fees"       value={fmt(stats.fees)} valueClassName="red" />
+        )}
+      </div>
+    );
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Contextual add button label
+  const addLabel = typeFilter === 'dividend' ? '+ Add Dividend'
+                 : typeFilter === 'deposit'  ? '+ Add Deposit'
+                 : '+ Add Transaction';
 
   return (
     <div className="page-content">
 
       {/* Stats */}
-      {transactions.length > 0 && (
-        <div className="fn-summary">
-          <StatTile label="Transactions" value={String(stats.count)} />
-          <StatTile label="Buys"         value={fmt(stats.buys)} />
-          <StatTile label="Sells"        value={fmt(stats.sells)} />
-          <StatTile label="Dividends"    value={fmt(stats.dividends)} valueClassName="green" />
-        </div>
-      )}
+      {renderStats()}
 
       {/* Filter bar */}
       {transactions.length > 0 && (
@@ -157,7 +227,9 @@ export default function InvestmentTransactions() {
             actions={
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn-ghost small" onClick={() => setShowImport(true)}>Import CSV</button>
-                <button className="btn-ghost small" onClick={openAdd}>+ Add Transaction</button>
+                <button className="btn-ghost small" onClick={() => openAdd(typeFilter !== 'All' ? typeFilter : undefined)}>
+                  {addLabel}
+                </button>
               </div>
             }
           />
@@ -237,17 +309,17 @@ export default function InvestmentTransactions() {
           icon={<Icon name="swap" size={38} />}
           title={
             transactions.length === 0
-              ? 'No transactions yet. Record your first investment transaction.'
-              : 'No transactions match your filters.'
+              ? 'No activity yet. Record your first investment transaction.'
+              : 'No activity matches your filters.'
           }
           action={transactions.length === 0 && (
-            <button className="btn-ghost small" onClick={openAdd}>+ Add Transaction</button>
+            <button className="btn-ghost small" onClick={() => openAdd()}>+ Add Transaction</button>
           )}
         />
       ) : (
         <Card variant="section">
           <SectionHeader
-            title={<><Icon name="swap" size={15} /> Ledger</>}
+            title={<><Icon name="swap" size={15} /> Activity</>}
             subtitle={`${filtered.length} transaction${filtered.length !== 1 ? 's' : ''}`}
           />
           <div className="fn-list">
@@ -255,9 +327,6 @@ export default function InvestmentTransactions() {
               const asset = assetMap[tx.assetId];
               const pillColor = INV_TX_TYPE_PILL[tx.type] || '';
               const displayName = asset?.name || tx.label || TYPE_LABELS[tx.type];
-              const displayAmount = tx.type === 'dividend' && tx.grossAmount
-                ? tx.amount
-                : tx.amount;
               const amountColor =
                 tx.type === 'sell' || tx.type === 'withdrawal' ? 'var(--red)'
                 : tx.type === 'dividend' || tx.type === 'deposit' ? 'var(--green)'
@@ -275,16 +344,22 @@ export default function InvestmentTransactions() {
                         <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
                           <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>{tx.date}</span>
                           {asset?.ticker && (
-                            <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0 }}>{asset.ticker}</span>
+                            <span className="tag sm" style={{ fontFamily: 'var(--mono)', letterSpacing: 0 }}>{asset.ticker}</span>
                           )}
-                          {asset?.platform && <span className="tag">{asset.platform}</span>}
+                          {asset?.platform && <span className="tag sm">{asset.platform}</span>}
                           {tx.units != null && (
                             <span style={{ fontSize: 11, color: 'var(--text3)' }}>
                               {tx.units.toLocaleString('en-NZ', { maximumFractionDigits: 4 })} units @ {fmt(tx.price || 0)}
                             </span>
                           )}
                           {tx.type === 'dividend' && tx.grossAmount != null && tx.taxAmount != null && +tx.taxAmount > 0 && (
-                            <span className="dpill red" style={{ fontSize: 10 }}>Tax {fmt(tx.taxAmount)}</span>
+                            <span style={{ fontSize: 10, color: 'var(--red)' }}>Tax {fmt(tx.taxAmount)}</span>
+                          )}
+                          {tx.type === 'dividend' && tx.grossAmount != null && +tx.grossAmount > 0 && (
+                            <span style={{ fontSize: 10, color: 'var(--text3)' }}>gross {fmt(tx.grossAmount)}</span>
+                          )}
+                          {tx.label && tx.type === 'deposit' && (
+                            <span className="tag sm">{tx.label}</span>
                           )}
                         </div>
                         {tx.notes && (
@@ -294,7 +369,7 @@ export default function InvestmentTransactions() {
                     </div>
                     <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
                       <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: amountColor }}>
-                        {fmt(displayAmount)}
+                        {fmt(tx.amount)}
                       </span>
                       <div className="exp-actions">
                         <button className="btn-icon small" onClick={() => openEdit(tx)} aria-label="Edit transaction">
@@ -319,7 +394,8 @@ export default function InvestmentTransactions() {
           tx={editTarget}
           assets={assets}
           onSave={handleSave}
-          onClose={() => { setShowModal(false); setEditTarget(null); }}
+          onClose={() => { setShowModal(false); setEditTarget(null); setAddDefaults(null); }}
+          defaults={addDefaults || {}}
         />
       )}
 

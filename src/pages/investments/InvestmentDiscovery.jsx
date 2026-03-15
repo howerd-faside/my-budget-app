@@ -3,7 +3,7 @@ import { useInvestment } from '../../store/hooks';
 import { useNavigate } from '../../contexts/NavigationContext';
 import { useToast } from '../../components/Toast';
 import Icon from '../../components/Icon';
-import { SectionHeader, EmptyState, Card, Modal } from '../../components/ui';
+import { SectionHeader, Card, Modal } from '../../components/ui';
 import TxModal from '../../components/investments/TxModal';
 import { createWatchlistItem } from '../../models/WatchlistItem';
 import { createAsset, ASSET_CATEGORIES } from '../../models/Asset';
@@ -71,7 +71,7 @@ function QuoteLookup({ onWatch, onAddToPortfolio }) {
           </div>
           <div className="wl-quote-price-row">
             <span className="wl-quote-price mono">{fmt(quote.price)}</span>
-            <span className="tag">{quote.currency}</span>
+            <span className="tag sm">{quote.currency}</span>
             {change != null && (
               <span className={`mono ${change >= 0 ? 'green' : 'red'}`} style={{ fontSize: 12 }}>
                 {change >= 0 ? '+' : ''}{change.toFixed(2)} ({changePct.toFixed(1)}%)
@@ -132,7 +132,7 @@ function WatchlistRow({
                 </span>
               )}
               {item.targetPrice != null && (
-                <span className="tag">Target {fmt(item.targetPrice)}</span>
+                <span className="tag sm">Target {fmt(item.targetPrice)}</span>
               )}
               {item.thesis && (
                 <span style={{ fontSize: 11, color: 'var(--text3)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -535,28 +535,23 @@ export default function InvestmentDiscovery() {
   return (
     <div className="page-content">
 
-      {/* Quick Quote */}
-      <Card variant="section">
-        <SectionHeader title={<><Icon name="trend" size={15} /> Quick Quote</>} />
-        <QuoteLookup onWatch={watchFromQuote} onAddToPortfolio={startConvert} />
-      </Card>
-
-      {/* Watchlist */}
+      {/* Single card: quote bar + watchlist */}
       <Card variant="section">
         <SectionHeader
           title={<><Icon name="tag" size={15} /> Watchlist</>}
-          subtitle={`${items.length} item${items.length !== 1 ? 's' : ''}`}
+          subtitle={items.length > 0 ? `${items.length} item${items.length !== 1 ? 's' : ''}` : null}
           actions={<button className="btn-ghost small" onClick={startAdd}>+ Add</button>}
         />
 
+        <QuoteLookup onWatch={watchFromQuote} onAddToPortfolio={startConvert} />
+
         {items.length === 0 && !adding ? (
-          <EmptyState
-            icon={<Icon name="tag" size={38} />}
-            title="Nothing on your watchlist yet."
-            action={<button className="btn-ghost small" onClick={startAdd}>+ Add Item</button>}
-          />
+          <div style={{ fontSize: 13, color: 'var(--text3)', padding: '12px 0 8px' }}>
+            Nothing on your watchlist yet.{' '}
+            <button className="btn-ghost small" onClick={startAdd} style={{ display: 'inline' }}>+ Add Item</button>
+          </div>
         ) : (
-          <div className="fn-list">
+          <div className="fn-list" style={{ marginTop: 8 }}>
             {adding && (
               <div className="fn-row" style={{ padding: '10px 14px' }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>

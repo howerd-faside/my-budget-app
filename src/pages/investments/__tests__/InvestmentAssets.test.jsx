@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import InvestmentAssets from '../InvestmentAssets';
 import { useInvestmentStore } from '../../../store/investmentStore';
 import { NavigationProvider } from '../../../contexts/NavigationContext';
+import { ToastProvider } from '../../../components/Toast';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,9 +81,11 @@ function seedPrice(overrides = {}) {
 
 function renderPage() {
   return render(
-    <NavigationProvider value={() => {}}>
-      <InvestmentAssets />
-    </NavigationProvider>
+    <ToastProvider>
+      <NavigationProvider value={() => {}}>
+        <InvestmentAssets />
+      </NavigationProvider>
+    </ToastProvider>
   );
 }
 
@@ -184,7 +187,7 @@ describe('InvestmentAssets — expanded detail', () => {
     expect(screen.getByText('Unrealised G/L')).toBeInTheDocument();
   });
 
-  it('shows recent transactions when expanded', async () => {
+  it('shows transaction history in detail view', async () => {
     const user = userEvent.setup();
     seedPortfolio();
     seedAsset();
@@ -193,7 +196,7 @@ describe('InvestmentAssets — expanded detail', () => {
     renderPage();
 
     await user.click(screen.getByText('Vanguard Total World'));
-    expect(screen.getByText('Recent Transactions')).toBeInTheDocument();
+    expect(screen.getByText('Transaction History')).toBeInTheDocument();
     expect(screen.getByText('2026-03-01')).toBeInTheDocument();
   });
 
@@ -308,9 +311,7 @@ describe('InvestmentAssets — edit modal', () => {
     seedPrice();
     renderPage();
 
-    // Expand row first
-    await user.click(screen.getByText('Vanguard Total World'));
-    // Click edit button
+    // Edit button is on the list row (no need to click asset name)
     await user.click(screen.getByLabelText('Edit asset'));
 
     expect(screen.getByText('Edit Asset')).toBeInTheDocument();
@@ -327,8 +328,7 @@ describe('InvestmentAssets — delete', () => {
     seedPrice({ assetId: 'asset-1' });
     renderPage();
 
-    // Expand and click delete
-    await user.click(screen.getByText('Delete Me'));
+    // Delete button is on the list row (no need to click asset name)
     await user.click(screen.getByLabelText('Delete asset'));
 
     // Confirm dialog visible

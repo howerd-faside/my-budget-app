@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event';
 import InvestmentAssets from '../InvestmentAssets';
 import { useInvestmentStore } from '../../../store/investmentStore';
 import { NavigationProvider } from '../../../contexts/NavigationContext';
+import { ToastProvider } from '../../../components/Toast';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,18 +76,18 @@ function seedPrice(overrides = {}) {
 
 function renderPage() {
   return render(
-    <NavigationProvider value={() => {}}>
-      <InvestmentAssets />
-    </NavigationProvider>
+    <ToastProvider>
+      <NavigationProvider value={() => {}}>
+        <InvestmentAssets />
+      </NavigationProvider>
+    </ToastProvider>
   );
 }
 
 async function navigateToDetail(user) {
-  // Expand the asset row, then click "View Detail"
+  // Click the asset row to navigate directly to detail
   const assetName = screen.getByText('Vanguard Total World');
   await user.click(assetName);
-  const viewBtn = screen.getByText('View Detail');
-  await user.click(viewBtn);
 }
 
 // ── setup / teardown ─────────────────────────────────────────────────────────
@@ -277,7 +278,7 @@ describe('AssetDetail — income history', () => {
 });
 
 describe('AssetDetail — metadata', () => {
-  it('shows asset details section', async () => {
+  it('shows notes section when notes exist', async () => {
     const user = userEvent.setup();
     seedPortfolio();
     seedAsset({ notes: 'Core holding' });
@@ -286,9 +287,22 @@ describe('AssetDetail — metadata', () => {
 
     await navigateToDetail(user);
 
-    expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Notes')).toBeInTheDocument();
     expect(screen.getByText('Core holding')).toBeInTheDocument();
-    expect(screen.getByText('NZD')).toBeInTheDocument();
+    // Currency now shown in header subtitle
+    expect(screen.getByText(/NZD/)).toBeInTheDocument();
+  });
+
+  it('hides notes section when no notes', async () => {
+    const user = userEvent.setup();
+    seedPortfolio();
+    seedAsset({ notes: '' });
+    seedPrice();
+    renderPage();
+
+    await navigateToDetail(user);
+
+    expect(screen.queryByText('Notes')).not.toBeInTheDocument();
   });
 });
 

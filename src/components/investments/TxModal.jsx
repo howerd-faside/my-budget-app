@@ -1,7 +1,7 @@
 /**
  * TxModal — shared Add/Edit Transaction modal for investment transactions.
  *
- * Used by InvestmentTransactions (full ledger) and AssetDetail (quick actions).
+ * Used by InvestmentActivity (full ledger) and AssetDetail (quick actions).
  * Type-adaptive: shows different fields depending on transaction type
  * (buy/sell → units+price, dividend → gross/tax, fee/deposit/withdrawal → amount).
  */

@@ -2,8 +2,8 @@
 /**
  * Unit tests for the InvestmentPerformance page component (new model).
  *
- * Covers: empty state, return summary tiles, period returns table,
- * category breakdown, asset rankings, asset detail table, chart section,
+ * Covers: empty state, performance summary tiles, period returns table,
+ * category breakdown, asset detail table, chart section,
  * graceful degradation (no prices, no tickers, partial data).
  *
  * Recharts is mocked to avoid SVG rendering issues in jsdom.
@@ -121,23 +121,22 @@ describe('InvestmentPerformance — empty state', () => {
   it('renders empty state when no assets', () => {
     seedPortfolio();
     render(<InvestmentPerformance />);
-    expect(screen.getByText(/Add assets and record transactions/)).toBeInTheDocument();
+    expect(screen.getByText(/No performance data yet/)).toBeInTheDocument();
   });
 });
 
-describe('InvestmentPerformance — return summary tiles', () => {
-  it('renders all return summary stat tiles', () => {
+describe('InvestmentPerformance — performance summary', () => {
+  it('renders performance-focused stat tiles', () => {
     seedPortfolio();
     seedAsset();
     seedTx({ type: 'buy', units: 10, price: 100, amount: 1000 });
     seedPrice({ price: 120 });
     render(<InvestmentPerformance />);
 
-    expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
-    expect(screen.getByText('Cost Basis')).toBeInTheDocument();
+    expect(screen.getByText('Performance Summary')).toBeInTheDocument();
+    expect(screen.getByText('Total Return')).toBeInTheDocument();
     expect(screen.getByText('Unrealised G/L')).toBeInTheDocument();
     expect(screen.getByText('Realised G/L')).toBeInTheDocument();
-    expect(screen.getByText('Total Return')).toBeInTheDocument();
     expect(screen.getByText('Dividend Income')).toBeInTheDocument();
   });
 
@@ -209,28 +208,6 @@ describe('InvestmentPerformance — category breakdown', () => {
   });
 });
 
-describe('InvestmentPerformance — ranked by return', () => {
-  it('renders ranked section when assets have cost', () => {
-    seedPortfolio();
-    seedAsset();
-    seedTx({ units: 10, price: 100, amount: 1000 });
-    seedPrice({ price: 120 });
-    render(<InvestmentPerformance />);
-
-    expect(screen.getByText('Ranked by Return')).toBeInTheDocument();
-  });
-
-  it('shows ticker in ranked list', () => {
-    seedPortfolio();
-    seedAsset({ ticker: 'VT' });
-    seedTx({ units: 10, price: 100, amount: 1000 });
-    seedPrice({ price: 120 });
-    render(<InvestmentPerformance />);
-
-    expect(screen.getAllByText('VT').length).toBeGreaterThanOrEqual(1);
-  });
-});
-
 describe('InvestmentPerformance — asset detail table', () => {
   it('renders asset detail table', () => {
     seedPortfolio();
@@ -270,7 +247,7 @@ describe('InvestmentPerformance — chart section', () => {
     expect(screen.getByText('↓ Load History')).toBeInTheDocument();
   });
 
-  it('shows "add tickers" message when no tickers', () => {
+  it('shows compact hint when no tickers', () => {
     seedPortfolio();
     seedAsset({ ticker: '' });
     seedTx({ units: 10, price: 100, amount: 1000 });
@@ -290,7 +267,7 @@ describe('InvestmentPerformance — graceful degradation', () => {
     render(<InvestmentPerformance />);
 
     // Should still render without crashing
-    expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
+    expect(screen.getByText('Performance Summary')).toBeInTheDocument();
     expect(screen.getByText('Asset Detail')).toBeInTheDocument();
     // "No price" indicator in the table
     expect(screen.getByText('No price')).toBeInTheDocument();

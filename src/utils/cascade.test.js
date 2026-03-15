@@ -7,8 +7,7 @@
  * Covers:
  *   Dependent-count queries:
  *     getPropertyDependents, getAreaDependents, getTaskDependents,
- *     getAssetDependents, getPortfolioDependents, getHoldingDependents,
- *     getPersonDependents
+ *     getAssetDependents, getPortfolioDependents, getPersonDependents
  *
  *   Cascade-delete functions:
  *     cascadeDeleteProperty — removes property + all dependent records, resets
@@ -17,16 +16,13 @@
  *       tasks / maintenance / assets
  *     cascadeDeleteTask — removes task, clears linkedTaskId on maintenance
  *     cascadeDeleteAsset — removes asset, clears assetId on maintenance
- *     cascadeDeletePortfolio — removes portfolio + all holdings / contributions /
- *       dividends, resets selectedPortfolioId when deleted
- *     cascadeDeleteHolding — removes holding, clears (not deletes) holdingId on
- *       contributions and dividends
+ *     cascadeDeletePortfolio — removes portfolio + all assets / transactions,
+ *       resets selectedPortfolioId when deleted
  *     cascadeDeletePerson — removes person, clears (not deletes) forPerson on expenses
  *
  *   Confirmation-message helpers:
  *     propertyDeleteMessage, areaDeleteMessage, taskDeleteMessage,
- *     assetDeleteMessage, portfolioDeleteMessage, holdingDeleteMessage,
- *     personDeleteMessage
+ *     assetDeleteMessage, portfolioDeleteMessage, personDeleteMessage
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -35,21 +31,18 @@ import {
   getTaskDependents,
   getAssetDependents,
   getPortfolioDependents,
-  getHoldingDependents,
   getPersonDependents,
   cascadeDeleteProperty,
   cascadeDeleteArea,
   cascadeDeleteTask,
   cascadeDeleteAsset,
   cascadeDeletePortfolio,
-  cascadeDeleteHolding,
   cascadeDeletePerson,
   propertyDeleteMessage,
   areaDeleteMessage,
   taskDeleteMessage,
   assetDeleteMessage,
   portfolioDeleteMessage,
-  holdingDeleteMessage,
   personDeleteMessage,
 } from './cascade';
 
@@ -197,22 +190,6 @@ describe('getPortfolioDependents', () => {
     });
     const deps = getPortfolioDependents(state, 'port1');
     expect(deps.holdings).toBe(2);
-    expect(deps.contributions).toBe(1);
-    expect(deps.dividends).toBe(1);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// getHoldingDependents
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('getHoldingDependents', () => {
-  it('counts contributions and dividends linked to the holding', () => {
-    const state = makeState({
-      investmentContributions: [{ holdingId: 'h1' }, { holdingId: 'h2' }],
-      investmentDividends:     [{ holdingId: 'h1' }],
-    });
-    const deps = getHoldingDependents(state, 'h1');
     expect(deps.contributions).toBe(1);
     expect(deps.dividends).toBe(1);
   });
@@ -541,49 +518,6 @@ describe('cascadeDeletePortfolio', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// cascadeDeleteHolding
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe('cascadeDeleteHolding', () => {
-  it('removes the holding', () => {
-    const state = makeState({
-      investments: [{ id: 'h1' }, { id: 'h2' }],
-    });
-    const result = cascadeDeleteHolding(state, 'h1');
-    expect(result.investments).toHaveLength(1);
-    expect(result.investments[0].id).toBe('h2');
-  });
-
-  it('clears holdingId on contributions linked to the holding (does not delete them)', () => {
-    const state = makeState({
-      investments: [{ id: 'h1' }],
-      investmentContributions: [
-        { id: 'c1', holdingId: 'h1' },
-        { id: 'c2', holdingId: 'h2' },
-      ],
-    });
-    const result = cascadeDeleteHolding(state, 'h1');
-    expect(result.investmentContributions).toHaveLength(2);
-    expect(result.investmentContributions.find(c => c.id === 'c1').holdingId).toBe('');
-    expect(result.investmentContributions.find(c => c.id === 'c2').holdingId).toBe('h2');
-  });
-
-  it('clears holdingId on dividends linked to the holding (does not delete them)', () => {
-    const state = makeState({
-      investments: [{ id: 'h1' }],
-      investmentDividends: [
-        { id: 'd1', holdingId: 'h1' },
-        { id: 'd2', holdingId: 'h2' },
-      ],
-    });
-    const result = cascadeDeleteHolding(state, 'h1');
-    expect(result.investmentDividends).toHaveLength(2);
-    expect(result.investmentDividends.find(d => d.id === 'd1').holdingId).toBe('');
-    expect(result.investmentDividends.find(d => d.id === 'd2').holdingId).toBe('h2');
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 // cascadeDeletePerson
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -680,36 +614,22 @@ describe('assetDeleteMessage', () => {
 
 describe('portfolioDeleteMessage', () => {
   it('returns a plain message when portfolio has no dependent records', () => {
-    const msg = portfolioDeleteMessage('Growth', { holdings: 0, contributions: 0, dividends: 0 });
+    const msg = portfolioDeleteMessage('Growth', { assets: 0, transactions: 0 });
     expect(msg).toBe('Delete portfolio "Growth"?');
   });
 
   it('lists all dependency types', () => {
-    const msg = portfolioDeleteMessage('Income', { holdings: 3, contributions: 5, dividends: 2 });
-    expect(msg).toContain('3 holdings');
-    expect(msg).toContain('5 contributions');
-    expect(msg).toContain('2 dividend records');
+    const msg = portfolioDeleteMessage('Income', { assets: 3, transactions: 5 });
+    expect(msg).toContain('3 assets');
+    expect(msg).toContain('5 transactions');
   });
 
   it('uses singular for a count of 1', () => {
-    const msg = portfolioDeleteMessage('Test', { holdings: 1, contributions: 1, dividends: 1 });
-    expect(msg).toContain('1 holding');
-    expect(msg).not.toContain('1 holdings');
-    expect(msg).toContain('1 contribution');
-    expect(msg).not.toContain('1 contributions');
-  });
-});
-
-describe('holdingDeleteMessage', () => {
-  it('returns a plain message when no contributions or dividends are linked', () => {
-    expect(holdingDeleteMessage('Apple', { contributions: 0, dividends: 0 })).toBe('Remove "Apple"?');
-  });
-
-  it('mentions link clearing (not deletion)', () => {
-    const msg = holdingDeleteMessage('Tesla', { contributions: 2, dividends: 1 });
-    expect(msg).toContain('cleared');
-    expect(msg).toContain('2 contributions');
-    expect(msg).toContain('1 dividend record');
+    const msg = portfolioDeleteMessage('Test', { assets: 1, transactions: 1 });
+    expect(msg).toContain('1 asset');
+    expect(msg).not.toContain('1 assets');
+    expect(msg).toContain('1 transaction');
+    expect(msg).not.toContain('1 transactions');
   });
 });
 

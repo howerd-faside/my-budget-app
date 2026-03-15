@@ -91,7 +91,7 @@ describe('InvestmentDiscovery — empty state', () => {
     expect(screen.getByText(/Nothing on your watchlist yet/)).toBeInTheDocument();
   });
 
-  it('shows Quick Quote section', () => {
+  it('shows quote lookup input', () => {
     seedPortfolio();
     render(<InvestmentDiscovery />);
     expect(screen.getByPlaceholderText(/Enter ticker/)).toBeInTheDocument();

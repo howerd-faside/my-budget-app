@@ -11,7 +11,7 @@ import PropTypes from 'prop-types';
  *
  * Usage:
  *   <ErrorBoundary key={tab} label="Investments">
- *     <InvestmentHoldings />
+ *     <InvestmentAssets />
  *   </ErrorBoundary>
  *
  * Pass key={tab} so the boundary auto-resets when the user navigates away.

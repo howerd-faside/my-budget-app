@@ -41,9 +41,9 @@ describe('buildSavingsTrajectory — structure', () => {
     expect(row).toHaveProperty('idx');
   });
 
-  it('produces 26 rows per year × 6 years = 156 rows', () => {
+  it('produces 26 rows per year × 12 years = 312 rows', () => {
     const rows = buildSavingsTrajectory(makeState());
-    expect(rows).toHaveLength(156);
+    expect(rows).toHaveLength(312);
   });
 
   it('dates are ISO YYYY-MM-DD strings', () => {
@@ -60,11 +60,11 @@ describe('buildSavingsTrajectory — structure', () => {
     }
   });
 
-  it('years span currentYear-1 to currentYear+4 (6-year window)', () => {
+  it('years span currentYear-1 to currentYear+10 (12-year window)', () => {
     const rows = buildSavingsTrajectory(makeState());
     const years = [...new Set(rows.map(r => r.year))];
-    // Pinned clock: 2026-03-14 → window is [2025, 2026, 2027, 2028, 2029, 2030]
-    expect(years).toEqual([2025, 2026, 2027, 2028, 2029, 2030]);
+    // Pinned clock: 2026-03-14 → window is [2025..2036]
+    expect(years).toEqual([2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035, 2036]);
     expect(years).toHaveLength(6);
   });
 
@@ -342,7 +342,7 @@ describe('buildSavingsTrajectory — empty inputs', () => {
   it('handles empty accounts array (balance = 0)', () => {
     const state = makeState({ accounts: [] });
     const rows = buildSavingsTrajectory(state);
-    expect(rows).toHaveLength(156);
+    expect(rows).toHaveLength(312);
     // All balances should be 0 with no income/expenses
     for (const r of rows) {
       expect(r.balance).toBe(0);
@@ -357,6 +357,6 @@ describe('buildSavingsTrajectory — empty inputs', () => {
   it('handles missing fortnightlyData gracefully', () => {
     const state = makeState({ fortnightlyData: {} });
     expect(() => buildSavingsTrajectory(state)).not.toThrow();
-    expect(buildSavingsTrajectory(state)).toHaveLength(156);
+    expect(buildSavingsTrajectory(state)).toHaveLength(312);
   });
 });

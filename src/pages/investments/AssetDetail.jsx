@@ -2,12 +2,11 @@
  * AssetDetail — full detail view for a single investment asset.
  *
  * Sections:
- *   1. Header — asset name, ticker, category/platform tags, back button
- *   2. Position summary — stat tiles: units, avg cost, current price, market value, unrealised/realised G/L
+ *   1. Header — back button, asset name/ticker/category/platform tags, quick action buttons
+ *   2. Position — stat tiles: units, avg cost, current price, market value, G/L, cost basis
  *   3. Transaction history — all transactions for this asset, newest first
- *   4. Income history — dividend transactions for this asset
- *   5. Notes / metadata — currency, platform, category, dates, notes
- *   6. Quick actions — Add Buy, Add Sell, Add Dividend buttons → open TxModal pre-filled
+ *   4. Income history — dividend transactions (conditional)
+ *   5. Notes — asset notes (conditional)
  */
 import { useState, useMemo, useCallback } from 'react';
 import { usePortfolioAnalytics, useInvestment } from '../../store/hooks';
@@ -122,12 +121,12 @@ export default function AssetDetail({ assetId, onBack }) {
 
   return (
     <div className="page-content">
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <button className="btn-ghost small" onClick={onBack} aria-label="Back to assets">
+      {/* Header — back + identity + quick actions */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 4 }}>
+        <button className="btn-ghost small" onClick={onBack} aria-label="Back to assets" style={{ flexShrink: 0, marginTop: 2 }}>
           <Icon name="chevronD" size={12} style={{ transform: 'rotate(90deg)' }} /> Back
         </button>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{asset.name}</h2>
             {asset.ticker && (
@@ -136,50 +135,54 @@ export default function AssetDetail({ assetId, onBack }) {
             <span className="tag" style={{ color: catColor, borderColor: `${catColor}40`, background: `${catColor}12` }}>
               {asset.category}
             </span>
-            {asset.platform && <span className="tag">{asset.platform}</span>}
+            {asset.platform && <span className="tag sm">{asset.platform}</span>}
           </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+            {asset.currency || 'NZD'} · Added {asset.createdAt || '—'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+          <button className="btn-ghost small" onClick={() => openQuickAction('buy')}>
+            <Icon name="plus" size={12} /> Add Buy
+          </button>
+          <button className="btn-ghost small" onClick={() => openQuickAction('sell')}>
+            <Icon name="plus" size={12} /> Add Sell
+          </button>
+          <button className="btn-ghost small" onClick={() => openQuickAction('dividend')}>
+            <Icon name="plus" size={12} /> Add Dividend
+          </button>
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button className="btn-ghost small" onClick={() => openQuickAction('buy')}>
-          <Icon name="plus" size={12} /> Add Buy
-        </button>
-        <button className="btn-ghost small" onClick={() => openQuickAction('sell')}>
-          <Icon name="plus" size={12} /> Add Sell
-        </button>
-        <button className="btn-ghost small" onClick={() => openQuickAction('dividend')}>
-          <Icon name="plus" size={12} /> Add Dividend
-        </button>
-      </div>
-
-      {/* Position summary */}
-      <div className="fn-summary">
-        <StatTile label="Units" value={position.units.toLocaleString('en-NZ', { maximumFractionDigits: 6 })} />
-        <StatTile label="Avg Cost" value={fmt(position.avgCost)} />
-        <StatTile label="Current Price" value={fmt(currentPrice)} />
-        <StatTile label="Market Value" value={fmt(currentValue)} />
-        <StatTile
-          label="Unrealised G/L"
-          value={`${isGain ? '+' : '−'}${fmt(unrealisedGL)}`}
-          valueClassName={isGain ? 'green' : 'red'}
-          meta={`${isGain ? '+' : ''}${unrealisedGLPct.toFixed(1)}%`}
-        />
-        {position.realisedGL !== 0 && (
+      {/* Position */}
+      <Card variant="section">
+        <SectionHeader title={<><Icon name="wallet" size={15} /> Position</>} />
+        <div className="fn-summary">
+          <StatTile label="Units" value={position.units.toLocaleString('en-NZ', { maximumFractionDigits: 6 })} />
+          <StatTile label="Avg Cost" value={fmt(position.avgCost)} />
+          <StatTile label="Current Price" value={fmt(currentPrice)} />
+          <StatTile label="Market Value" value={fmt(currentValue)} />
           <StatTile
-            label="Realised G/L"
-            value={`${isRealisedGain ? '+' : '−'}${fmt(position.realisedGL)}`}
-            valueClassName={isRealisedGain ? 'green' : 'red'}
+            label="Unrealised G/L"
+            value={`${isGain ? '+' : '−'}${fmt(unrealisedGL)}`}
+            valueClassName={isGain ? 'green' : 'red'}
+            meta={`${isGain ? '+' : ''}${unrealisedGLPct.toFixed(1)}%`}
           />
-        )}
-        <StatTile label="Cost Basis" value={fmt(position.totalCost)} />
-        <StatTile
-          label="Total Return"
-          value={`${totalReturn >= 0 ? '+' : '−'}${fmt(totalReturn)}`}
-          valueClassName={totalReturn >= 0 ? 'green' : 'red'}
-        />
-      </div>
+          {position.realisedGL !== 0 && (
+            <StatTile
+              label="Realised G/L"
+              value={`${isRealisedGain ? '+' : '−'}${fmt(position.realisedGL)}`}
+              valueClassName={isRealisedGain ? 'green' : 'red'}
+            />
+          )}
+          <StatTile label="Cost Basis" value={fmt(position.totalCost)} />
+          <StatTile
+            label="Total Return"
+            value={`${totalReturn >= 0 ? '+' : '−'}${fmt(totalReturn)}`}
+            valueClassName={totalReturn >= 0 ? 'green' : 'red'}
+          />
+        </div>
+      </Card>
 
       {/* Transaction history */}
       <Card variant="section">
@@ -188,8 +191,8 @@ export default function AssetDetail({ assetId, onBack }) {
           subtitle={`${assetTxs.length} transaction${assetTxs.length !== 1 ? 's' : ''}`}
         />
         {assetTxs.length === 0 ? (
-          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
-            No transactions recorded for this asset.
+          <div style={{ padding: '14px 0', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+            No transactions recorded.
           </div>
         ) : (
           <div className="fn-list">
@@ -209,7 +212,7 @@ export default function AssetDetail({ assetId, onBack }) {
                           <span className={`dpill ${pillColor}`}>{TYPE_LABELS[tx.type]}</span>
                           <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>{tx.date}</span>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 3, alignItems: 'center' }}>
                           {tx.units != null && (
                             <span style={{ fontSize: 11, color: 'var(--text3)' }}>
                               {tx.units.toLocaleString('en-NZ', { maximumFractionDigits: 4 })} units @ {fmt(tx.price || 0)}
@@ -257,7 +260,7 @@ export default function AssetDetail({ assetId, onBack }) {
       {(dividendTxs.length > 0 || assetIncome.dividendGross > 0) && (
         <Card variant="section">
           <SectionHeader
-            title={<><Icon name="wallet" size={15} /> Income History</>}
+            title={<><Icon name="money" size={15} /> Income History</>}
             subtitle={`${dividendTxs.length} dividend${dividendTxs.length !== 1 ? 's' : ''}`}
           />
           <div className="fn-summary" style={{ marginBottom: 8 }}>
@@ -294,41 +297,15 @@ export default function AssetDetail({ assetId, onBack }) {
         </Card>
       )}
 
-      {/* Metadata */}
-      <Card variant="section">
-        <SectionHeader title={<><Icon name="tag" size={15} /> Details</>} />
-        <div className="exp-detail-grid" style={{ padding: '4px 0' }}>
-          <div className="edg-item">
-            <span className="edg-label">Category</span>
-            <span className="edg-val">{asset.category}</span>
-          </div>
-          {asset.platform && (
-            <div className="edg-item">
-              <span className="edg-label">Platform</span>
-              <span className="edg-val">{asset.platform}</span>
-            </div>
-          )}
-          <div className="edg-item">
-            <span className="edg-label">Currency</span>
-            <span className="edg-val mono">{asset.currency || 'NZD'}</span>
-          </div>
-          <div className="edg-item">
-            <span className="edg-label">Added</span>
-            <span className="edg-val mono">{asset.createdAt || '—'}</span>
-          </div>
-          {asset.ticker && (
-            <div className="edg-item">
-              <span className="edg-label">Ticker</span>
-              <span className="edg-val mono">{asset.ticker}</span>
-            </div>
-          )}
-        </div>
-        {asset.notes && (
-          <div style={{ fontSize: 13, color: 'var(--text2)', paddingTop: 8, borderTop: '1px solid var(--sep)', marginTop: 8 }}>
+      {/* Notes */}
+      {asset.notes && (
+        <Card variant="section">
+          <SectionHeader title={<><Icon name="clipboard" size={15} /> Notes</>} />
+          <p style={{ fontSize: 13, color: 'var(--text2)', margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
             {asset.notes}
-          </div>
-        )}
-      </Card>
+          </p>
+        </Card>
+      )}
 
       {/* Tx modal */}
       {showTxModal && (

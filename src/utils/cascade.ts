@@ -13,9 +13,6 @@ import type { PropertyMaintenance }   from '../models/PropertyMaintenance';
 import type { PropertyAsset }         from '../models/PropertyAsset';
 import type { PropertyProject }       from '../models/PropertyProject';
 import type { Portfolio }               from '../models/Portfolio';
-import type { Holding }                from '../models/Holding';
-import type { InvestmentContribution } from '../models/InvestmentContribution';
-import type { Dividend }               from '../models/Dividend';
 import type { Person }                 from '../models/Person';
 import type { Expense }                from '../models/Expense';
 
@@ -68,13 +65,6 @@ export function getInvestmentAssetDependents(state: Pick<InvestmentState, 'inves
   return {
     transactions: arr(state.investmentTransactions).filter(t => t.assetId === assetId).length,
     prices:       arr(state.priceCache).filter(p => p.assetId === assetId).length,
-  };
-}
-
-export function getHoldingDependents(state: Pick<InvestmentState, 'investmentContributions' | 'investmentDividends'>, holdingId: string) {
-  return {
-    contributions: arr(state.investmentContributions).filter(c => c.holdingId === holdingId).length,
-    dividends:     arr(state.investmentDividends).filter(d => d.holdingId === holdingId).length,
   };
 }
 
@@ -173,11 +163,10 @@ export function cascadeDeleteAsset(state: Pick<PropertyState, 'propertyAssets' |
   };
 }
 
-export function portfolioDeleteMessage(name: string, deps: { holdings: number; contributions: number; dividends: number }): string {
+export function portfolioDeleteMessage(name: string, deps: { assets: number; transactions: number }): string {
   const parts: string[] = [];
-  if (deps.holdings      > 0) parts.push(`${deps.holdings} holding${deps.holdings           !== 1 ? 's' : ''}`);
-  if (deps.contributions > 0) parts.push(`${deps.contributions} contribution${deps.contributions !== 1 ? 's' : ''}`);
-  if (deps.dividends     > 0) parts.push(`${deps.dividends} dividend record${deps.dividends  !== 1 ? 's' : ''}`);
+  if (deps.assets       > 0) parts.push(`${deps.assets} asset${deps.assets       !== 1 ? 's' : ''}`);
+  if (deps.transactions > 0) parts.push(`${deps.transactions} transaction${deps.transactions !== 1 ? 's' : ''}`);
   const suffix = parts.length > 0 ? ` This will also permanently delete ${parts.join(', ')}.` : '';
   return `Delete portfolio "${name}"?${suffix}`;
 }
@@ -215,28 +204,6 @@ export function cascadeDeleteInvestmentAsset(state: Pick<InvestmentState, 'inves
     investmentAssets:       arr(state.investmentAssets).filter(a => a.id !== assetId),
     investmentTransactions: arr(state.investmentTransactions).filter(t => t.assetId !== assetId),
     priceCache:             arr(state.priceCache).filter(p => p.assetId !== assetId),
-  };
-}
-
-export function holdingDeleteMessage(name: string, deps: { contributions: number; dividends: number }): string {
-  const parts: string[] = [];
-  if (deps.contributions > 0) parts.push(`${deps.contributions} contribution${deps.contributions !== 1 ? 's' : ''}`);
-  if (deps.dividends     > 0) parts.push(`${deps.dividends} dividend record${deps.dividends     !== 1 ? 's' : ''}`);
-  const suffix = parts.length > 0
-    ? ` The holding link on ${parts.join(' and ')} will be cleared.`
-    : '';
-  return `Remove "${name}"?${suffix}`;
-}
-
-export function cascadeDeleteHolding(state: Pick<InvestmentState, 'investments' | 'investmentContributions' | 'investmentDividends'>, holdingId: string) {
-  return {
-    investments: arr(state.investments).filter(h => h.id !== holdingId),
-    investmentContributions: arr(state.investmentContributions).map(c =>
-      c.holdingId === holdingId ? { ...c, holdingId: '' } : c
-    ),
-    investmentDividends: arr(state.investmentDividends).map(d =>
-      d.holdingId === holdingId ? { ...d, holdingId: '' } : d
-    ),
   };
 }
 

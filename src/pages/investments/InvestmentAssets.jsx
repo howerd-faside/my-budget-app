@@ -1,10 +1,9 @@
 import { useState, useMemo, memo, useCallback } from 'react';
 import { usePortfolioAnalytics, useInvestment } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { SectionHeader, EmptyState, Card, Modal, ConfirmDialog, ExpandableRow } from '../../components/ui';
+import { SectionHeader, EmptyState, Card, Modal, ConfirmDialog } from '../../components/ui';
 import AssetDetail from './AssetDetail';
 import { createAsset, ASSET_CATEGORIES } from '../../models/Asset';
-import { INV_TX_TYPE_PILL } from '../../models/InvestmentTransaction';
 import { CATEGORY_COLORS } from '../../utils/colors';
 import {
   getInvestmentAssetDependents,
@@ -13,7 +12,9 @@ import {
 } from '../../utils/cascade';
 import { validate, assetSchema } from '../../utils/validation';
 import { today } from '../../utils/finance/dates';
-import { fmtCurrency as fmt } from '../../utils/format';
+import { fmtCurrency as fmt, timeAgo } from '../../utils/format';
+import { refreshAllPrices } from '../../utils/priceService';
+import { useToast } from '../../components/Toast';
 
 const CATEGORIES = ASSET_CATEGORIES;
 const CAT_FILTER = ['All', ...CATEGORIES];
@@ -23,128 +24,60 @@ const EMPTY = createAsset();
 
 // ── Asset row ────────────────────────────────────────────────────────────────
 
-const AssetRow = memo(function AssetRow({ enriched, transactions, onEdit, onDelete, onSelect }) {
+const AssetRow = memo(function AssetRow({ enriched, prices, onEdit, onDelete, onSelect }) {
   const { asset, position, currentPrice, currentValue, unrealisedGL, unrealisedGLPct } = enriched;
   const isGain = unrealisedGL >= 0;
   const color  = CAT_COLOR[asset.category] || '#86868B';
-
-  // Recent transactions for this asset (most recent 5)
-  const recentTxs = useMemo(() =>
-    transactions
-      .filter(t => t.assetId === asset.id && t.date)
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 5),
-    [transactions, asset.id],
-  );
+  const priceEntry = prices?.find(p => p.assetId === asset.id);
+  const ago = priceEntry ? timeAgo(priceEntry.updatedAt) : null;
 
   return (
-    <ExpandableRow
-      summary={
-        <div className="fn-main">
-          <div className="fn-left">
-            <div className="fn-dates">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{asset.name}</span>
-                {asset.ticker && (
-                  <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0 }}>{asset.ticker}</span>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span className="tag" style={{ color, borderColor: `${color}40`, background: `${color}12` }}>
-                  {asset.category}
-                </span>
-                {asset.platform && <span className="tag">{asset.platform}</span>}
-              </div>
+    <div className="fn-row">
+      <div className="fn-main" style={{ cursor: 'pointer' }} onClick={() => onSelect(asset.id)}>
+        <div className="fn-left">
+          <div className="fn-dates">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="fn-label" style={{ fontSize: 13, fontWeight: 500 }}>{asset.name}</span>
+              {asset.ticker && (
+                <span className="tag sm" style={{ fontFamily: 'var(--mono)', letterSpacing: 0 }}>{asset.ticker}</span>
+              )}
             </div>
-          </div>
-          <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currentValue)}</div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="tag" style={{ color, borderColor: `${color}40`, background: `${color}12` }}>
+                {asset.category}
+              </span>
+              {asset.platform && <span className="tag sm">{asset.platform}</span>}
               {position.units > 0 && (
-                <div className="mono" style={{ fontSize: 11, color: isGain ? 'var(--green)' : 'var(--red)' }}>
-                  {isGain ? '+' : '−'}{fmt(unrealisedGL)} ({isGain ? '+' : ''}{unrealisedGLPct.toFixed(1)}%)
-                </div>
+                <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+                  {position.units.toLocaleString('en-NZ', { maximumFractionDigits: 4 })} units @ {fmt(currentPrice)}
+                </span>
+              )}
+              {ago && (
+                <span style={{ fontSize: 10, color: 'var(--text3)' }}>· {ago}</span>
               )}
             </div>
           </div>
         </div>
-      }
-    >
-      <div className="exp-detail" style={{ paddingBottom: 12 }} onClick={e => e.stopPropagation()}>
-        <div className="exp-detail-grid">
-          <div className="edg-item">
-            <span className="edg-label">Units</span>
-            <span className="edg-val mono">{position.units.toLocaleString('en-NZ', { maximumFractionDigits: 6 })}</span>
-          </div>
-          <div className="edg-item">
-            <span className="edg-label">Avg Cost</span>
-            <span className="edg-val mono">{fmt(position.avgCost)}</span>
-          </div>
-          <div className="edg-item">
-            <span className="edg-label">Current Price</span>
-            <span className="edg-val mono">{fmt(currentPrice)}</span>
-          </div>
-          <div className="edg-item">
-            <span className="edg-label">Cost Basis</span>
-            <span className="edg-val mono">{fmt(position.totalCost)}</span>
-          </div>
-          <div className="edg-item">
-            <span className="edg-label">Market Value</span>
-            <span className="edg-val mono">{fmt(currentValue)}</span>
-          </div>
-          <div className="edg-item">
-            <span className="edg-label">Unrealised G/L</span>
-            <span className={`edg-val mono ${isGain ? 'green' : 'red'}`}>
-              {isGain ? '+' : '−'}{fmt(unrealisedGL)}
-            </span>
-          </div>
-          {position.realisedGL !== 0 && (
-            <div className="edg-item">
-              <span className="edg-label">Realised G/L</span>
-              <span className={`edg-val mono ${position.realisedGL >= 0 ? 'green' : 'red'}`}>
-                {position.realisedGL >= 0 ? '+' : '−'}{fmt(position.realisedGL)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {recentTxs.length > 0 && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sep)' }}>
-            <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Recent Transactions
-            </div>
-            {recentTxs.map(tx => (
-              <div key={tx.id} style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text2)', marginBottom: 3, alignItems: 'center' }}>
-                <span style={{ color: 'var(--text3)', minWidth: 80 }}>{tx.date}</span>
-                <span className={`dpill ${INV_TX_TYPE_PILL[tx.type] || ''}`} style={{ fontSize: 10 }}>{tx.type}</span>
-                {tx.units != null && (
-                  <span className="mono">{tx.units.toLocaleString('en-NZ', { maximumFractionDigits: 4 })} units</span>
-                )}
-                <span className="mono" style={{ marginLeft: 'auto' }}>{fmt(tx.amount)}</span>
+        <div className="fn-right" style={{ alignItems: 'flex-end', gap: 6 }}>
+          <div style={{ textAlign: 'right' }}>
+            <div className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currentValue)}</div>
+            {position.units > 0 && (
+              <div className="mono" style={{ fontSize: 11, color: isGain ? 'var(--green)' : 'var(--red)' }}>
+                {isGain ? '+' : '−'}{fmt(unrealisedGL)} ({isGain ? '+' : ''}{unrealisedGLPct.toFixed(1)}%)
               </div>
-            ))}
+            )}
           </div>
-        )}
-
-        {asset.notes && (
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--sep)' }}>
-            {asset.notes}
+          <div className="exp-actions" onClick={e => e.stopPropagation()}>
+            <button className="btn-icon small" onClick={() => onEdit(asset)} title="Edit" aria-label="Edit asset">
+              <Icon name="pencil" size={12} />
+            </button>
+            <button className="btn-icon small danger" onClick={() => onDelete(asset.id)} title="Delete" aria-label="Delete asset">
+              <Icon name="trash" size={12} />
+            </button>
           </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sep)' }}>
-          <button className="btn-ghost small" onClick={() => onSelect(asset.id)} aria-label="View asset detail">
-            View Detail
-          </button>
-          <button className="btn-ghost small" onClick={() => onEdit(asset)} aria-label="Edit asset">
-            <Icon name="pencil" size={12} /> Edit
-          </button>
-          <button className="btn-ghost small danger" onClick={() => onDelete(asset.id)} aria-label="Delete asset">
-            <Icon name="trash" size={12} /> Delete
-          </button>
         </div>
       </div>
-    </ExpandableRow>
+    </div>
   );
 });
 
@@ -222,8 +155,9 @@ export default function InvestmentAssets() {
     investmentAssets, investmentTransactions, priceCache,
     setInvestment, mergeInvestment,
   } = useInvestment();
-  const { assets, enrichedAssets, transactions } = usePortfolioAnalytics();
+  const { assets, enrichedAssets, prices } = usePortfolioAnalytics();
 
+  const toast = useToast();
   const [selectedAssetId, setSelectedAssetId] = useState(null);
   const [catFilter,  setCatFilter]  = useState('All');
   const [platFilter, setPlatFilter] = useState('All');
@@ -231,6 +165,51 @@ export default function InvestmentAssets() {
   const [showModal,  setShowModal]  = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [confirmTarget, setConfirmTarget] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState(null);
+
+  const tickerCount = assets.filter(a => a.ticker?.trim()).length;
+
+  const handleRefresh = async () => {
+    if (refreshing || tickerCount === 0) return;
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const { updated, failed } = await refreshAllPrices(assets);
+      if (updated.length > 0) {
+        const now = new Date().toISOString();
+        const allCache = priceCache || [];
+        const existingIds = new Set(allCache.map(p => p.assetId));
+        let nextCache = allCache.map(p => {
+          const upd = updated.find(u => u.id === p.assetId);
+          return upd ? { ...p, price: upd.price, updatedAt: upd.priceUpdatedAt } : p;
+        });
+        // Add new entries for assets not yet in cache
+        for (const upd of updated) {
+          if (!existingIds.has(upd.id)) {
+            const asset = assets.find(a => a.id === upd.id);
+            nextCache.push({
+              assetId: upd.id,
+              price: upd.price,
+              currency: asset?.currency || 'NZD',
+              updatedAt: upd.priceUpdatedAt,
+            });
+          }
+        }
+        setInvestment('priceCache', nextCache);
+      }
+      setRefreshMsg({ updated: updated.length, failedTickers: failed.map(f => f.ticker) });
+      if (failed.length > 0) {
+        toast(`Could not update: ${failed.map(f => f.ticker).join(', ')}`, 'error');
+      }
+    } catch (e) {
+      const failedTickers = assets.filter(a => a.ticker).map(a => a.ticker);
+      setRefreshMsg({ updated: 0, failedTickers });
+      toast(`Price refresh failed — ${e?.message || 'check your connection'}`, 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Distinct platforms for the filter dropdown
   const platforms = useMemo(() => {
@@ -316,7 +295,25 @@ export default function InvestmentAssets() {
         <Card variant="section">
           <SectionHeader
             title={<><Icon name="filter" size={15} /> Filters</>}
-            actions={<button className="btn-ghost small" onClick={openAdd}>+ Add Asset</button>}
+            actions={
+              <>
+                {refreshMsg && (
+                  <span
+                    style={{ fontSize: 11, color: refreshMsg.failedTickers?.length > 0 ? 'var(--red)' : 'var(--green)' }}
+                    title={refreshMsg.failedTickers?.length > 0 ? `Failed: ${refreshMsg.failedTickers.join(', ')}` : undefined}
+                  >
+                    {refreshMsg.updated > 0 && `↑ ${refreshMsg.updated} updated`}
+                    {refreshMsg.failedTickers?.length > 0 && ` · ${refreshMsg.failedTickers.join(', ')} failed`}
+                  </span>
+                )}
+                {tickerCount > 0 && (
+                  <button className="btn-ghost small" onClick={handleRefresh} disabled={refreshing} style={{ minWidth: 110 }}>
+                    {refreshing ? 'Refreshing…' : '↻ Refresh Prices'}
+                  </button>
+                )}
+                <button className="btn-ghost small" onClick={openAdd}>+ Add Asset</button>
+              </>
+            }
           />
 
           {/* Category tabs */}
@@ -362,7 +359,7 @@ export default function InvestmentAssets() {
           icon={<Icon name="trend" size={38} />}
           title={
             assets.length === 0
-              ? 'No assets yet. Add your first investment asset.'
+              ? 'No assets yet.'
               : 'No assets match your filters.'
           }
           action={assets.length === 0 && <button className="btn-ghost small" onClick={openAdd}>+ Add Asset</button>}
@@ -373,7 +370,7 @@ export default function InvestmentAssets() {
             <AssetRow
               key={ea.asset.id}
               enriched={ea}
-              transactions={transactions}
+              prices={prices}
               onEdit={openEdit}
               onDelete={handleDelete}
               onSelect={setSelectedAssetId}

@@ -5,7 +5,7 @@
  *
  * Pages tested: Dashboard, Expenses, People, Wishlist, FinancialTracking,
  * PropertyOverview, PropertyRegister, PropertyTasks,
- * InvestmentDashboard, InvestmentHoldings.
+ * InvestmentDashboard, InvestmentAssets.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
@@ -46,7 +46,7 @@ import PropertyOverview from '../pages/property/PropertyOverview';
 import PropertyRegister from '../pages/property/PropertyRegister';
 import PropertyTasks from '../pages/property/PropertyTasks';
 import InvestmentDashboard from '../pages/investments/InvestmentDashboard';
-import InvestmentHoldings from '../pages/investments/InvestmentHoldings';
+import InvestmentAssets from '../pages/investments/InvestmentAssets';
 
 import { useFinanceStore } from '../store/financeStore';
 import { usePeopleStore } from '../store/peopleStore';
@@ -90,6 +90,9 @@ function resetStores() {
     investments: [],
     investmentContributions: [],
     investmentDividends: [],
+    investmentAssets: [],
+    investmentTransactions: [],
+    priceCache: [],
   });
 }
 
@@ -129,13 +132,21 @@ function seedPortfolio() {
   });
 }
 
-function seedHolding() {
-  const current = useInvestmentStore.getState().investments || [];
+function seedAsset() {
   useInvestmentStore.setState({
-    investments: [...current, {
-      id: 'h1', portfolioId: PORT_ID, name: 'Vanguard ETF', ticker: 'VOO',
-      platform: 'Sharesies', category: 'US Equities', units: 10,
-      avgCost: 400, currentPrice: 450, notes: '', createdAt: '2026-01-15',
+    investmentAssets: [{
+      id: 'a1', portfolioId: PORT_ID, name: 'Vanguard ETF', ticker: 'VOO',
+      platform: 'Sharesies', category: 'ETF', currency: 'NZD',
+      notes: '', createdAt: '2026-01-15',
+    }],
+    investmentTransactions: [{
+      id: 'tx1', portfolioId: PORT_ID, assetId: 'a1', date: '2026-01-15',
+      type: 'buy', units: 10, price: 400, amount: 4000, fee: 0,
+      grossAmount: null, taxAmount: null, label: '', linkedTxId: null,
+      notes: '', createdAt: '2026-01-15',
+    }],
+    priceCache: [{
+      assetId: 'a1', price: 450, currency: 'NZD', updatedAt: '2026-03-15',
     }],
   });
 }
@@ -247,17 +258,18 @@ describe('Accessibility — Investment pages', () => {
 
   it('InvestmentDashboard has no a11y violations (populated)', async () => {
     seedPortfolio();
-    seedHolding();
+    seedAsset();
     await expectNoA11yViolations(withNav(<InvestmentDashboard />));
   });
 
-  it('InvestmentHoldings has no a11y violations (empty)', async () => {
-    await expectNoA11yViolations(<InvestmentHoldings />);
+  it('InvestmentAssets has no a11y violations (empty)', async () => {
+    seedPortfolio();
+    await expectNoA11yViolations(<InvestmentAssets />);
   });
 
-  it('InvestmentHoldings has no a11y violations (populated)', async () => {
+  it('InvestmentAssets has no a11y violations (populated)', async () => {
     seedPortfolio();
-    seedHolding();
-    await expectNoA11yViolations(<InvestmentHoldings />);
+    seedAsset();
+    await expectNoA11yViolations(<InvestmentAssets />);
   });
 });

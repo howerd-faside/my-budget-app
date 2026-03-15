@@ -7,9 +7,12 @@ import {
   portfolioDeleteMessage,
 } from '../../utils/cascade';
 import { today } from '../../utils/finance/dates';
-import { fmtCurrency as fmt } from '../../utils/format';
+import { fmtCurrency as fmt, fmtPct } from '../../utils/format';
+import { COST_BASIS_METHODS } from '../../models/Portfolio';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card, ConfirmDialog } from '../../components/ui';
+
+const CURRENCIES = ['NZD', 'AUD', 'USD', 'GBP', 'EUR'];
 
 // ── Per-portfolio summary ────────────────────────────────────────────────────
 
@@ -214,14 +217,16 @@ export default function InvestmentPortfolios() {
     setInvestment('investmentPortfolios', portfolios.map(p => p.id === id ? { ...p, name } : p));
   };
 
+  const updatePortfolioField = (id, field, value) => {
+    setInvestment('investmentPortfolios', portfolios.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
   const archivePortfolio = (id, archived) => {
     setInvestment('investmentPortfolios', portfolios.map(p => p.id === id ? { ...p, archived } : p));
-    // If archiving the selected portfolio, switch to another active one
     if (archived && selectedPortfolioId === id) {
       const next = portfolios.find(p => p.id !== id && !p.archived);
       setInvestment('selectedPortfolioId', next?.id ?? null);
     }
-    // If unarchiving, select it
     if (!archived) {
       setInvestment('selectedPortfolioId', id);
     }
@@ -251,10 +256,15 @@ export default function InvestmentPortfolios() {
 
   // ── Split portfolios ───────────────────────────────────────────────────────
 
-  const activePortfolios  = portfolios.filter(p => !p.archived);
+  const activePortfolios   = portfolios.filter(p => !p.archived);
   const archivedPortfolios = portfolios.filter(p => p.archived);
 
   const isAggGain = aggregate.totalReturn >= 0;
+
+  // ── Selected portfolio for settings ────────────────────────────────────────
+
+  const selectedPortfolio = portfolios.find(p => p.id === selectedPortfolioId);
+  const selectedStats     = selectedPortfolio ? portfolioStats[selectedPortfolioId] : null;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -277,7 +287,7 @@ export default function InvestmentPortfolios() {
         </div>
       )}
 
-      {/* ── Active portfolios ── */}
+      {/* ── Portfolios card ── */}
       <Card variant="section">
         <SectionHeader
           title={<><Icon name="layers" size={15} /> Portfolios</>}
@@ -290,7 +300,7 @@ export default function InvestmentPortfolios() {
         {activePortfolios.length === 0 && !creating && (
           <EmptyState
             icon={<Icon name="layers" size={38} />}
-            title="No portfolios yet. Create one to get started."
+            title="No portfolios yet."
           />
         )}
 
@@ -324,6 +334,104 @@ export default function InvestmentPortfolios() {
           )}
         </div>
       </Card>
+
+      {/* ── Portfolio settings ── */}
+      {selectedPortfolio && (
+        <Card variant="section">
+          <SectionHeader
+            title={<><Icon name="settings" size={15} /> Portfolio Settings</>}
+            subtitle={selectedPortfolio.name}
+          />
+
+          <div className="port-settings">
+            <div className="port-settings-row">
+              <div className="port-settings-field">
+                <label className="port-settings-label">Base Currency</label>
+                <p className="port-settings-hint">Reporting currency for value calculations</p>
+                <select
+                  className="input"
+                  style={{ maxWidth: 140 }}
+                  value={selectedPortfolio.currency || 'NZD'}
+                  onChange={e => updatePortfolioField(selectedPortfolioId, 'currency', e.target.value)}
+                >
+                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="port-settings-field">
+                <label className="port-settings-label">Cost Basis Method</label>
+                <p className="port-settings-hint">
+                  {selectedPortfolio.costBasisMethod === 'fifo'
+                    ? 'First-in first-out — sells earliest lots first'
+                    : 'Weighted average — standard for NZ tax'}
+                </p>
+                <select
+                  className="input"
+                  style={{ maxWidth: 180 }}
+                  value={selectedPortfolio.costBasisMethod || 'average'}
+                  onChange={e => updatePortfolioField(selectedPortfolioId, 'costBasisMethod', e.target.value)}
+                >
+                  {COST_BASIS_METHODS.map(m => (
+                    <option key={m} value={m}>{m === 'average' ? 'Weighted Average' : 'FIFO'}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {selectedStats && (
+              <div className="port-settings-summary">
+                <div className="port-settings-summary-item">
+                  <span className="port-settings-label">Assets</span>
+                  <span className="mono">{selectedStats.assetCount}</span>
+                </div>
+                <div className="port-settings-summary-item">
+                  <span className="port-settings-label">Market Value</span>
+                  <span className="mono">{fmt(selectedStats.totalValue)}</span>
+                </div>
+                <div className="port-settings-summary-item">
+                  <span className="port-settings-label">Cost Basis</span>
+                  <span className="mono">{fmt(selectedStats.totalCost)}</span>
+                </div>
+                <div className="port-settings-summary-item">
+                  <span className="port-settings-label">Unrealised G/L</span>
+                  <span className={`mono ${selectedStats.unrealisedGL >= 0 ? 'green' : 'red'}`}>
+                    {selectedStats.unrealisedGL >= 0 ? '+' : '−'}{fmt(selectedStats.unrealisedGL)}
+                  </span>
+                </div>
+                <div className="port-settings-summary-item">
+                  <span className="port-settings-label">Realised G/L</span>
+                  <span className={`mono ${selectedStats.realisedGL >= 0 ? 'green' : 'red'}`}>
+                    {selectedStats.realisedGL >= 0 ? '+' : '−'}{fmt(selectedStats.realisedGL)}
+                  </span>
+                </div>
+                <div className="port-settings-summary-item">
+                  <span className="port-settings-label">Dividends</span>
+                  <span className="mono green">{fmt(selectedStats.dividendNet)}</span>
+                </div>
+                {selectedStats.feesPaid > 0 && (
+                  <div className="port-settings-summary-item">
+                    <span className="port-settings-label">Fees Paid</span>
+                    <span className="mono">{fmt(selectedStats.feesPaid)}</span>
+                  </div>
+                )}
+                {selectedStats.totalCost > 0 && (
+                  <div className="port-settings-summary-item">
+                    <span className="port-settings-label">Return on Cost</span>
+                    <span className={`mono ${selectedStats.returnPct >= 0 ? 'green' : 'red'}`}>
+                      {fmtPct(selectedStats.returnPct)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="port-settings-meta">
+              <span>Created {selectedPortfolio.createdAt || '—'}</span>
+              <span>ID: {selectedPortfolioId}</span>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ── Archived portfolios ── */}
       {archivedPortfolios.length > 0 && (
