@@ -6,17 +6,18 @@
  */
 import { useFinanceStore } from '../financeStore';
 
-import type { FinanceStoreState } from '../financeStore';
+import type { FinanceStoreState, FortnightRef } from '../financeStore';
 import type { FortnightData }     from '../../models/FortnightlyData';
 
 export interface UseFinanceReturn {
   // State
-  accounts:        FinanceStoreState['accounts'];
-  transfers:       FinanceStoreState['transfers'];
-  fortnightlyData: FinanceStoreState['fortnightlyData'];
-  goals:           FinanceStoreState['goals'];
-  assetIncomes:    FinanceStoreState['assetIncomes'];
-  settings:        FinanceStoreState['settings'];
+  accounts:             FinanceStoreState['accounts'];
+  transfers:            FinanceStoreState['transfers'];
+  fortnightlyData:      FinanceStoreState['fortnightlyData'];
+  goals:                FinanceStoreState['goals'];
+  assetIncomes:         FinanceStoreState['assetIncomes'];
+  settings:             FinanceStoreState['settings'];
+  lastSettledFortnight: FortnightRef | null;
   // Actions
   setFinance:      <K extends keyof FinanceStoreState>(key: K, val: FinanceStoreState[K]) => void;
   mergeFinance:    (slices: Partial<FinanceStoreState>) => void;
@@ -24,18 +25,20 @@ export interface UseFinanceReturn {
   updateAccount:   (id: string, balance: number | string) => void;
   addTransfer:     (params: { fromId: string; toId: string; amount: number | string; note?: string }) => void;
   removeTransfer:  (txId: string) => void;
+  settleFortnight: (amount: number, currentFn: FortnightRef) => void;
 }
 
 export function useFinance(): UseFinanceReturn {
   const s = useFinanceStore();
   return {
     // State
-    accounts:        s.accounts,
-    transfers:       s.transfers,
-    fortnightlyData: s.fortnightlyData,
-    goals:           s.goals,
-    assetIncomes:    s.assetIncomes,
-    settings:        s.settings,
+    accounts:             s.accounts,
+    transfers:            s.transfers,
+    fortnightlyData:      s.fortnightlyData,
+    goals:                s.goals,
+    assetIncomes:         s.assetIncomes,
+    settings:             s.settings,
+    lastSettledFortnight: s.lastSettledFortnight,
     // Actions
     setFinance:      s.setSlice,
     mergeFinance:    s.mergeSlices,
@@ -43,5 +46,6 @@ export function useFinance(): UseFinanceReturn {
     updateAccount:   s.updateAccount,
     addTransfer:     s.addTransfer,
     removeTransfer:  s.removeTransfer,
+    settleFortnight: s.settleFortnight,
   };
 }

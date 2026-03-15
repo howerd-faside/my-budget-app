@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import './utils/theme'; // init theme before first render
 import { totalBalance } from './utils/finance/savings';
-import { useFinance }    from './store/hooks';
+import { useFinance, useFortnightSettlement } from './store/hooks';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import FinancesOverview from './pages/FinancesOverview';
@@ -72,6 +72,9 @@ const SIDEBAR_SECTIONS = [
 import { ACCOUNT_COLORS } from './utils/colors';
 
 function Shell() {
+  // Auto-settle completed fortnights into the main account on mount.
+  useFortnightSettlement();
+
   const [section,  setSection]  = useState('finances');
   const [tab,      setTab]      = useState('overview');
   const [slideDir,      setSlideDir]      = useState(0);   // -1 | 0 | 1

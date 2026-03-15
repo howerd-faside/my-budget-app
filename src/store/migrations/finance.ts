@@ -9,7 +9,7 @@ import { createDefaultAccounts, normalizeAccount } from '../../models/Account';
 import { normalizeAssetIncome }                    from '../../models/Person';
 import type { MigrationStep } from '../budgetStorage';
 
-export const FINANCE_VERSION     = 2;
+export const FINANCE_VERSION     = 3;
 export const FINANCE_VERSION_KEY = '_financeVersion';
 
 export const FINANCE_MIGRATIONS: MigrationStep[] = [
@@ -62,6 +62,16 @@ export const FINANCE_MIGRATIONS: MigrationStep[] = [
         });
       }
 
+      return slice;
+    },
+  },
+  {
+    toVersion:   3,
+    description: 'add lastSettledFortnight for automatic fortnight settlement',
+    migrate(slice: any) {
+      if (!('lastSettledFortnight' in slice)) {
+        slice.lastSettledFortnight = null;
+      }
       return slice;
     },
   },

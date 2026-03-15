@@ -12,7 +12,7 @@ import {
   FINANCE_VERSION_KEY,
   FINANCE_MIGRATIONS,
 } from './migrations/finance';
-import { today } from '../utils/finance/dates';
+import { today, getFortnight } from '../utils/finance/dates';
 
 import type { Account }         from '../models/Account';
 import type { Transfer }        from '../models/Transaction';
@@ -22,22 +22,29 @@ import type { FortnightlyData, FortnightData } from '../models/FortnightlyData';
 
 // ── State + Action interfaces ────────────────────────────────────────────────
 
+export interface FortnightRef {
+  year: number;
+  idx:  number;
+}
+
 export interface FinanceStoreState {
-  accounts:        Account[];
-  transfers:       Transfer[];
-  fortnightlyData: FortnightlyData;
-  goals:           Goal[];
-  assetIncomes:    AssetIncome[];
-  settings:        { currentBalance: number };
+  accounts:              Account[];
+  transfers:             Transfer[];
+  fortnightlyData:       FortnightlyData;
+  goals:                 Goal[];
+  assetIncomes:          AssetIncome[];
+  settings:              { currentBalance: number };
+  lastSettledFortnight:  FortnightRef | null;
 }
 
 export interface FinanceStoreActions {
-  setSlice:        <K extends keyof FinanceStoreState>(key: K, val: FinanceStoreState[K]) => void;
-  mergeSlices:     (slices: Partial<FinanceStoreState>) => void;
-  updateFortnight: (year: number, idx: number, data: Partial<FortnightData>) => void;
-  updateAccount:   (id: string, balance: number | string) => void;
-  addTransfer:     (params: { fromId: string; toId: string; amount: number | string; note?: string }) => void;
-  removeTransfer:  (txId: string) => void;
+  setSlice:           <K extends keyof FinanceStoreState>(key: K, val: FinanceStoreState[K]) => void;
+  mergeSlices:        (slices: Partial<FinanceStoreState>) => void;
+  updateFortnight:    (year: number, idx: number, data: Partial<FortnightData>) => void;
+  updateAccount:      (id: string, balance: number | string) => void;
+  addTransfer:        (params: { fromId: string; toId: string; amount: number | string; note?: string }) => void;
+  removeTransfer:     (txId: string) => void;
+  settleFortnight:    (amount: number, currentFn: FortnightRef) => void;
 }
 
 export type FinanceStore = FinanceStoreState & FinanceStoreActions;
@@ -46,15 +53,17 @@ export type FinanceStore = FinanceStoreState & FinanceStoreActions;
 
 export const FINANCE_KEYS: (keyof FinanceStoreState)[] = [
   'accounts', 'transfers', 'fortnightlyData', 'goals', 'assetIncomes', 'settings',
+  'lastSettledFortnight',
 ];
 
 const defaults: FinanceStoreState = {
-  accounts:        createDefaultAccounts(),
-  transfers:       [],
-  fortnightlyData: {},
-  goals:           [],
-  assetIncomes:    [],
-  settings:        { currentBalance: 0 },
+  accounts:             createDefaultAccounts(),
+  transfers:            [],
+  fortnightlyData:      {},
+  goals:                [],
+  assetIncomes:         [],
+  settings:             { currentBalance: 0 },
+  lastSettledFortnight: null,
 };
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -86,8 +95,18 @@ export const useFinanceStore = create<FinanceStore>()(
       },
 
       updateAccount(id, balance) {
+        // Reset the settlement anchor to the current fortnight so future
+        // settlements start from this manually-set balance.
+        const now = new Date();
+        const yr  = now.getFullYear();
+        let currentFn: FortnightRef | null = null;
+        for (let i = 0; i < 26; i++) {
+          const { start, end } = getFortnight(yr, i);
+          if (now >= start && now <= end) { currentFn = { year: yr, idx: i }; break; }
+        }
         set(s => ({
           accounts: s.accounts.map(a => a.id === id ? { ...a, balance: +balance } : a),
+          ...(currentFn ? { lastSettledFortnight: currentFn } : {}),
         }));
       },
 
@@ -109,6 +128,23 @@ export const useFinanceStore = create<FinanceStore>()(
               a.id === fromId ? { ...a, balance: (a.balance || 0) - amt } :
               a.id === toId   ? { ...a, balance: (a.balance || 0) + amt } : a
             ),
+          };
+        });
+      },
+
+      settleFortnight(amount, currentFn) {
+        if (amount === 0) {
+          set({ lastSettledFortnight: currentFn });
+          return;
+        }
+        set(s => {
+          const targetId = s.accounts.find(a => a.id === 'main')?.id || s.accounts[0]?.id;
+          if (!targetId) return { lastSettledFortnight: currentFn };
+          return {
+            accounts: s.accounts.map(a =>
+              a.id === targetId ? { ...a, balance: Math.round(((a.balance || 0) + amount) * 100) / 100 } : a
+            ),
+            lastSettledFortnight: currentFn,
           };
         });
       },
