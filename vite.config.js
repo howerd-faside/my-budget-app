@@ -7,7 +7,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    pool: 'forks',
     include: ['src/**/*.test.{js,jsx,ts,tsx}'],
     environmentMatchGlobs: [
       ['src/**/*.test.{jsx,tsx}', 'jsdom'],
