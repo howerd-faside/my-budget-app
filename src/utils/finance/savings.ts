@@ -124,7 +124,7 @@ export function buildSavingsTrajectory(state: TrajectoryInput): TrajectoryPoint[
 
   const now = new Date();
   const currentYear = now.getFullYear();
-  const allYears = Array.from({ length: 12 }, (_, i) => currentYear - 1 + i);
+  const allYears = Array.from({ length: 100 }, (_, i) => currentYear - 1 + i);
 
   interface InternalRow {
     date: string;
