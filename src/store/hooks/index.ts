@@ -22,3 +22,4 @@ export { useSavingsPosition }       from './useSavingsPosition';
 export { useMortgageFacilities }    from './useMortgageFacilities';
 export { useMortgageSummary }       from './useMortgageSummary';
 export { useMortgageAmortisation }  from './useMortgageAmortisation';
+export { usePortfolioAnalytics }   from './usePortfolioAnalytics';

@@ -24,6 +24,9 @@ import type { Portfolio }               from '../models/Portfolio';
 import type { Holding }                 from '../models/Holding';
 import type { InvestmentContribution }  from '../models/InvestmentContribution';
 import type { Dividend }                from '../models/Dividend';
+import type { Asset }                   from '../models/Asset';
+import type { InvestmentTransaction }   from '../models/InvestmentTransaction';
+import type { PriceEntry }              from '../models/PriceEntry';
 import type { FortnightlyData }         from '../models/FortnightlyData';
 
 // ── Per-domain state slices ──────────────────────────────────────────────────
@@ -58,6 +61,9 @@ export interface InvestmentState {
   investments: Holding[];
   investmentContributions: InvestmentContribution[];
   investmentDividends: Dividend[];
+  investmentAssets: Asset[];
+  investmentTransactions: InvestmentTransaction[];
+  priceCache: PriceEntry[];
 }
 
 // ── Composite state ──────────────────────────────────────────────────────────

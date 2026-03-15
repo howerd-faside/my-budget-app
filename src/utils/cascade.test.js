@@ -67,6 +67,9 @@ function makeState(overrides = {}) {
     investments:             [],
     investmentContributions: [],
     investmentDividends:     [],
+    investmentAssets:        [],
+    investmentTransactions:  [],
+    priceCache:              [],
     selectedPortfolioId:     null,
     people:   [],
     expenses: [],
@@ -183,7 +186,7 @@ describe('getAssetDependents', () => {
 describe('getPortfolioDependents', () => {
   it('returns zeros for an empty state', () => {
     const deps = getPortfolioDependents(makeState(), 'port1');
-    expect(deps).toEqual({ holdings: 0, contributions: 0, dividends: 0 });
+    expect(deps).toEqual({ holdings: 0, contributions: 0, dividends: 0, assets: 0, transactions: 0 });
   });
 
   it('counts holdings, contributions, dividends belonging to the portfolio', () => {

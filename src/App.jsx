@@ -21,8 +21,12 @@ import InvestmentDashboard from './pages/investments/InvestmentDashboard';
 import InvestmentHoldings from './pages/investments/InvestmentHoldings';
 import InvestmentContributions from './pages/investments/InvestmentContributions';
 import InvestmentDividends from './pages/investments/InvestmentDividends';
+import InvestmentAssets from './pages/investments/InvestmentAssets';
+import InvestmentTransactions from './pages/investments/InvestmentTransactions';
 import InvestmentPerformance from './pages/investments/InvestmentPerformance';
 import InvestmentTaxSummary from './pages/investments/InvestmentTaxSummary';
+import InvestmentPortfolios from './pages/investments/InvestmentPortfolios';
+import InvestmentDiscovery from './pages/investments/InvestmentDiscovery';
 import { getPortfolioDependents, cascadeDeletePortfolio, portfolioDeleteMessage } from './utils/cascade';
 import Settings from './pages/Settings';
 import Icon from './components/Icon';
@@ -51,11 +55,15 @@ const SECTION_TABS = {
   ],
   investments: [
     { id: 'inv-dashboard',   label: 'Overview'      },
-    { id: 'inv-holdings',    label: 'Holdings'      },
-    { id: 'inv-contrib',     label: 'Contributions' },
-    { id: 'inv-dividends',   label: 'Dividends'     },
+    { id: 'inv-discovery',   label: 'Discovery'     },
+    { id: 'inv-assets',        label: 'Assets'        },
+    { id: 'inv-transactions', label: 'Transactions'  },
+    { id: 'inv-holdings',     label: 'Holdings'      },
+    { id: 'inv-contrib',      label: 'Contributions' },
+    { id: 'inv-dividends',    label: 'Dividends'     },
     { id: 'inv-performance', label: 'Performance'   },
-    { id: 'inv-tax',         label: 'Tax Summary'   },
+    { id: 'inv-tax',         label: 'Tax & Reports' },
+    { id: 'inv-manage',      label: 'Manage'        },
   ],
 };
 
@@ -78,9 +86,10 @@ function PortfolioBar() {
   const {
     investmentPortfolios, selectedPortfolioId,
     investments, investmentContributions, investmentDividends,
+    investmentAssets,
     setInvestment, mergeInvestment,
   } = useInvestment();
-  const portfolios = investmentPortfolios || [];
+  const portfolios = (investmentPortfolios || []).filter(p => !p.archived);
   const selectedId = selectedPortfolioId;
 
   const [creating,   setCreating]   = useState(false);
@@ -147,7 +156,7 @@ function PortfolioBar() {
       {(portfolios.length > 0 || creating) && (
         <div className="prop-selector">
           {portfolios.map(p => {
-            const holdingCount = (investments || []).filter(i => i.portfolioId === p.id).length;
+            const assetCount = (investmentAssets || []).filter(a => a.portfolioId === p.id).length;
             const isSelected = p.id === selectedId;
             const isRenaming = renamingId === p.id;
             return (
@@ -191,7 +200,7 @@ function PortfolioBar() {
                   )}
                 </div>
                 <div className="prop-sel-meta">
-                  <span className="tag">{holdingCount} {holdingCount === 1 ? 'holding' : 'holdings'}</span>
+                  <span className="tag">{assetCount} {assetCount === 1 ? 'asset' : 'assets'}</span>
                 </div>
               </div>
             );
@@ -351,11 +360,15 @@ function Shell() {
       case 'prop-projects':  return <PropertyProjects />;
       case 'prop-assets':     return <PropertyAssets />;
       case 'inv-dashboard':   return <InvestmentDashboard />;
-      case 'inv-holdings':    return <InvestmentHoldings />;
+      case 'inv-discovery':   return <InvestmentDiscovery />;
+      case 'inv-assets':        return <InvestmentAssets />;
+      case 'inv-transactions': return <InvestmentTransactions />;
+      case 'inv-holdings':     return <InvestmentHoldings />;
       case 'inv-contrib':     return <InvestmentContributions />;
       case 'inv-dividends':   return <InvestmentDividends />;
       case 'inv-performance': return <InvestmentPerformance />;
       case 'inv-tax':         return <InvestmentTaxSummary />;
+      case 'inv-manage':      return <InvestmentPortfolios />;
       default:                return null;
     }
   };

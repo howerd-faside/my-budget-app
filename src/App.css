@@ -1610,6 +1610,155 @@ select.input {
   .perf-rank-bar-wrap { display: none; }
 }
 
+/* ── Report / Tax summary extras ─────────────────────────────────────────── */
+.perf-table tfoot td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--sep);
+  font-size: 12px;
+}
+.report-disclaimer {
+  margin-top: 16px;
+  padding: 14px 16px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text3);
+  background: var(--card2);
+  border-radius: var(--radius-lg);
+}
+
+/* ── Portfolio management cards ───────────────────────────────────────────── */
+.port-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.port-card {
+  background: var(--card2);
+  border: 1.5px solid var(--sep);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.port-card:hover { border-color: var(--sep2); box-shadow: var(--shadow-sm); }
+.port-card.selected { border-color: var(--teal); background: var(--teal-dim); }
+.port-card.archived { opacity: 0.65; cursor: default; }
+.port-card.creating {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 130px; cursor: default;
+}
+.port-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.port-card-title-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.port-card-name {
+  font-size: 15px; font-weight: 600; color: var(--text1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.port-card.selected .port-card-name { color: var(--teal); }
+.port-card-rename {
+  font-size: 15px; font-weight: 600; border: none; outline: none;
+  background: transparent; padding: 0; width: 100%; color: var(--text);
+  border-bottom: 1.5px solid var(--teal);
+}
+.port-card-new-input {
+  font-size: 15px; font-weight: 500; border: none; outline: none;
+  background: transparent; padding: 0; width: 100%; color: var(--text);
+  text-align: center;
+}
+.port-card-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+.port-card:hover .port-card-actions,
+.port-card-actions:focus-within { opacity: 1; }
+.port-card-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  margin-bottom: 10px;
+}
+.port-card-stat { display: flex; flex-direction: column; gap: 2px; }
+.port-card-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text3); }
+.port-card-stat-val { font-size: 13px; font-weight: 600; color: var(--text1); }
+.port-card-meta {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--text3); margin-top: 4px;
+}
+
+@media (max-width: 700px) {
+  .port-grid { grid-template-columns: 1fr; }
+  .port-card-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── CSV IMPORT MODAL ──────────────────────────────────────────────────── */
+.import-dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 32px 20px;
+  border: 2px dashed var(--sep2); border-radius: var(--radius);
+  background: var(--card2); cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+  color: var(--text3);
+}
+.import-dropzone:hover, .import-dropzone.drag-over {
+  border-color: var(--teal); background: var(--teal-dim);
+}
+.import-filename {
+  font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text);
+}
+.import-prompt { font-size: 13px; }
+.import-template-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.import-template-hint { font-size: 11px; color: var(--text3); }
+
+.import-summary {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.import-notice {
+  font-size: 12px; padding: 8px 12px; border-radius: var(--radius);
+  background: var(--red-dim, rgba(255,59,48,0.08)); color: var(--red);
+}
+.import-table-wrap { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
+.import-table { font-size: 12px; }
+.import-table td, .import-table th { padding: 6px 8px; white-space: nowrap; }
+.import-row-error { opacity: 0.5; }
+.import-issues {
+  font-size: 11px; color: var(--red); max-width: 200px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-block; vertical-align: middle;
+  cursor: help;
+}
+
+/* ── DISCOVERY / WATCHLIST ──────────────────────────────────────────────── */
+.wl-quote-bar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.wl-quote-error { font-size: 12px; color: var(--red); margin-top: 4px; }
+.wl-quote-card {
+  margin-top: 12px; padding: 14px 16px;
+  background: var(--card2); border: 1px solid var(--sep2);
+  border-radius: var(--radius);
+}
+.wl-quote-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.wl-quote-ticker { font-size: 16px; font-weight: 700; color: var(--text); }
+.wl-quote-name   { font-size: 13px; color: var(--text2); }
+.wl-quote-price-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.wl-quote-price  { font-size: 18px; font-weight: 600; color: var(--text); }
+.wl-quote-actions { display: flex; gap: 8px; }
+
+.wl-detail {
+  padding: 12px 14px 14px; border-top: 1px solid var(--sep);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.wl-detail-section {}
+.wl-detail-label {
+  display: block; font-size: 10px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px;
+}
+.wl-detail-text {
+  font-size: 13px; color: var(--text); line-height: 1.5; margin: 0;
+  white-space: pre-wrap;
+}
+.wl-detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px;
+}
+.wl-detail-grid span { display: block; font-size: 13px; }
+
 /* ── TRANCHE TABLE (Holdings modal) ─────────────────────────────────────── */
 .tranche-grid {
   display: grid;

@@ -1,16 +1,23 @@
 /**
- * @fileoverview Domain model for an investment portfolio (container for holdings).
+ * @fileoverview Domain model for an investment portfolio (container for assets).
  *
- * Inconsistencies detected:
- * - `selectedPortfolioId` is stored in the root app state rather than being
- *   derived from the URL or a dedicated UI slice. If a portfolio is deleted while
- *   it is selected, selectedPortfolioId becomes a dangling reference with no
- *   cleanup logic in store.jsx.
+ * `currency` is the portfolio's base reporting currency. Defaults to 'NZD'.
+ * `costBasisMethod` controls gain calculations — 'average' is standard for NZ
+ * tax purposes; 'fifo' available for future use.
+ *
+ * Backward-compatible: old portfolios created without currency/costBasisMethod
+ * receive defaults via normalizePortfolio.
  */
+
+export const COST_BASIS_METHODS = ['average', 'fifo'] as const;
+export type CostBasisMethod = typeof COST_BASIS_METHODS[number];
 
 export interface Portfolio {
   id: string;
   name: string;
+  currency: string;           // base reporting currency
+  costBasisMethod: CostBasisMethod;
+  archived: boolean;          // hidden from switcher, visible in management screen
   createdAt: string;
 }
 
@@ -19,20 +26,27 @@ export interface Portfolio {
  */
 export function createPortfolio(overrides: Partial<Portfolio> = {}): Portfolio {
   return {
-    id:        '',
-    name:      '',
-    createdAt: '',
+    id:              '',
+    name:            '',
+    currency:        'NZD',
+    costBasisMethod: 'average',
+    archived:        false,
+    createdAt:       '',
     ...overrides,
   };
 }
 
 /**
  * Coerce a raw portfolio object to the canonical shape.
+ * Handles legacy portfolios that lack currency/costBasisMethod.
  */
 export function normalizePortfolio(raw: any = {}): Portfolio {
   return createPortfolio({
-    id:        raw.id        ?? '',
-    name:      raw.name      ?? '',
-    createdAt: raw.createdAt ?? '',
+    id:              raw.id              ?? '',
+    name:            raw.name            ?? '',
+    currency:        raw.currency        ?? 'NZD',
+    costBasisMethod: raw.costBasisMethod ?? 'average',
+    archived:        raw.archived        ?? false,
+    createdAt:       raw.createdAt       ?? '',
   });
 }

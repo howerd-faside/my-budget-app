@@ -12,12 +12,12 @@ import type { PropertyTask }          from '../models/PropertyTask';
 import type { PropertyMaintenance }   from '../models/PropertyMaintenance';
 import type { PropertyAsset }         from '../models/PropertyAsset';
 import type { PropertyProject }       from '../models/PropertyProject';
-import type { Portfolio }             from '../models/Portfolio';
-import type { Holding }               from '../models/Holding';
+import type { Portfolio }               from '../models/Portfolio';
+import type { Holding }                from '../models/Holding';
 import type { InvestmentContribution } from '../models/InvestmentContribution';
-import type { Dividend }              from '../models/Dividend';
-import type { Person }                from '../models/Person';
-import type { Expense }               from '../models/Expense';
+import type { Dividend }               from '../models/Dividend';
+import type { Person }                 from '../models/Person';
+import type { Expense }                from '../models/Expense';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,15 @@ export function getPortfolioDependents(state: InvestmentState, portfolioId: stri
     holdings:      arr(state.investments).filter(h => h.portfolioId === portfolioId).length,
     contributions: arr(state.investmentContributions).filter(c => c.portfolioId === portfolioId).length,
     dividends:     arr(state.investmentDividends).filter(d => d.portfolioId === portfolioId).length,
+    assets:        arr(state.investmentAssets).filter(a => a.portfolioId === portfolioId).length,
+    transactions:  arr(state.investmentTransactions).filter(t => t.portfolioId === portfolioId).length,
+  };
+}
+
+export function getInvestmentAssetDependents(state: Pick<InvestmentState, 'investmentTransactions' | 'priceCache'>, assetId: string) {
+  return {
+    transactions: arr(state.investmentTransactions).filter(t => t.assetId === assetId).length,
+    prices:       arr(state.priceCache).filter(p => p.assetId === assetId).length,
   };
 }
 
@@ -180,10 +189,32 @@ export function cascadeDeletePortfolio(state: InvestmentState, portfolioId: stri
     investments:             arr(state.investments).filter(h => h.portfolioId !== portfolioId),
     investmentContributions: arr(state.investmentContributions).filter(c => c.portfolioId !== portfolioId),
     investmentDividends:     arr(state.investmentDividends).filter(d => d.portfolioId !== portfolioId),
+    investmentAssets:        arr(state.investmentAssets).filter(a => a.portfolioId !== portfolioId),
+    investmentTransactions:  arr(state.investmentTransactions).filter(t => t.portfolioId !== portfolioId),
+    priceCache:              arr(state.priceCache).filter(p => {
+      // Remove price entries for assets that belong to the deleted portfolio
+      const assetIds = new Set(arr(state.investmentAssets).filter(a => a.portfolioId === portfolioId).map(a => a.id));
+      return !assetIds.has(p.assetId);
+    }),
     selectedPortfolioId:
       state.selectedPortfolioId === portfolioId
         ? (remaining.length > 0 ? remaining[remaining.length - 1].id : null)
         : state.selectedPortfolioId,
+  };
+}
+
+export function investmentAssetDeleteMessage(name: string, deps: { transactions: number; prices: number }): string {
+  const parts: string[] = [];
+  if (deps.transactions > 0) parts.push(`${deps.transactions} transaction${deps.transactions !== 1 ? 's' : ''}`);
+  const suffix = parts.length > 0 ? ` This will also permanently delete ${parts.join(', ')}.` : '';
+  return `Delete "${name}"?${suffix}`;
+}
+
+export function cascadeDeleteInvestmentAsset(state: Pick<InvestmentState, 'investmentAssets' | 'investmentTransactions' | 'priceCache'>, assetId: string) {
+  return {
+    investmentAssets:       arr(state.investmentAssets).filter(a => a.id !== assetId),
+    investmentTransactions: arr(state.investmentTransactions).filter(t => t.assetId !== assetId),
+    priceCache:             arr(state.priceCache).filter(p => p.assetId !== assetId),
   };
 }
 

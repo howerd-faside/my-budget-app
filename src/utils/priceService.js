@@ -22,6 +22,28 @@ async function fetchStockPrice(ticker) {
   });
 }
 
+/**
+ * Fetch a quote for a single ticker — returns { ticker, name, price, currency }
+ * or throws on failure. Used by the Discovery quick-quote feature.
+ */
+export async function fetchQuote(ticker) {
+  const url = `/api/yahoo/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m`;
+  return withRetry(async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
+    const data = await res.json();
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta?.regularMarketPrice) throw new Error('No price in response');
+    return {
+      ticker: (meta.symbol || ticker).toUpperCase(),
+      name:   meta.longName || meta.shortName || ticker.toUpperCase(),
+      price:  +meta.regularMarketPrice,
+      currency: meta.currency || 'USD',
+      previousClose: meta.chartPreviousClose ? +meta.chartPreviousClose : null,
+    };
+  });
+}
+
 async function fetchCryptoPricesBatch(tickers) {
   const searches = await Promise.allSettled(
     tickers.map(async (ticker) => {
@@ -177,7 +199,95 @@ export async function fetchAllHistoricalPrices(holdings) {
   return { histMap, skipped };
 }
 
-// ── Portfolio series ──────────────────────────────────────────────────────────
+// ── Asset-model historical prices ────────────────────────────────────────────
+
+/**
+ * Fetch 2y of daily closing prices for all Assets (new model) with tickers.
+ * Same fetch logic as fetchAllHistoricalPrices but keyed by asset.id.
+ * Returns { histMap: Map<assetId, Map<dateStr, price>>, skipped: [{name, ticker, reason}] }
+ */
+export async function fetchAssetHistoricalPrices(assets) {
+  const withTicker    = assets.filter(a => a.ticker?.trim());
+  const withoutTicker = assets.filter(a => !a.ticker?.trim());
+  const stocks  = withTicker.filter(a => !CRYPTO_CATEGORIES.has(a.category));
+  const cryptos = withTicker.filter(a =>  CRYPTO_CATEGORIES.has(a.category));
+
+  const histMap = new Map();
+  const skipped = withoutTicker.map(a => ({ name: a.name, ticker: null, reason: 'No ticker set' }));
+
+  await Promise.allSettled([
+    ...stocks.map(async a => {
+      try {
+        histMap.set(a.id, await fetchStockHistory(a.ticker.trim()));
+      } catch (e) {
+        skipped.push({ name: a.name, ticker: a.ticker, reason: e.message });
+      }
+    }),
+    ...cryptos.map(async a => {
+      try {
+        histMap.set(a.id, await fetchCryptoHistory(a.ticker.trim()));
+      } catch (e) {
+        skipped.push({ name: a.name, ticker: a.ticker, reason: e.message });
+      }
+    }),
+  ]);
+
+  return { histMap, skipped };
+}
+
+/**
+ * Build a [{date, value}] series for the portfolio using new Asset model.
+ * Uses transaction-derived unit timelines for accurate historical position.
+ *
+ * @param {Asset[]} assets
+ * @param {InvestmentTransaction[]} transactions
+ * @param {Map<assetId, Map<dateStr, price>>} histMap
+ * @param {string} rangeKey — '1M' | '3M' | '6M' | 'YTD' | '1Y' | '2Y'
+ * @param {function} buildUnitsTimelineFn — from portfolio.ts
+ * @param {function} getUnitsAtDateFn — from portfolio.ts
+ */
+export function buildAssetPortfolioSeries(assets, transactions, histMap, rangeKey, buildUnitsTimelineFn, getUnitsAtDateFn) {
+  const startDate = getRangeStart(rangeKey);
+  const todayStr  = today();
+
+  // Pre-sort each asset's price entries once
+  const sortedPrices = new Map();
+  for (const [id, priceMap] of histMap) {
+    sortedPrices.set(id, [...priceMap.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+  }
+
+  // Pre-compute unit timelines per asset
+  const timelines = new Map();
+  for (const a of assets) {
+    timelines.set(a.id, buildUnitsTimelineFn(a.id, transactions));
+  }
+
+  // Collect all dates in range across all assets
+  const allDates = new Set();
+  for (const [, priceMap] of histMap) {
+    for (const d of priceMap.keys()) {
+      if (d >= startDate && d <= todayStr) allDates.add(d);
+    }
+  }
+
+  const dates = [...allDates].sort();
+  if (dates.length === 0) return [];
+
+  return dates.map(dateStr => {
+    let total = 0;
+    for (const a of assets) {
+      const sorted = sortedPrices.get(a.id);
+      if (!sorted?.length) continue;
+      const units = getUnitsAtDateFn(timelines.get(a.id) || [], dateStr);
+      if (units === 0) continue;
+      const price = lastKnownPrice(sorted, dateStr);
+      if (price != null) total += units * price;
+    }
+    return { date: dateStr, value: Math.round(total * 100) / 100 };
+  });
+}
+
+// ── Portfolio series (legacy) ────────────────────────────────────────────────
 
 export const CHART_RANGES = ['1M', '3M', '6M', 'YTD', '1Y', '2Y'];
 

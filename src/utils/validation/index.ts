@@ -14,6 +14,8 @@ export { holdingSchema }                     from './holdingSchema';
 export { propertyTaskSchema }                from './propertyTaskSchema';
 export { propertyAssetSchema }               from './propertyAssetSchema';
 export { wishlistItemSchema }                from './wishlistItemSchema';
+export { assetSchema }                      from './assetSchema';
+export { investmentTransactionSchema }      from './investmentTransactionSchema';
 
 export type { ExpenseFormData, LoanExpenseFormData } from './expenseSchema';
 export type { AccountFormData }                      from './accountSchema';
@@ -21,6 +23,8 @@ export type { HoldingFormData }                      from './holdingSchema';
 export type { PropertyTaskFormData }                 from './propertyTaskSchema';
 export type { PropertyAssetFormData }                from './propertyAssetSchema';
 export type { WishlistItemFormData }                 from './wishlistItemSchema';
+export type { AssetFormData }                        from './assetSchema';
+export type { InvestmentTransactionFormData }        from './investmentTransactionSchema';
 
 interface ValidationResult {
   ok: boolean;

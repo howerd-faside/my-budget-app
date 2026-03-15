@@ -23,3 +23,7 @@ export * from './PropertyProject';
 export * from './Transaction';
 export * from './Goal';
 export * from './FortnightlyData';
+
+export * from './Asset';
+export * from './InvestmentTransaction';
+export * from './PriceEntry';

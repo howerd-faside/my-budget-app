@@ -2,7 +2,13 @@
  * Investment domain store.
  *
  * Owns: investmentPortfolios, selectedPortfolioId, investments,
- *       investmentContributions, investmentDividends
+ *       investmentContributions, investmentDividends,
+ *       investmentAssets, investmentTransactions, priceCache
+ *
+ * Old keys (investments, investmentContributions, investmentDividends) are
+ * retained alongside new keys during the transition period. UI pages still
+ * read/write old keys; new keys are populated by the v4 migration and will
+ * become the primary data source once UI is migrated.
  */
 import { create } from 'zustand';
 import { persist }  from 'zustand/middleware';
@@ -17,15 +23,29 @@ import type { Portfolio }              from '../models/Portfolio';
 import type { Holding }                from '../models/Holding';
 import type { InvestmentContribution } from '../models/InvestmentContribution';
 import type { Dividend }               from '../models/Dividend';
+import type { Asset }                  from '../models/Asset';
+import type { InvestmentTransaction }  from '../models/InvestmentTransaction';
+import type { PriceEntry }             from '../models/PriceEntry';
+import type { WatchlistItem, WatchlistPrice } from '../models/WatchlistItem';
 
 // ── State + Action interfaces ────────────────────────────────────────────────
 
 export interface InvestmentStoreState {
+  // Existing keys (retained for backward compatibility)
   investmentPortfolios:    Portfolio[];
   selectedPortfolioId:     string | null;
   investments:             Holding[];
   investmentContributions: InvestmentContribution[];
   investmentDividends:     Dividend[];
+
+  // New keys (v4+)
+  investmentAssets:        Asset[];
+  investmentTransactions:  InvestmentTransaction[];
+  priceCache:              PriceEntry[];
+
+  // Discovery (v6+)
+  watchlist:               WatchlistItem[];
+  watchlistPrices:         WatchlistPrice[];
 }
 
 export interface InvestmentStoreActions {
@@ -40,6 +60,8 @@ export type InvestmentStore = InvestmentStoreState & InvestmentStoreActions;
 export const INVESTMENT_KEYS: (keyof InvestmentStoreState)[] = [
   'investmentPortfolios', 'selectedPortfolioId',
   'investments', 'investmentContributions', 'investmentDividends',
+  'investmentAssets', 'investmentTransactions', 'priceCache',
+  'watchlist', 'watchlistPrices',
 ];
 
 const defaults: InvestmentStoreState = {
@@ -48,6 +70,11 @@ const defaults: InvestmentStoreState = {
   investments:             [],
   investmentContributions: [],
   investmentDividends:     [],
+  investmentAssets:        [],
+  investmentTransactions:  [],
+  priceCache:              [],
+  watchlist:               [],
+  watchlistPrices:         [],
 };
 
 // ── Store ────────────────────────────────────────────────────────────────────

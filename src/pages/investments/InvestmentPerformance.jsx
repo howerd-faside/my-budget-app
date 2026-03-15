@@ -3,14 +3,14 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { useInvestment } from '../../store/hooks';
+import { usePortfolioAnalytics } from '../../store/hooks';
 import Icon from '../../components/Icon';
-import { fetchAllHistoricalPrices, buildPortfolioSeries, CHART_RANGES } from '../../utils/priceService';
+import { fetchAssetHistoricalPrices, buildAssetPortfolioSeries, CHART_RANGES } from '../../utils/priceService';
+import { buildUnitsTimeline, getUnitsAtDate, calcPeriodReturns } from '../../utils/finance/portfolio';
 import { useToast } from '../../components/Toast';
-import { calcPortfolioStats, enrichHoldings } from '../../utils/finance/savings';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { CATEGORY_COLORS as CAT_COLOR } from '../../utils/colors';
-import { fmtCurrency as fmt, fmtPct, timeAgo } from '../../utils/format';
+import { fmtCurrency as fmt, fmtPct } from '../../utils/format';
 
 const fmtK = (n) => {
   const abs = Math.abs(+n || 0);
@@ -25,6 +25,18 @@ function formatAxisDateShort(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-NZ', { month: 'short', year: '2-digit' });
 }
+
+/** Date range start for period returns table. */
+function periodStart(key) {
+  const d = new Date();
+  if (key === 'YTD') return `${d.getFullYear()}-01-01`;
+  const days = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 }[key] || 365;
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+const PERIOD_KEYS = ['1M', '3M', 'YTD', '1Y', 'All'];
+const TODAY_STR = new Date().toISOString().slice(0, 10);
 
 // ── Chart tooltip ─────────────────────────────────────────────────────────────
 
@@ -45,7 +57,7 @@ function ChartTooltip({ active, payload, label }) {
 
 // ── Portfolio chart ───────────────────────────────────────────────────────────
 
-function PortfolioChart({ holdings }) {
+function PortfolioChart({ assets, transactions }) {
   const toast = useToast();
   const [histMap, setHistMap] = useState(null);
   const [skipped, setSkipped] = useState([]);
@@ -53,16 +65,18 @@ function PortfolioChart({ holdings }) {
   const [error,   setError]   = useState(null);
   const [range,   setRange]   = useState('1Y');
 
+  const hasTickers = assets.some(a => a.ticker?.trim());
+
   const series = useMemo(() => {
     if (!histMap) return [];
-    return buildPortfolioSeries(holdings, histMap, range);
-  }, [histMap, holdings, range]);
+    return buildAssetPortfolioSeries(assets, transactions, histMap, range, buildUnitsTimeline, getUnitsAtDate);
+  }, [histMap, assets, transactions, range]);
 
   const handleLoad = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { histMap: map, skipped: skip } = await fetchAllHistoricalPrices(holdings);
+      const { histMap: map, skipped: skip } = await fetchAssetHistoricalPrices(assets);
       if (map.size === 0) throw new Error('No data returned — check tickers are valid symbols');
       setHistMap(map);
       setSkipped(skip);
@@ -90,9 +104,11 @@ function PortfolioChart({ holdings }) {
       {/* Top bar: title + load button */}
       <div className="perf-chart-topbar">
         <span className="perf-chart-title">Portfolio History <span className="perf-currency-tag">USD</span></span>
-        <button className="btn-ghost small" onClick={handleLoad} disabled={loading} style={{ minWidth: 104 }}>
-          {loading ? 'Loading…' : histMap ? '↻ Refresh' : '↓ Load History'}
-        </button>
+        {hasTickers && (
+          <button className="btn-ghost small" onClick={handleLoad} disabled={loading} style={{ minWidth: 104 }}>
+            {loading ? 'Loading…' : histMap ? '↻ Refresh' : '↓ Load History'}
+          </button>
+        )}
       </div>
 
       {/* Error */}
@@ -103,7 +119,7 @@ function PortfolioChart({ holdings }) {
       {/* Skipped warning */}
       {skipped.length > 0 && histMap && (
         <div className="perf-chart-warning">
-          ⚠ {skipped.map(s => `${s.name}${s.ticker ? ` (${s.ticker})` : ''}`).join(', ')} excluded — {skipped[0]?.reason}
+          {skipped.map(s => `${s.name}${s.ticker ? ` (${s.ticker})` : ''}`).join(', ')} excluded — {skipped[0]?.reason}
         </div>
       )}
 
@@ -111,7 +127,11 @@ function PortfolioChart({ holdings }) {
       {!histMap && !loading && (
         <div className="perf-chart-placeholder">
           <Icon name="trend" size={30} />
-          <span>Load 2 years of daily prices to see portfolio history</span>
+          <span>
+            {hasTickers
+              ? 'Load 2 years of daily prices to see portfolio history'
+              : 'Add tickers to your assets to load price history'}
+          </span>
         </div>
       )}
       {loading && (
@@ -189,87 +209,163 @@ function PortfolioChart({ holdings }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InvestmentPerformance() {
-  const { selectedPortfolioId: pid, investments } = useInvestment();
-  const holdings = (investments || []).filter(h => h.portfolioId === pid);
+  const {
+    assets, enrichedAssets, transactions, overview, income, allocationBy,
+  } = usePortfolioAnalytics();
 
-  const stats = useMemo(() => {
-    const { totalValue, totalCost, unrealised, returnPct } = calcPortfolioStats(holdings, [], []);
-    const enriched = enrichHoldings(holdings);
+  // ── Derived stats ──────────────────────────────────────────────────────────
 
-    // Category breakdown
+  // Category breakdown with G/L per category
+  const catBreakdown = useMemo(() => {
     const catMap = {};
-    for (const h of enriched) {
-      if (!catMap[h.category]) catMap[h.category] = { value: 0, cost: 0 };
-      catMap[h.category].value += h.value;
-      catMap[h.category].cost  += h.cost;
+    for (const ea of enrichedAssets) {
+      const cat = ea.asset.category || 'Other';
+      if (!catMap[cat]) catMap[cat] = { value: 0, cost: 0, realisedGL: 0 };
+      catMap[cat].value      += ea.currentValue;
+      catMap[cat].cost       += ea.position.totalCost;
+      catMap[cat].realisedGL += ea.position.realisedGL;
     }
-    const categories = Object.entries(catMap)
+    return Object.entries(catMap)
       .map(([cat, d]) => ({
-        cat, value: d.value, cost: d.cost,
-        gl:    d.value - d.cost,
+        cat,
+        value: d.value,
+        cost: d.cost,
+        gl: d.value - d.cost,
         glPct: d.cost > 0 ? (d.value - d.cost) / d.cost * 100 : 0,
-        pct:   totalValue > 0 ? d.value / totalValue : 0,
+        pct: overview.totalValue > 0 ? d.value / overview.totalValue : 0,
       }))
       .sort((a, b) => b.value - a.value);
+  }, [enrichedAssets, overview.totalValue]);
 
-    // Rankings
-    const ranked = [...enriched]
-      .filter(h => h.cost > 0)
-      .sort((a, b) => b.glPct - a.glPct);
-    const maxAbsGlPct = Math.max(...ranked.map(h => Math.abs(h.glPct)), 1);
+  // Rankings: sorted by unrealised GL%
+  const ranked = useMemo(() => {
+    const list = enrichedAssets
+      .filter(ea => ea.position.totalCost > 0)
+      .sort((a, b) => b.unrealisedGLPct - a.unrealisedGLPct);
+    return list;
+  }, [enrichedAssets]);
 
-    const lastUpdated = holdings.map(h => h.priceUpdatedAt).filter(Boolean).sort().pop();
+  const maxAbsGlPct = useMemo(
+    () => Math.max(...ranked.map(ea => Math.abs(ea.unrealisedGLPct)), 1),
+    [ranked],
+  );
 
-    return { totalValue, totalCost, unrealised, returnPct, categories, ranked, maxAbsGlPct, lastUpdated };
-  }, [holdings]);
+  // Period returns
+  const periodReturns = useMemo(() => {
+    return PERIOD_KEYS.map(key => {
+      const from = key === 'All' ? '0000-01-01' : periodStart(key);
+      return { key, ...calcPeriodReturns(transactions, from, TODAY_STR) };
+    });
+  }, [transactions]);
 
-  if (holdings.length === 0) {
+  // ── Empty state ─────────────────────────────────────────────────────────────
+
+  if (assets.length === 0) {
     return (
       <div className="page-content">
         <EmptyState
           icon={<Icon name="trend" size={38} />}
-          title="Add holdings with cost and current price to see performance."
+          title="Add assets and record transactions to see performance."
         />
       </div>
     );
   }
 
-  const isGain = stats.unrealised >= 0;
+  const isGain = overview.unrealisedGL >= 0;
+  const isRealisedGain = overview.realisedGL >= 0;
+  const isTotalGain = overview.totalReturn >= 0;
 
   return (
     <div className="page-content">
 
       {/* ── Portfolio history chart ── */}
-      <PortfolioChart holdings={holdings} />
+      <PortfolioChart assets={assets} transactions={transactions} />
 
-      {/* ── 4-stat snapshot strip ── */}
+      {/* ── Return summary tiles ── */}
       <div className="fn-summary">
-        <StatTile label="Portfolio Value" value={fmt(stats.totalValue)} />
-        <StatTile label="Cost Basis"      value={fmt(stats.totalCost)} />
+        <StatTile label="Portfolio Value" value={fmt(overview.totalValue)} />
+        <StatTile label="Cost Basis"     value={fmt(overview.totalCost)} />
         <StatTile
           label="Unrealised G/L"
-          value={`${isGain ? '+' : '−'}${fmt(Math.abs(stats.unrealised))}`}
+          value={`${isGain ? '+' : '−'}${fmt(overview.unrealisedGL)}`}
           valueClassName={isGain ? 'green' : 'red'}
+          meta={`${isGain ? '+' : ''}${overview.totalCost > 0 ? ((overview.unrealisedGL / overview.totalCost) * 100).toFixed(1) : '0.0'}%`}
         />
-        <div className="fns-item">
-          <span>Total Return{stats.lastUpdated ? <span style={{ fontWeight: 400, color: 'var(--text3)' }}> · {timeAgo(stats.lastUpdated)}</span> : ''}</span>
-          <div className="fns-val-row">
-            <span className="mono" style={{ color: isGain ? 'var(--green)' : 'var(--red)', fontSize: 18, fontWeight: 700 }}>
-              {fmtPct(stats.returnPct)}
-            </span>
-          </div>
-        </div>
+        <StatTile
+          label="Realised G/L"
+          value={`${isRealisedGain ? '+' : '−'}${fmt(overview.realisedGL)}`}
+          valueClassName={isRealisedGain ? 'green' : 'red'}
+        />
+        <StatTile
+          label="Total Return"
+          value={`${isTotalGain ? '+' : '−'}${fmt(overview.totalReturn)}`}
+          valueClassName={isTotalGain ? 'green' : 'red'}
+          meta={fmtPct(overview.returnPct)}
+        />
+        <StatTile
+          label="Dividend Income"
+          value={fmt(income.dividendNet)}
+          valueClassName="green"
+          meta={income.dividendTax > 0 ? `Gross ${fmt(income.dividendGross)} · Tax ${fmt(income.dividendTax)}` : undefined}
+        />
+        {income.feesPaid > 0 && (
+          <StatTile label="Fees Paid" value={fmt(income.feesPaid)} valueClassName="red" />
+        )}
       </div>
+
+      {/* ── Period returns table ── */}
+      {transactions.length > 0 && (
+        <Card variant="section">
+          <SectionHeader title={<><Icon name="trend" size={15} /> Returns by Period</>} />
+          <div className="perf-table-wrap">
+            <table className="perf-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th className="right">Invested</th>
+                  <th className="right">Sold</th>
+                  <th className="right">Realised</th>
+                  <th className="right">Dividends</th>
+                  <th className="right">Fees</th>
+                  <th className="right">Txns</th>
+                </tr>
+              </thead>
+              <tbody>
+                {periodReturns.map(pr => {
+                  const isPos = pr.realisedGL >= 0;
+                  return (
+                    <tr key={pr.key}>
+                      <td style={{ fontWeight: 500 }}>{pr.key}</td>
+                      <td className="right mono">{pr.invested > 0 ? fmt(pr.invested) : '—'}</td>
+                      <td className="right mono">{pr.disposed > 0 ? fmt(pr.disposed) : '—'}</td>
+                      <td className="right mono" style={{ color: pr.realisedGL !== 0 ? (isPos ? 'var(--green)' : 'var(--red)') : undefined }}>
+                        {pr.realisedGL !== 0 ? `${isPos ? '+' : '−'}${fmt(pr.realisedGL)}` : '—'}
+                      </td>
+                      <td className="right mono" style={{ color: pr.dividendNet > 0 ? 'var(--green)' : undefined }}>
+                        {pr.dividendNet > 0 ? fmt(pr.dividendNet) : '—'}
+                      </td>
+                      <td className="right mono" style={{ color: pr.feesPaid > 0 ? 'var(--red)' : undefined }}>
+                        {pr.feesPaid > 0 ? fmt(pr.feesPaid) : '—'}
+                      </td>
+                      <td className="right mono">{pr.txCount || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* ── Middle: category breakdown + performance ranking ── */}
       <div className="perf-mid-grid">
 
         {/* Category breakdown */}
-        {stats.categories.length > 1 && (
+        {catBreakdown.length > 1 && (
           <Card variant="section">
             <SectionHeader title={<><Icon name="layers" size={15} /> By Category</>} />
             <div className="perf-cat-list">
-              {stats.categories.map(c => {
+              {catBreakdown.map(c => {
                 const color = CAT_COLOR[c.cat] || '#86868B';
                 const isPos = c.gl >= 0;
                 return (
@@ -303,23 +399,23 @@ export default function InvestmentPerformance() {
         )}
 
         {/* Rankings */}
-        {stats.ranked.length > 0 && (
+        {ranked.length > 0 && (
           <Card variant="section">
             <SectionHeader title={<><Icon name="sortaz" size={15} /> Ranked by Return</>} />
             <div className="perf-rank-list">
-              {stats.ranked.map((h, i) => {
-                const color   = CAT_COLOR[h.category] || '#86868B';
-                const isPos   = h.gl >= 0;
-                const barPct  = Math.min(100, Math.abs(h.glPct) / stats.maxAbsGlPct * 100);
+              {ranked.map((ea, i) => {
+                const color  = CAT_COLOR[ea.asset.category] || '#86868B';
+                const isPos  = ea.unrealisedGL >= 0;
+                const barPct = Math.min(100, Math.abs(ea.unrealisedGLPct) / maxAbsGlPct * 100);
                 return (
-                  <div key={h.id} className="perf-rank-row">
+                  <div key={ea.asset.id} className="perf-rank-row">
                     <span className="perf-rank-num">{i + 1}</span>
                     <span className="cl-dot" style={{ background: color, flexShrink: 0 }} />
                     <div className="perf-rank-info">
-                      <span className="perf-rank-name">{h.name}</span>
-                      {h.ticker && (
+                      <span className="perf-rank-name">{ea.asset.name}</span>
+                      {ea.asset.ticker && (
                         <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0, fontSize: 10 }}>
-                          {h.ticker}
+                          {ea.asset.ticker}
                         </span>
                       )}
                     </div>
@@ -334,7 +430,7 @@ export default function InvestmentPerformance() {
                       color: isPos ? 'var(--green)' : 'var(--red)',
                       minWidth: 64, textAlign: 'right',
                     }}>
-                      {fmtPct(h.glPct)}
+                      {fmtPct(ea.unrealisedGLPct)}
                     </span>
                   </div>
                 );
@@ -344,66 +440,73 @@ export default function InvestmentPerformance() {
         )}
       </div>
 
-      {/* ── Holdings detail table ── */}
+      {/* ── Asset detail table ── */}
       <Card variant="section">
-        <SectionHeader title={<><Icon name="tag" size={15} /> Holdings Detail</>} />
+        <SectionHeader title={<><Icon name="tag" size={15} /> Asset Detail</>} />
         <div className="perf-table-wrap">
           <table className="perf-table">
             <thead>
               <tr>
-                <th>Holding</th>
+                <th>Asset</th>
                 <th className="right">Units</th>
                 <th className="right">Avg Cost</th>
                 <th className="right">Price</th>
                 <th className="right">Value</th>
-                <th className="right">G/L</th>
+                <th className="right">Unrealised</th>
+                <th className="right">Realised</th>
                 <th className="right">Return</th>
               </tr>
             </thead>
             <tbody>
-              {[...holdings].sort((a, b) => {
-                const va = (+a.units || 0) * (+a.currentPrice || 0);
-                const vb = (+b.units || 0) * (+b.currentPrice || 0);
-                return vb - va;
-              }).map(h => {
-                const units = +h.units || 0;
-                const value = units * (+h.currentPrice || 0);
-                const cost  = units * (+h.avgCost      || 0);
-                const gl    = value - cost;
-                const glPct = cost > 0 ? (gl / cost * 100) : 0;
-                const isPos = gl >= 0;
-                const color = CAT_COLOR[h.category] || '#86868B';
-                return (
-                  <tr key={h.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span className="cl-dot" style={{ background: color, flexShrink: 0 }} />
-                        <span style={{ fontWeight: 500, fontSize: 13 }}>{h.name}</span>
-                        {h.ticker && (
-                          <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0, fontSize: 10 }}>
-                            {h.ticker}
+              {[...enrichedAssets]
+                .sort((a, b) => b.currentValue - a.currentValue)
+                .map(ea => {
+                  const isPos = ea.unrealisedGL >= 0;
+                  const isRePos = ea.position.realisedGL >= 0;
+                  const color = CAT_COLOR[ea.asset.category] || '#86868B';
+                  const hasPrice = ea.currentPrice > 0;
+                  return (
+                    <tr key={ea.asset.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <span className="cl-dot" style={{ background: color, flexShrink: 0 }} />
+                          <span style={{ fontWeight: 500, fontSize: 13 }}>{ea.asset.name}</span>
+                          {ea.asset.ticker && (
+                            <span className="tag" style={{ fontFamily: 'var(--mono)', letterSpacing: 0, fontSize: 10 }}>
+                              {ea.asset.ticker}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="right mono">
+                        {ea.position.units > 0 ? ea.position.units.toLocaleString('en-NZ', { maximumFractionDigits: 4 }) : '—'}
+                      </td>
+                      <td className="right mono" style={{ color: 'var(--text2)' }}>
+                        {ea.position.avgCost > 0 ? fmt(ea.position.avgCost) : '—'}
+                      </td>
+                      <td className="right mono" style={{ color: 'var(--text2)' }}>
+                        {hasPrice ? fmt(ea.currentPrice) : <span style={{ color: 'var(--text3)' }}>No price</span>}
+                      </td>
+                      <td className="right mono" style={{ fontWeight: 600 }}>{fmt(ea.currentValue)}</td>
+                      <td className="right mono" style={{ color: isPos ? 'var(--green)' : 'var(--red)' }}>
+                        {ea.position.units > 0 ? `${isPos ? '+' : '−'}${fmt(ea.unrealisedGL)}` : '—'}
+                      </td>
+                      <td className="right mono" style={{ color: ea.position.realisedGL !== 0 ? (isRePos ? 'var(--green)' : 'var(--red)') : undefined }}>
+                        {ea.position.realisedGL !== 0 ? `${isRePos ? '+' : '−'}${fmt(ea.position.realisedGL)}` : '—'}
+                      </td>
+                      <td className="right">
+                        {ea.position.totalCost > 0 ? (
+                          <span className="perf-return-pill" style={{
+                            background: isPos ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
+                            color: isPos ? 'var(--green)' : 'var(--red)',
+                          }}>
+                            {fmtPct(ea.unrealisedGLPct)}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="right mono">{units.toLocaleString('en-NZ', { maximumFractionDigits: 4 })}</td>
-                    <td className="right mono" style={{ color: 'var(--text2)' }}>{h.avgCost ? fmt(h.avgCost) : '—'}</td>
-                    <td className="right mono" style={{ color: 'var(--text2)' }}>{h.currentPrice ? fmt(h.currentPrice) : '—'}</td>
-                    <td className="right mono" style={{ fontWeight: 600 }}>{fmt(value)}</td>
-                    <td className="right mono" style={{ color: isPos ? 'var(--green)' : 'var(--red)' }}>
-                      {isPos ? '+' : '−'}{fmt(Math.abs(gl))}
-                    </td>
-                    <td className="right">
-                      <span className="perf-return-pill" style={{
-                        background: isPos ? 'rgba(52,199,89,0.12)' : 'rgba(255,59,48,0.12)',
-                        color: isPos ? 'var(--green)' : 'var(--red)',
-                      }}>
-                        {fmtPct(glPct)}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
