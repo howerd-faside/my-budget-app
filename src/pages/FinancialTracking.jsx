@@ -18,7 +18,7 @@ const YEAR_WINDOW   = 7;
 
 
 export default function FinancialTracking() {
-  const { accounts, fortnightlyData, assetIncomes, updateFortnight: updFn } = useFinance();
+  const { accounts, fortnightlyData, assetIncomes, updateFortnight: updFn, updateAccount } = useFinance();
   const { people, expenses } = usePeople();
   const thisYear = new Date().getFullYear();
   const [year,         setYear]         = useState(thisYear);
@@ -173,22 +173,40 @@ export default function FinancialTracking() {
     if (!txForm.description || !txForm.amount) return;
     const existing = (yd.fortnights || {})[txModal] || { adhocTransactions: [] };
     const isIncome = txType === 'income';
+    const amount = isIncome ? +Math.abs(+txForm.amount) : -Math.abs(+txForm.amount);
     const tx = {
       id: crypto.randomUUID(),
       date: today(),
       description: txForm.description,
-      amount: isIncome ? +Math.abs(+txForm.amount) : -Math.abs(+txForm.amount),
+      amount,
       category: txForm.category,
       note: txForm.note,
       type: txType,
     };
     updFn(year, txModal, { adhocTransactions: [...(existing.adhocTransactions || []), tx] });
+
+    // Past/current ad-hoc: money already spent (or received), adjust account balance.
+    // Future fortnights are projections only — no account change.
+    const isFuture = year > thisYear || (year === thisYear && currentFnIdx >= 0 && txModal > currentFnIdx);
+    if (!isFuture) {
+      const target = accounts.find(a => a.id === 'main') || accounts[0];
+      if (target) updateAccount(target.id, (target.balance || 0) + amount);
+    }
+
     setTxModal(null);
   };
 
   const removeTx = (fnIdx, txId) => {
     const existing = (yd.fortnights || {})[fnIdx] || { adhocTransactions: [] };
+    const tx = (existing.adhocTransactions || []).find(t => t.id === txId);
     updFn(year, fnIdx, { adhocTransactions: (existing.adhocTransactions || []).filter(t => t.id !== txId) });
+
+    // Reverse: past/current removal restores the amount to the account
+    const isFuture = year > thisYear || (year === thisYear && currentFnIdx >= 0 && fnIdx > currentFnIdx);
+    if (!isFuture && tx) {
+      const target = accounts.find(a => a.id === 'main') || accounts[0];
+      if (target) updateAccount(target.id, (target.balance || 0) - tx.amount);
+    }
   };
 
   const cats = txType === 'income' ? INCOME_CATS : EXPENSE_CATS;
