@@ -25,6 +25,7 @@ import InvestmentPortfolios from './pages/investments/InvestmentPortfolios';
 import InvestmentDiscovery from './pages/investments/InvestmentDiscovery';
 import PortfolioStrip from './components/investments/PortfolioStrip';
 import PropertyStrip from './components/property/PropertyStrip';
+import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Icon from './components/Icon';
 import fasideLogo from './assets/faside-logo.png';
@@ -110,6 +111,14 @@ function Shell() {
     setSlideDir(newIdx > oldIdx ? 1 : -1);
     setAnimKey(k => k + 1);
     setTab(newTab);
+  };
+
+  /** Cross-section + tab navigation (used by Home drill-downs). */
+  const navigateTo = (targetSection, targetTab) => {
+    setSection(targetSection);
+    setTab(targetTab || SECTION_DEFAULT[targetSection] || '');
+    setSlideDir(0);
+    setAnimKey(k => k + 1);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -237,7 +246,7 @@ function Shell() {
             {section === 'property'    && <PropertyStrip currentTab={tab} onAddProperty={() => { if (tab !== 'prop-register') goTab('prop-register'); setPropNewTrigger(t => t + 1); }} />}
             <div key={animKey} className={`page-anim ${animClass}`}>
               <ErrorBoundary key={tab} label={currentTabs.find(t => t.id === tab)?.label}>
-                {section === 'home' ? null : section === 'settings' ? <Settings /> : renderPage()}
+                {section === 'home' ? <Home navigateTo={navigateTo} /> : section === 'settings' ? <Settings /> : renderPage()}
               </ErrorBoundary>
             </div>
           </div>

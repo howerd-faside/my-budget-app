@@ -15,7 +15,7 @@ import { today } from '../../utils/finance/dates';
 import { fmtCurrency as fmt } from '../../utils/format';
 import Icon from '../Icon';
 
-export default function PortfolioStrip() {
+export default function PortfolioStrip({ onManage }) {
   const {
     investmentPortfolios,
     selectedPortfolioId,
@@ -24,7 +24,8 @@ export default function PortfolioStrip() {
   } = useInvestment();
 
   const { assets, overview } = usePortfolioAnalytics();
-  const goTab = useNavigate();
+  const goTabCtx = useNavigate();
+  const goTab = onManage ? (tab) => { if (tab === 'inv-manage') onManage(); else goTabCtx(tab); } : goTabCtx;
 
   const portfolios = (investmentPortfolios || []).filter(p => !p.archived);
   const selected = portfolios.find(p => p.id === selectedPortfolioId);

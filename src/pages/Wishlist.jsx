@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
-import { buildSavingsTrajectory, calcFortnightlyIncome, calcFortnightlyExpenses, calcFortnightlyAssetIncome, totalBalance } from '../utils/finance/savings';
-import { useFinance } from '../store/hooks';
-import { usePeople }  from '../store/hooks';
+import { buildSavingsTrajectory, totalBalance } from '../utils/finance/savings';
+import { useFinance, usePeople, useWishlistSummary } from '../store/hooks';
 import { fmtMoneyRound } from '../utils/finance/tax';
 import { affordabilityStatus, affordabilityDate, findGoalHit } from '../utils/finance/savings';
 import { createWishlistItem } from '../models/WishlistItem';
@@ -154,14 +153,8 @@ export default function Wishlist() {
   const pending   = useMemo(() => wishlist.filter(i => !i.purchased), [wishlist]);
   const purchased = useMemo(() => wishlist.filter(i => i.purchased),  [wishlist]);
 
-  const totalCost  = pending.reduce((s, i) => s + (+i.estimatedCost || 0), 0);
-  const canBuyNow  = pending.filter(i => i.estimatedCost && currentBal >= +i.estimatedCost).length;
-  const nextSoonest = pending
-    .filter(i => i.estimatedCost && currentBal < +i.estimatedCost)
-    .map(i => ({ item: i, hit: trajectory.find(p => p.balance >= +i.estimatedCost) }))
-    .filter(e => e.hit)
-    .sort((a, b) => a.hit.date.localeCompare(b.hit.date))[0];
-  const nextLabel = nextSoonest ? affordabilityDate(+nextSoonest.item.estimatedCost, currentBal, trajectory) : null;
+  // Summary stats via shared hook (avoids duplicating affordability derivation)
+  const wlSummary = useWishlistSummary();
 
   const openNew = () => { setForm({ ...EMPTY, id: crypto.randomUUID() }); setEditing('new'); setErrors({}); };
   const openEdit = (item) => { setForm({ ...item }); setEditing(item.id); setErrors({}); };
@@ -202,9 +195,9 @@ export default function Wishlist() {
             }
           />
           <div className="fn-summary">
-            <StatTile label="Total Pending"   value={fmtMoneyRound(totalCost)} valueClassName="red" />
-            <StatTile label="Can Buy Now"     value={canBuyNow} valueClassName="green" />
-            <StatTile label="Next Affordable" value={nextLabel || '—'} valueClassName="amber" />
+            <StatTile label="Total Pending"   value={fmtMoneyRound(wlSummary.totalPendingCost)} valueClassName="red" />
+            <StatTile label="Can Buy Now"     value={wlSummary.affordableNow} valueClassName="green" />
+            <StatTile label="Next Affordable" value={wlSummary.nextAffordable || '—'} valueClassName="amber" />
             <StatTile label="Purchased"       value={purchased.length} />
           </div>
         </Card>

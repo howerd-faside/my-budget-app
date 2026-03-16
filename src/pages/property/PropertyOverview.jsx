@@ -4,13 +4,9 @@ import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { useNavigate } from '../../contexts/NavigationContext';
 import { PRIORITY_COLOR_HEX, PRIORITY_COLOR, PRIORITY_DPILL } from '../../utils/colors';
-import { today } from '../../utils/finance/dates';
+import { today, daysBetween } from '../../utils/finance/dates';
 
 const TODAY = today();
-
-function daysBetween(a, b) {
-  return Math.round((new Date(b) - new Date(a)) / 86400000);
-}
 
 export default function PropertyOverview() {
   const onSelectTab = useNavigate();

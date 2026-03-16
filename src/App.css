@@ -302,6 +302,237 @@ body {
 /* ── SHARED PAGE ───────────────────────────────────────────────────────── */
 .page-content { display: flex; flex-direction: column; gap: 16px; }
 
+/* ── HOME COMPACT DASHBOARD ───────────────────────────────────────────── */
+.home-compact { gap: 16px; }
+.home-compact .dash-section { padding: 12px 14px; border-radius: 12px; }
+.home-compact .dash-section .section-header { margin-bottom: 6px; }
+.home-compact .dash-section .section-header h3 { font-size: 14px; }
+.home-compact .dash-section .fn-summary { margin-bottom: 4px; }
+.home-compact .dash-section .fn-summary:last-child { margin-bottom: 0; }
+.home-compact .fn-summary { gap: 6px; }
+.home-compact .fns-item { padding: 8px 10px; gap: 2px; border-radius: 10px; }
+.home-compact .fns-item .mono { font-size: 18px; }
+.home-compact .section-subheader { margin: 8px 0 4px; }
+.home-compact .empty-state { padding: 20px 14px; }
+.home-compact .dash-goal-row { padding: 10px 14px; gap: 10px; }
+.home-compact .dash-goals { border-radius: 12px; }
+.home-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+/* ── SHARED PANEL HEADER ICON (QA + HA cards) ────────────────────────── */
+.panel-hdr-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(0,0,0,0.05);
+  color: var(--text2);
+  flex-shrink: 0;
+}
+
+/* ── HOME ALERTS LIST ──────────────────────────────────────────────── */
+.home-alerts {
+  background: var(--card);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.home-alerts--clear {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text3);
+  font-size: 12px;
+}
+.ha-clear-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--green-dim);
+  color: var(--green);
+  flex-shrink: 0;
+}
+.ha-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--text2);
+}
+.ha-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+.ha-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  background: rgba(0,0,0,0.06);
+  border-radius: 8px;
+  padding: 1px 6px;
+  min-width: 16px;
+  text-align: center;
+}
+.ha-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Alert row — severity-tinted indicator + content */
+.ha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s var(--ease);
+}
+.ha-row:hover {
+  background: var(--card2);
+}
+.ha-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.ha-urgent .ha-indicator { background: var(--red-dim);   color: var(--red); }
+.ha-warn   .ha-indicator { background: var(--amber-dim); color: var(--amber); }
+.ha-info   .ha-indicator { background: rgba(0,0,0,0.05); color: var(--text3); }
+.ha-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+}
+.ha-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+}
+.ha-detail {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.ha-more {
+  font-size: 11px;
+  color: var(--text3);
+  padding: 2px 0 0 38px;
+}
+
+/* ── HOME QUICK ACTIONS PANEL ──────────────────────────────────────── */
+.home-qa {
+  background: var(--card);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.qa-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--text2);
+}
+.qa-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Primary — icon-first action tiles in a responsive grid */
+.qa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.qa-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--card2);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.qa-tile:hover {
+  background: var(--card3);
+  box-shadow: var(--shadow-sm);
+}
+.qa-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--teal-dim);
+  color: var(--teal);
+  flex-shrink: 0;
+}
+.qa-tile-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+/* Secondary — compact icon+label row */
+.qa-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sep);
+}
+.qa-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  font-family: inherit;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.qa-link:hover {
+  color: var(--teal);
+  background: var(--teal-dim);
+}
 
 /* ── STAT WIDGETS (fn-summary) ─────────────────────────────────────────── */
 .fn-summary {

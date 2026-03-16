@@ -25,6 +25,14 @@ export function getFortnight(year: number, idx: number): FortnightRange {
 }
 
 /**
+ * Whole-day difference between two ISO date strings (b − a).
+ * Positive when b is after a, negative when b is before a.
+ */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+}
+
+/**
  * Calendar-month difference between two dates (b − a), truncated.
  * Accepts Date objects or ISO date strings.
  */
