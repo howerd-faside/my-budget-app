@@ -72,6 +72,10 @@
 .btn-ai:hover:not(:disabled) { background: rgba(175,82,222,0.12); border-color: rgba(175,82,222,0.5); }
 .btn-ai:disabled { opacity: 0.3; cursor: not-allowed; }
 
+/* ── BTN-DANGER variant ──────────────────────────────────────────────── */
+.btn-primary.btn-danger { background: var(--red); }
+.btn-primary.btn-danger:hover { background: var(--red); filter: brightness(0.92); }
+
 /* ── BTN-GREEN variant ───────────────────────────────────────────────── */
 .btn-primary.btn-green { background: var(--green); }
 .btn-primary.btn-green:hover { background: var(--green); filter: brightness(0.92); }
@@ -197,6 +201,10 @@ select.input {
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
+}
+select.input option {
+  background: var(--card);
+  color: var(--text);
 }
 
 /* ── EMPTY STATE ───────────────────────────────────────────────────────── */

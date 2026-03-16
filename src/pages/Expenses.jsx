@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { calcFortnightlyExpensesAt } from '../utils/finance/savings';
-import { usePeople } from '../store/hooks';
+import { usePeople, useUndoDelete } from '../store/hooks';
 import { fmtMoneyRound } from '../utils/finance/tax';
 import { toFortnightly } from '../utils/finance/frequency';
 import { createExpense, createFacility } from '../models/Expense';
@@ -28,6 +28,7 @@ function normalizeLegacyExpense(e) {
 
 export default function Expenses() {
   const { expenses: storeExpenses, setPeople } = usePeople();
+  const undoDelete = useUndoDelete();
   const [editing, setEditing]             = useState(null);
   const [form, setForm]                   = useState(EMPTY);
   const [errors, setErrors]               = useState({});
@@ -136,7 +137,15 @@ export default function Expenses() {
   };
 
   const executeRemove = () => {
-    if (confirmTarget) setPeople('expenses', storeExpenses.filter(e => e.id !== confirmTarget));
+    if (confirmTarget) {
+      const name = storeExpenses.find(e => e.id === confirmTarget)?.name || 'Expense';
+      undoDelete({
+        label: `${name} removed`,
+        domain: 'people',
+        snapshot: { expenses: storeExpenses },
+        applyFn: () => setPeople('expenses', storeExpenses.filter(e => e.id !== confirmTarget)),
+      });
+    }
     setConfirmTarget(null);
   };
 

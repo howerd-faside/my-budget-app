@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import Icon from '../../components/Icon';
 import { Modal, ConfirmDialog } from '../../components/ui';
 import { validate, goalSchema } from '../../utils/validation';
+import { useUndoDelete } from '../../store/hooks';
 
 const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
 
@@ -17,6 +18,7 @@ const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
  * @param {Function} props.setFinance       - Store setter for 'goals' key
  */
 export default function GoalsSection({ goals, goalsWithDates, currentBal, nextGoalIdx, setFinance }) {
+  const undoDelete = useUndoDelete();
   const [editing, setEditing]   = useState(null);
   const [goalForm, setGoalForm] = useState(EMPTY_GOAL);
   const [errors, setErrors]     = useState({});
@@ -34,7 +36,15 @@ export default function GoalsSection({ goals, goalsWithDates, currentBal, nextGo
   };
   const removeGoal = (id) => setConfirmTarget(id);
   const executeRemoveGoal = () => {
-    setFinance('goals', (goals || []).filter(g => g.id !== confirmTarget));
+    if (confirmTarget) {
+      const name = (goals || []).find(g => g.id === confirmTarget)?.name || 'Goal';
+      undoDelete({
+        label: `${name} removed`,
+        domain: 'finance',
+        snapshot: { goals: goals || [] },
+        applyFn: () => setFinance('goals', (goals || []).filter(g => g.id !== confirmTarget)),
+      });
+    }
     setConfirmTarget(null);
   };
 

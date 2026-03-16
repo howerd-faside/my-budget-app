@@ -29,14 +29,15 @@ export default function FinancialTracking() {
   const [txType, setTxType]   = useState('expense');
   const [txForm, setTxForm]   = useState({ description: '', amount: '', category: 'Other', note: '' });
 
-  const fnIncome      = calcFortnightlyIncome(people);
   const fnAssetIncome = calcFortnightlyAssetIncome(assetIncomes || []);
   const fnExpenses    = calcFortnightlyExpenses(expenses);
 
   const now           = new Date();
+  const fnIncome      = calcFortnightlyIncome(people, now);
   const fnIncomeNow   = calcFortnightlyIncomeAt(people, now);
-  const fnNet         = fnIncomeNow + fnAssetIncome - fnExpenses;
-  const fnNetBase     = fnIncome + fnAssetIncome - fnExpenses;
+  const fnExpensesNow = calcFortnightlyExpensesAt(expenses, now);
+  const fnNet         = fnIncomeNow + fnAssetIncome - fnExpensesNow;
+  const fnNetBase     = fnIncome + fnAssetIncome - fnExpensesNow;
   const incomeEventActiveNow = Math.abs(fnIncomeNow - fnIncome) > 0.5;
 
   const startBal   = totalBalance(accounts);
@@ -55,9 +56,10 @@ export default function FinancialTracking() {
       const adhoc          = (ftData.adhocTransactions || []).reduce((s, t) => s + (t.amount || 0), 0);
       const midDate        = new Date((start.getTime() + end.getTime()) / 2);
       const fnIncomeAt     = calcFortnightlyIncomeAt(people, midDate);
+      const fnIncomeBase   = calcFortnightlyIncome(people, midDate);
       const fnExpensesAt   = calcFortnightlyExpensesAt(expenses, midDate);
       const actual         = fnIncomeAt + fnAssetIncome - fnExpensesAt + adhoc;
-      return { i, start, end, adhoc, actual, fnIncomeAt, fnExpensesAt, ftData, balance: 0 };
+      return { i, start, end, adhoc, actual, fnIncomeAt, fnIncomeBase, fnExpensesAt, ftData, balance: 0 };
     });
 
     const curIdx = year === thisYear
@@ -109,9 +111,11 @@ export default function FinancialTracking() {
 
   const shiftWindow = (dir) => setWindowStart(s => s + dir);
 
-  const fnIncomeForYear   = fortnights[0]?.fnIncomeAt   ?? fnIncomeNow;
-  const fnExpensesForYear = fortnights[0]?.fnExpensesAt ?? fnExpenses;
-  const fnNetForYear      = fnIncomeForYear + fnAssetIncome - fnExpensesForYear;
+  const fnIncomeForYear     = fortnights[0]?.fnIncomeAt   ?? fnIncomeNow;
+  const fnIncomeBaseForYear = fortnights[0]?.fnIncomeBase ?? fnIncome;
+  const fnExpensesForYear   = fortnights[0]?.fnExpensesAt ?? fnExpensesNow;
+  const fnNetForYear        = fnIncomeForYear + fnAssetIncome - fnExpensesForYear;
+  const fnNetBaseForYear    = fnIncomeBaseForYear + fnAssetIncome - fnExpensesForYear;
   const incomeEventInYear = people.some(p =>
     (p.incomeEvents || []).some(e =>
       e.startDate &&
@@ -255,7 +259,7 @@ export default function FinancialTracking() {
           label="Net /fn"
           value={fmtMoneyRound(fnNetForYear)}
           valueClassName={fnNetForYear >= 0 ? 'green' : 'red'}
-          meta={incomeEventInYear ? `base ${fmtMoneyRound(fnNetBase)}` : undefined}
+          meta={incomeEventInYear ? `base ${fmtMoneyRound(fnNetBaseForYear)}` : undefined}
         />
         <StatTile
           label={`Ad-hoc ${year}`}

@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from 'react';
-import { useInvestment } from '../../store/hooks';
+import { useInvestment, useUndoDelete } from '../../store/hooks';
 import { useNavigate } from '../../contexts/NavigationContext';
 import { useToast } from '../../components/Toast';
 import Icon from '../../components/Icon';
@@ -24,6 +24,7 @@ export default function InvestmentDiscovery() {
   } = useInvestment();
   const navigate = useNavigate();
   const toast    = useToast();
+  const undoDelete = useUndoDelete();
 
   const items  = watchlist || [];
   const prices = watchlistPrices || [];
@@ -76,9 +77,15 @@ export default function InvestmentDiscovery() {
   }, [items, prices, setInvestment]);
 
   const removeItem = useCallback((id) => {
-    setInvestment('watchlist', items.filter(i => i.id !== id));
+    const name = items.find(i => i.id === id)?.name || 'Watchlist item';
+    undoDelete({
+      label: `${name} removed`,
+      domain: 'investment',
+      snapshot: { watchlist: items },
+      applyFn: () => setInvestment('watchlist', items.filter(i => i.id !== id)),
+    });
     if (expandedId === id) setExpandedId(null);
-  }, [items, expandedId, setInvestment]);
+  }, [items, expandedId, setInvestment, undoDelete]);
 
   const saveEdit = useCallback((form) => {
     setInvestment('watchlist', items.map(i => i.id === form.id ? { ...form } : i));

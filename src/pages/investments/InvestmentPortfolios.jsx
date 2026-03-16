@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { useInvestment } from '../../store/hooks';
+import { useInvestment, useUndoDelete } from '../../store/hooks';
 import { enrichAllAssets, calcIncomeTotals } from '../../utils/finance/portfolio';
 import {
   getPortfolioDependents,
@@ -130,6 +130,7 @@ export default function InvestmentPortfolios() {
     investmentAssets, investmentTransactions, priceCache,
     setInvestment, mergeInvestment,
   } = useInvestment();
+  const undoDelete = useUndoDelete();
 
   const portfolios = investmentPortfolios || [];
   const allAssets  = investmentAssets || [];
@@ -246,7 +247,14 @@ export default function InvestmentPortfolios() {
   };
 
   const executeDelete = () => {
-    if (confirmTarget) mergeInvestment(cascadeDeletePortfolio(confirmTarget.invState, confirmTarget.id));
+    if (confirmTarget) {
+      undoDelete({
+        label: 'Portfolio deleted',
+        domain: 'investment',
+        snapshot: confirmTarget.invState,
+        applyFn: () => mergeInvestment(cascadeDeletePortfolio(confirmTarget.invState, confirmTarget.id)),
+      });
+    }
     setConfirmTarget(null);
   };
 

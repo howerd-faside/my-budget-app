@@ -53,10 +53,10 @@ export default function ConfirmDialog({
             <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{message}</p>
           </div>
           <div className="modal-footer">
-            <button className="btn" ref={cancelRef} onClick={onCancel}>
+            <button className="btn-ghost small" ref={cancelRef} onClick={onCancel}>
               Cancel
             </button>
-            <button className={`btn ${confirmVariant}`} onClick={onConfirm}>
+            <button className={`btn-primary small ${confirmVariant === 'danger' ? 'btn-danger' : ''}`} onClick={onConfirm}>
               {confirmLabel}
             </button>
           </div>

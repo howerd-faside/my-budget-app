@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { usePortfolioAnalytics, useInvestment } from '../../store/hooks';
+import { usePortfolioAnalytics, useInvestment, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card, ConfirmDialog } from '../../components/ui';
 import TxModal from '../../components/investments/TxModal';
@@ -30,6 +30,7 @@ export default function InvestmentActivity() {
     setInvestment,
   } = useInvestment();
   const { assets, transactions } = usePortfolioAnalytics();
+  const undoDelete = useUndoDelete();
 
   const [typeFilter,  setTypeFilter]  = useState('All');
   const [assetFilter, setAssetFilter] = useState('All');
@@ -140,7 +141,12 @@ export default function InvestmentActivity() {
 
   const executeDelete = () => {
     if (confirmTarget) {
-      setInvestment('investmentTransactions', allTxs.filter(t => t.id !== confirmTarget));
+      undoDelete({
+        label: 'Transaction removed',
+        domain: 'investment',
+        snapshot: { investmentTransactions: allTxs },
+        applyFn: () => setInvestment('investmentTransactions', allTxs.filter(t => t.id !== confirmTarget)),
+      });
     }
     setConfirmTarget(null);
   };

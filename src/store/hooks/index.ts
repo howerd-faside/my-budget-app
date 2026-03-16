@@ -30,3 +30,4 @@ export { useGoalsSummary }       from './useGoalsSummary';
 export { usePropertyAlerts }       from './usePropertyAlerts';
 export { useNetWorth }             from './useNetWorth';
 export { useUpcomingObligations }  from './useUpcomingObligations';
+export { useUndoDelete }           from './useUndoDelete';

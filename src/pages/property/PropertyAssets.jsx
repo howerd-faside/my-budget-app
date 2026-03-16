@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { useProperty } from '../../store/hooks';
+import { useProperty, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
@@ -133,6 +133,7 @@ const AssetRow = memo(function AssetRow({ asset, area, propName, showProp, maint
 
 export default function PropertyAssets() {
   const { properties, propertyAssets, propertyMaintenance, selectedPropertyId, setProperty, mergeProperty } = useProperty();
+  const undoDelete = useUndoDelete();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
 
@@ -230,7 +231,14 @@ export default function PropertyAssets() {
     setConfirmTarget({ id, message: assetDeleteMessage(asset.name, deps) });
   }, [propertyAssets, propertyMaintenance]);
   const executeDeleteAsset = () => {
-    mergeProperty(cascadeDeleteAsset({ propertyAssets, propertyMaintenance }, confirmTarget.id));
+    if (confirmTarget) {
+      undoDelete({
+        label: 'Asset deleted',
+        domain: 'property',
+        snapshot: { propertyAssets, propertyMaintenance },
+        applyFn: () => mergeProperty(cascadeDeleteAsset({ propertyAssets, propertyMaintenance }, confirmTarget.id)),
+      });
+    }
     setConfirmTarget(null);
   };
 

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   totalBalance, calcFortnightlyIncome, calcFortnightlyIncomeAt, calcFortnightlyExpensesAt, calcFortnightlyAssetIncome, buildSavingsTrajectory, getPersonIncomeAt,
 } from '../utils/finance/savings';
-import { useFinance } from '../store/hooks';
+import { useFinance, useUndoDelete } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
 import { fmtMoneyRound, calcNetPay } from '../utils/finance/tax';
 import { toFortnightly } from '../utils/finance/frequency';
@@ -23,14 +23,15 @@ import LoanSection from './dashboard/LoanSection';
 export default function Dashboard() {
   const { accounts: rawAccounts, transfers, fortnightlyData, goals, assetIncomes, setFinance, updateAccount, addTransfer, removeTransfer } = useFinance();
   const { people, expenses } = usePeople();
+  const undoDelete = useUndoDelete();
   const [showTransfer, setShowTransfer] = useState(false);
 
   const accounts      = rawAccounts || [];
   const netWorth      = totalBalance(accounts);
-  const fnIncome      = calcFortnightlyIncome(people);       // base (no events)
   const fnAssetIncome = calcFortnightlyAssetIncome(assetIncomes || []);
   // Event-aware income for today
   const now            = new Date();
+  const fnIncome      = calcFortnightlyIncome(people, now);  // base (no events)
   const fnExpenses    = calcFortnightlyExpensesAt(expenses, now);
   const fnIncomeNow    = calcFortnightlyIncomeAt(people, now);
   const fnNet          = fnIncomeNow + fnAssetIncome - fnExpenses;
@@ -142,7 +143,12 @@ export default function Dashboard() {
                     {tx.note && <span className="th-note"> · {tx.note}</span>}
                   </span>
                   <span className="th-amount">{fmtMoneyRound(tx.amount)}</span>
-                  <button className="btn-icon small" onClick={() => removeTransfer(tx.id)} title="Undo transfer" aria-label="Undo transfer">
+                  <button className="btn-icon small" onClick={() => undoDelete({
+                    label: 'Transfer removed',
+                    domain: 'finance',
+                    snapshot: { transfers, accounts },
+                    applyFn: () => removeTransfer(tx.id),
+                  })} title="Undo transfer" aria-label="Undo transfer">
                     <Icon name="close" size={10} />
                   </button>
                 </div>

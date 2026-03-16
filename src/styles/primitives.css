@@ -82,6 +82,51 @@
   flex-shrink: 0;
 }
 .toast-close:hover { opacity: 1; }
+
+/* Undo action button inside toast */
+.toast-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.toast-action:hover {
+  background: rgba(0, 113, 227, 0.1);
+}
+
+/* Undo toast variant */
+.toast-undo {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border, #d2d2d7);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Progress bar — shrinks from full width to 0 over the toast duration */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--teal);
+  border-radius: 0 0 10px 10px;
+  animation: toast-progress-shrink linear forwards;
+  transform-origin: left;
+}
+@keyframes toast-progress-shrink {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }

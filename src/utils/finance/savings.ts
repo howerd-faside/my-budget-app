@@ -20,9 +20,35 @@ function secondaryIncomeFn(secondaryIncomes: Person['secondaryIncomes']): number
   return (secondaryIncomes || []).reduce((s, si) => s + toFortnightly(si.amount, si.frequency), 0);
 }
 
-export function calcFortnightlyIncome(people: Person[]): number {
+/**
+ * Base income for a person at a given date — employment-history-aware but
+ * ignoring income events (maternity leave, etc.).
+ */
+export function getPersonBaseIncomeAt(person: Person, date: Date | string): number {
+  const d = typeof date === 'string' ? new Date(date) : date;
+
+  // 1. Employment history (skip income events)
+  const activeRoles = (person.employmentHistory || [])
+    .filter((r: any) => r.startDate && new Date(r.startDate) <= d && (!r.endDate || new Date(r.endDate) > d))
+    .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  if (activeRoles.length > 0) return activeRoles[0].grossAnnual;
+
+  // 2. Fallback — before any role started
+  const allRoles = person.employmentHistory || [];
+  if (allRoles.length > 0) {
+    const dateStr       = d.toISOString().slice(0, 10);
+    const earliestStart = allRoles.reduce((min: string, r: any) => r.startDate && r.startDate < min ? r.startDate : min, '9999-99-99');
+    if (dateStr < earliestStart) return 0;
+  }
+
+  return person.grossAnnual;
+}
+
+export function calcFortnightlyIncome(people: Person[], date?: Date | string): number {
+  const d = date ? (typeof date === 'string' ? new Date(date) : date) : new Date();
   return (people || []).reduce((sum, p) => {
-    const net = calcNetPay(p).netFortnightly;
+    const grossAnnual = getPersonBaseIncomeAt(p, d);
+    const net = calcNetPay({ ...p, grossAnnual }).netFortnightly;
     return sum + net + secondaryIncomeFn(p.secondaryIncomes);
   }, 0);
 }

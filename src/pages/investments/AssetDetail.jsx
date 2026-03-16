@@ -9,7 +9,7 @@
  *   5. Notes — asset notes (conditional)
  */
 import { useState, useMemo, useCallback } from 'react';
-import { usePortfolioAnalytics, useInvestment } from '../../store/hooks';
+import { usePortfolioAnalytics, useInvestment, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card, ConfirmDialog } from '../../components/ui';
 import TxModal from '../../components/investments/TxModal';
@@ -26,6 +26,7 @@ const TYPE_LABELS = {
 
 export default function AssetDetail({ assetId, onBack }) {
   const { investmentTransactions, setInvestment } = useInvestment();
+  const undoDelete = useUndoDelete();
   const { enrichedAssets, transactions, assets } = usePortfolioAnalytics();
 
   // Find the enriched asset
@@ -98,7 +99,12 @@ export default function AssetDetail({ assetId, onBack }) {
 
   const executeDelete = () => {
     if (confirmTarget) {
-      setInvestment('investmentTransactions', allTxs.filter(t => t.id !== confirmTarget));
+      undoDelete({
+        label: 'Transaction removed',
+        domain: 'investment',
+        snapshot: { investmentTransactions: allTxs },
+        applyFn: () => setInvestment('investmentTransactions', allTxs.filter(t => t.id !== confirmTarget)),
+      });
     }
     setConfirmTarget(null);
   };

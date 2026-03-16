@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useProperty } from '../../store/hooks';
+import { useProperty, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { EmptyState, Card, SectionHeader, StatTile, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import { STATUS_NEXT } from '../../models/PropertyTask';
@@ -23,6 +23,7 @@ function addInterval(dateStr, interval, unit) {
 
 export default function PropertyTasks() {
   const { properties, propertyTasks, propertyMaintenance, selectedPropertyId, setProperty, mergeProperty } = useProperty();
+  const undoDelete = useUndoDelete();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
   const areas = selProp?.areas || [];
@@ -63,7 +64,14 @@ export default function PropertyTasks() {
   }, [propertyMaintenance]);
 
   const executeDeleteTask = () => {
-    mergeProperty(cascadeDeleteTask({ propertyTasks, propertyMaintenance }, confirmTarget.id));
+    if (confirmTarget) {
+      undoDelete({
+        label: 'Task deleted',
+        domain: 'property',
+        snapshot: { propertyTasks, propertyMaintenance },
+        applyFn: () => mergeProperty(cascadeDeleteTask({ propertyTasks, propertyMaintenance }, confirmTarget.id)),
+      });
+    }
     setConfirmTarget(null);
   };
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { useProperty } from '../../store/hooks';
+import { useProperty, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
@@ -151,6 +151,7 @@ const ProjectRow = memo(function ProjectRow({ proj, property, propertyTasks, onE
 
 export default function PropertyProjects() {
   const { properties, propertyProjects, propertyTasks, selectedPropertyId, setProperty } = useProperty();
+  const undoDelete = useUndoDelete();
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [filterSearch, setFilterSearch] = useState('');
@@ -249,7 +250,15 @@ export default function PropertyProjects() {
 
   const deleteProject = useCallback((id) => setConfirmTarget(id), []);
   const executeDeleteProject = () => {
-    setProperty('propertyProjects', propertyProjects.filter(p => p.id !== confirmTarget));
+    if (confirmTarget) {
+      const name = propertyProjects.find(p => p.id === confirmTarget)?.title || 'Project';
+      undoDelete({
+        label: `${name} deleted`,
+        domain: 'property',
+        snapshot: { propertyProjects },
+        applyFn: () => setProperty('propertyProjects', propertyProjects.filter(p => p.id !== confirmTarget)),
+      });
+    }
     setConfirmTarget(null);
   };
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
-import { useProperty } from '../../store/hooks';
+import { useProperty, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { Card, SectionHeader, StatTile, EmptyState, ConfirmDialog } from '../../components/ui';
@@ -33,6 +33,7 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
     properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets,
     selectedPropertyId, setProperty, mergeProperty,
   } = useProperty();
+  const undoDelete = useUndoDelete();
 
   const [showModal,      setShowModal]      = useState(false);
   const [form,           setForm]           = useState(EMPTY_PROP);
@@ -85,7 +86,13 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
     if (!prop) return;
     const propState = { properties, propertyTasks, propertyMaintenance, propertyProjects, propertyAssets, selectedPropertyId };
     const deps = getPropertyDependents(propState, id);
-    setConfirmTarget({ type: 'property', message: propertyDeleteMessage(prop.name, deps), action: () => mergeProperty(cascadeDeleteProperty(propState, id)) });
+    setConfirmTarget({
+      type: 'property',
+      message: propertyDeleteMessage(prop.name, deps),
+      snapshot: propState,
+      action: () => mergeProperty(cascadeDeleteProperty(propState, id)),
+      label: `${prop.name} deleted`,
+    });
   };
 
   const submitDetailArea = () => {
@@ -102,11 +109,24 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
     if (!area) return;
     const areaState = { propertyTasks, propertyMaintenance, propertyAssets, properties };
     const deps = getAreaDependents(areaState, selProp.id, areaId);
-    setConfirmTarget({ type: 'area', message: areaDeleteMessage(area.name, deps), action: () => mergeProperty(cascadeDeleteArea(areaState, selProp.id, areaId)) });
+    setConfirmTarget({
+      type: 'area',
+      message: areaDeleteMessage(area.name, deps),
+      snapshot: areaState,
+      action: () => mergeProperty(cascadeDeleteArea(areaState, selProp.id, areaId)),
+      label: `Area "${area.name}" deleted`,
+    });
   };
 
   const executeConfirm = () => {
-    if (confirmTarget?.action) confirmTarget.action();
+    if (confirmTarget?.action) {
+      undoDelete({
+        label: confirmTarget.label || 'Item deleted',
+        domain: 'property',
+        snapshot: confirmTarget.snapshot || {},
+        applyFn: confirmTarget.action,
+      });
+    }
     setConfirmTarget(null);
   };
 

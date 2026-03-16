@@ -1,5 +1,5 @@
 import { useState, useMemo, memo, useCallback } from 'react';
-import { usePortfolioAnalytics, useInvestment } from '../../store/hooks';
+import { usePortfolioAnalytics, useInvestment, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { SectionHeader, EmptyState, Card, Modal, ConfirmDialog } from '../../components/ui';
 import AssetDetail from './AssetDetail';
@@ -158,6 +158,7 @@ export default function InvestmentAssets() {
   const { assets, enrichedAssets, prices } = usePortfolioAnalytics();
 
   const toast = useToast();
+  const undoDelete = useUndoDelete();
   const [selectedAssetId, setSelectedAssetId] = useState(null);
   const [catFilter,  setCatFilter]  = useState('All');
   const [platFilter, setPlatFilter] = useState('All');
@@ -270,7 +271,12 @@ export default function InvestmentAssets() {
 
   const executeDelete = () => {
     if (confirmTarget) {
-      mergeInvestment(cascadeDeleteInvestmentAsset(confirmTarget.state, confirmTarget.id));
+      undoDelete({
+        label: 'Asset deleted',
+        domain: 'investment',
+        snapshot: confirmTarget.state,
+        applyFn: () => mergeInvestment(cascadeDeleteInvestmentAsset(confirmTarget.state, confirmTarget.id)),
+      });
     }
     setConfirmTarget(null);
   };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { calcFortnightlyIncomeAt, calcFortnightlyAssetIncome } from '../utils/finance/savings';
-import { useFinance } from '../store/hooks';
+import { useFinance, useUndoDelete } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
 import { calcNetPay, fmtMoneyRound } from '../utils/finance/tax';
 import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymentRole, createAssetIncome } from '../models/Person';
@@ -22,6 +22,7 @@ const EMPTY_ASSET     = createAssetIncome();
 export default function People() {
   const { people, expenses, setPeople, mergePeople } = usePeople();
   const { assetIncomes, setFinance } = useFinance();
+  const undoDelete = useUndoDelete();
   const [editing, setEditing]           = useState(null);
   const [form, setForm]                 = useState(EMPTY_PERSON);
   const [errors, setErrors]             = useState({});
@@ -68,7 +69,14 @@ export default function People() {
   };
 
   const executeRemove = () => {
-    if (confirmTarget) mergePeople(cascadeDeletePerson({ people, expenses }, confirmTarget.id));
+    if (confirmTarget) {
+      undoDelete({
+        label: 'Person deleted',
+        domain: 'people',
+        snapshot: { people, expenses },
+        applyFn: () => mergePeople(cascadeDeletePerson({ people, expenses }, confirmTarget.id)),
+      });
+    }
     setConfirmTarget(null);
   };
 
@@ -123,7 +131,15 @@ export default function People() {
   const [assetConfirmTarget, setAssetConfirmTarget] = useState(null);
   const removeAsset = (id) => setAssetConfirmTarget(id);
   const executeRemoveAsset = () => {
-    setFinance('assetIncomes', (assetIncomes || []).filter(a => a.id !== assetConfirmTarget));
+    if (assetConfirmTarget) {
+      const name = (assetIncomes || []).find(a => a.id === assetConfirmTarget)?.name || 'Asset income';
+      undoDelete({
+        label: `${name} removed`,
+        domain: 'finance',
+        snapshot: { assetIncomes: assetIncomes || [] },
+        applyFn: () => setFinance('assetIncomes', (assetIncomes || []).filter(a => a.id !== assetConfirmTarget)),
+      });
+    }
     setAssetConfirmTarget(null);
   };
 

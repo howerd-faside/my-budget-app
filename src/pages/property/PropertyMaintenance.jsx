@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import { useProperty } from '../../store/hooks';
+import { useProperty, useUndoDelete } from '../../store/hooks';
 import Icon from '../../components/Icon';
 import { EmptyState, Card, SectionHeader, StatTile, Modal, ExpandableRow, ConfirmDialog, FilterBar, FilterChips, GroupedList } from '../../components/ui';
 import {
@@ -98,6 +98,7 @@ function fmtMonth(ym) {
 
 export default function PropertyMaintenance() {
   const { properties, propertyMaintenance, propertyTasks, propertyAssets, selectedPropertyId, setProperty } = useProperty();
+  const undoDelete = useUndoDelete();
 
   const selProp = properties.find(p => p.id === selectedPropertyId) || null;
   const areas   = selProp?.areas || [];
@@ -208,7 +209,14 @@ export default function PropertyMaintenance() {
 
   const deleteRecord = useCallback((id) => setConfirmTarget(id), []);
   const executeDeleteRecord = () => {
-    setProperty('propertyMaintenance', propertyMaintenance.filter(r => r.id !== confirmTarget));
+    if (confirmTarget) {
+      undoDelete({
+        label: 'Maintenance record deleted',
+        domain: 'property',
+        snapshot: { propertyMaintenance },
+        applyFn: () => setProperty('propertyMaintenance', propertyMaintenance.filter(r => r.id !== confirmTarget)),
+      });
+    }
     setConfirmTarget(null);
   };
 
