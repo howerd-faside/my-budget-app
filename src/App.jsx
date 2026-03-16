@@ -76,7 +76,7 @@ function Shell() {
   // Auto-settle completed fortnights into the main account on mount.
   useFortnightSettlement();
 
-  const [section,  setSection]  = useState('finances');
+  const [section,  setSection]  = useState('home');
   const [tab,      setTab]      = useState('overview');
   const [slideDir,      setSlideDir]      = useState(0);   // -1 | 0 | 1
   const [animKey,       setAnimKey]       = useState(0);

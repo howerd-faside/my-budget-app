@@ -3,7 +3,7 @@ import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 
 export default function PersonModal({
-  editing, form, setForm,
+  editing, form, setForm, errors = {},
   onClose, onSave,
   addRole, updateRole, removeRole,
   addEvent, updateEvent, removeEvent,
@@ -27,8 +27,9 @@ export default function PersonModal({
           <div className="form-grid">
             <div className="form-group full">
               <label>Full Name</label>
-              <input className="input" placeholder="e.g. Sarah" value={form.name}
+              <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. Sarah" value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              {errors.name && <span className="field-error">{errors.name}</span>}
             </div>
             <div className="form-group">
               <label>Gross Annual Income ($)</label>
@@ -46,8 +47,11 @@ export default function PersonModal({
                   </span>
                 </>
               ) : (
-                <input className="input mono" type="number" placeholder="0" value={form.grossAnnual}
-                  onChange={e => setForm(f => ({ ...f, grossAnnual: e.target.value }))} />
+                <>
+                  <input className={`input mono${errors.grossAnnual ? ' input-error' : ''}`} type="number" placeholder="0" value={form.grossAnnual}
+                    onChange={e => setForm(f => ({ ...f, grossAnnual: e.target.value }))} />
+                  {errors.grossAnnual && <span className="field-error">{errors.grossAnnual}</span>}
+                </>
               )}
             </div>
             <div className="form-group">
@@ -205,7 +209,7 @@ export default function PersonModal({
 
         <div className="modal-footer">
           <button className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={onSave} disabled={!form.name || !formEffectiveGross}>Save</button>
+          <button className="btn-primary" onClick={onSave}>Save</button>
         </div>
       </div>
     </div>

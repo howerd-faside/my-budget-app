@@ -34,6 +34,7 @@ import { FINANCE_VERSION,    FINANCE_VERSION_KEY }    from '../store/migrations/
 import { PEOPLE_VERSION,     PEOPLE_VERSION_KEY }     from '../store/migrations/people';
 import { PROPERTY_VERSION,   PROPERTY_VERSION_KEY }   from '../store/migrations/property';
 import { INVESTMENT_VERSION, INVESTMENT_VERSION_KEY } from '../store/migrations/investment';
+import { validateBackupContent } from './backupContentValidator';
 import { today } from './finance/dates';
 
 // Slice keys mirror the FINANCE_KEYS / PEOPLE_KEYS / … arrays in each store file.
@@ -42,7 +43,12 @@ import { today } from './finance/dates';
 const FINANCE_KEYS    = ['accounts', 'transfers', 'fortnightlyData', 'goals', 'assetIncomes', 'settings'];
 const PEOPLE_KEYS     = ['people', 'expenses', 'wishlist'];
 const PROPERTY_KEYS   = ['properties', 'propertyTasks', 'propertyMaintenance', 'propertyProjects', 'propertyAssets', 'selectedPropertyId'];
-const INVESTMENT_KEYS = ['investmentPortfolios', 'selectedPortfolioId', 'investments', 'investmentContributions', 'investmentDividends'];
+const INVESTMENT_KEYS = [
+  'investmentPortfolios', 'selectedPortfolioId',
+  'investments', 'investmentContributions', 'investmentDividends',
+  'investmentAssets', 'investmentTransactions', 'priceCache',
+  'watchlist', 'watchlistPrices',
+];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -153,7 +159,7 @@ export function downloadBackup(backup) {
  *  - Each domain's data is a plain object containing only allowed keys
  *
  * @param {unknown} parsed  The result of JSON.parse() on a backup file.
- * @returns {{ ok: true } | { ok: false, error: string }}
+ * @returns {{ ok: true, warnings: Array<{domain:string, slice:string, message:string}> } | { ok: false, error: string }}
  */
 export function validateBackup(parsed) {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -262,7 +268,9 @@ export function validateBackup(parsed) {
     }
   }
 
-  return { ok: true };
+  // Structural checks passed — run content-level validation (non-blocking warnings)
+  const contentResult = validateBackupContent(parsed);
+  return { ok: true, warnings: contentResult.warnings };
 }
 
 // ── Restore ───────────────────────────────────────────────────────────────────

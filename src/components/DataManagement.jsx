@@ -15,9 +15,11 @@ export default function DataManagement() {
   const fileRef = useRef(null);
 
   // Holds a validated backup that is waiting for user confirmation
-  const [pendingBackup, setPendingBackup] = useState(null);
+  const [pendingBackup,   setPendingBackup]   = useState(null);
+  // Content-level warnings from backup validation (non-blocking)
+  const [backupWarnings,  setBackupWarnings]  = useState([]);
   // Holds a validation error message from a rejected file
-  const [fileError,     setFileError]     = useState(null);
+  const [fileError,       setFileError]       = useState(null);
 
   // ── Export ──────────────────────────────────────────────────────────────────
 
@@ -56,7 +58,8 @@ export default function DataManagement() {
         return;
       }
 
-      // Valid — hand off to the confirmation step
+      // Valid — hand off to the confirmation step, carry any content warnings
+      setBackupWarnings(validation.warnings || []);
       setPendingBackup(parsed);
     };
     reader.readAsText(file);
@@ -81,6 +84,7 @@ export default function DataManagement() {
 
   function handleCancelRestore() {
     setPendingBackup(null);
+    setBackupWarnings([]);
     setFileError(null);
   }
 
@@ -169,6 +173,26 @@ export default function DataManagement() {
                 the backup exported on:
               </p>
               <div className="dm-confirm-date">{exportedDate}</div>
+              {backupWarnings.length > 0 && (
+                <div className="dm-backup-warnings">
+                  <div className="dm-backup-warnings-header">
+                    <Icon name="alertcir" size={13} />
+                    <span>{backupWarnings.length} data warning{backupWarnings.length !== 1 ? 's' : ''} found</span>
+                  </div>
+                  <div className="dm-backup-warnings-list">
+                    {backupWarnings.map((w, i) => (
+                      <div key={i} className="dm-backup-warning-row">
+                        <span className="dm-bw-domain">{w.domain}</span>
+                        <span className="dm-bw-slice">{w.slice}</span>
+                        <span className="dm-bw-msg">{w.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                    The app will attempt to repair these issues during restore. You can still proceed.
+                  </p>
+                </div>
+              )}
               <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
                 This action cannot be undone. Export a fresh backup first if you want
                 to keep your current data.

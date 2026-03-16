@@ -7,9 +7,8 @@ import {
   calcFortnightlyAssetIncome,
   calcFortnightlyExpensesAt,
 } from '../../utils/finance/savings';
-import { toFortnightly }                     from '../../utils/finance/frequency';
-import { filterByDateRange, sumTransactions } from '../../utils/finance/transactions';
-import { transactionFromContribution }        from '../../models/Transaction';
+import { getLoanFacilities }    from '../../utils/finance/loanFacilities';
+import { filterTxByDateRange } from '../../utils/finance/portfolio';
 
 export interface MoneyFlow {
   netIncome:   number;
@@ -27,7 +26,7 @@ export interface MoneyFlow {
 export function useMoneyFlow(): MoneyFlow {
   const { assetIncomes }                  = useFinance();
   const { people, expenses }              = usePeople();
-  const { investmentContributions }       = useInvestment();
+  const { investmentTransactions }        = useInvestment();
 
   return useMemo(() => {
     // ── Net income (date-aware — applies active income events) ──────────────
@@ -36,32 +35,27 @@ export function useMoneyFlow(): MoneyFlow {
       calcFortnightlyIncomeAt(people, now) + calcFortnightlyAssetIncome(assetIncomes);
 
     // ── Mortgage (loan-type expense facilities) ─────────────────────────────
-    const loanExpenses  = (expenses || []).filter(e => e.type === 'loan');
-    const allFacilities = loanExpenses.flatMap(loan =>
-      (loan.facilities || []).filter(f => (+f.balance || 0) > 0 && (+f.amount || 0) > 0)
-    );
-    const mortgage = allFacilities.reduce(
-      (s, f) => s + toFortnightly(f.amount, f.frequency || 'fortnightly'),
-      0
-    );
+    // requireRate=false: zero-rate facilities still represent repayment outflows
+    const { facilities: loanFacilities } = getLoanFacilities(expenses, { requireRate: false });
+    const mortgage = loanFacilities.reduce((s, f) => s + f.amountFn, 0);
 
     // ── Living costs (standard recurring expenses, date-aware) ──────────────
     const standardExpenses = (expenses || []).filter(e => e.type === 'standard');
     const livingCosts = calcFortnightlyExpensesAt(standardExpenses, now);
 
-    // ── Investments (trailing 12-month contributions → annualised /fn) ──────
+    // ── Investments (trailing 12-month buy transactions → annualised /fn) ──
     const todayStr   = now.toISOString().slice(0, 10);
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const fromStr    = oneYearAgo.toISOString().slice(0, 10);
 
-    const contribTx = (investmentContributions || []).map(transactionFromContribution);
-    const recentTx  = filterByDateRange(contribTx, fromStr, todayStr);
-    const investments = sumTransactions(recentTx) / 26;
+    const buyTxs     = (investmentTransactions || []).filter(tx => tx.type === 'buy');
+    const recentBuys = filterTxByDateRange(buyTxs, fromStr, todayStr);
+    const investments = recentBuys.reduce((s, tx) => s + tx.amount, 0) / 26;
 
     // ── Savings (implied remainder) ─────────────────────────────────────────
     const savings = netIncome - mortgage - livingCosts - investments;
 
     return { netIncome, mortgage, livingCosts, investments, savings };
-  }, [people, expenses, assetIncomes, investmentContributions]);
+  }, [people, expenses, assetIncomes, investmentTransactions]);
 }

@@ -26,7 +26,7 @@ export function usePropertyAlerts(): PropertyAlerts {
 
   return useMemo(() => {
     if (properties.length === 0) {
-      return { items: [], hasProperties: false };
+      return { items: [] as PropertyAlertItem[], hasProperties: false };
     }
 
     const NOW = today();

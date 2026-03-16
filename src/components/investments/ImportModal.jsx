@@ -118,11 +118,16 @@ export default function ImportModal({ isOpen, onClose }) {
 
     setImporting(true);
 
-    const newTxs = buildTransactions(batch.rows, selectedPortfolioId);
+    const result = buildTransactions(batch.rows, selectedPortfolioId);
+    const newTxs = result.transactions;
     const allTxs = investmentTransactions || [];
     setInvestment('investmentTransactions', [...allTxs, ...newTxs]);
 
-    toast(`Imported ${newTxs.length} transaction${newTxs.length !== 1 ? 's' : ''}`, 'success');
+    if (result.rejected.length > 0) {
+      toast(`Imported ${newTxs.length} transaction${newTxs.length !== 1 ? 's' : ''} (${result.rejected.length} failed validation)`, 'warning');
+    } else {
+      toast(`Imported ${newTxs.length} transaction${newTxs.length !== 1 ? 's' : ''}`, 'success');
+    }
     handleClose();
   };
 

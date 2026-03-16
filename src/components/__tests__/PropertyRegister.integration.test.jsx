@@ -124,7 +124,7 @@ describe('PropertyRegister — creating a property', () => {
     expect(screen.getAllByText('Lake House').length).toBeGreaterThan(0);
   });
 
-  it('does not save when name is empty (Save button is disabled)', async () => {
+  it('does not save when name is empty (validation blocks)', async () => {
     const user = userEvent.setup();
     renderRegister();
 
@@ -133,7 +133,7 @@ describe('PropertyRegister — creating a property', () => {
     // Leave name blank
 
     const saveBtn = within(document.querySelector('.modal-footer')).getByRole('button', { name: 'Add Property' });
-    expect(saveBtn).toBeDisabled();
+    await user.click(saveBtn);
     expect(usePropertyStore.getState().properties).toHaveLength(0);
   });
 });

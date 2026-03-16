@@ -9,8 +9,6 @@
  */
 
 import type { Expense } from './Expense';
-import type { InvestmentContribution } from './InvestmentContribution';
-import type { Dividend } from './Dividend';
 import type { AssetIncome } from './Person';
 
 // ── Direction constants ───────────────────────────────────────────────────────
@@ -122,45 +120,6 @@ export function transactionFromTransfer(transfer: Transfer): Transaction {
     category:         null,
     notes:            transfer.note  || null,
     createdAt:        null,
-  };
-}
-
-export function transactionFromContribution(contribution: InvestmentContribution): Transaction {
-  return {
-    id:               contribution.id          ?? '',
-    date:             contribution.date         || null,
-    amount:           toNum(contribution.amount),
-    direction:        TX_DIRECTION.OUTFLOW,
-    type:             TX_TYPE.CONTRIBUTION,
-    domain:           TX_DOMAIN.INVESTMENT,
-    sourceEntityType: 'portfolio',
-    sourceEntityId:   contribution.portfolioId  || null,
-    targetEntityType: 'holding',
-    targetEntityId:   contribution.holdingId    || null,
-    category:         contribution.type         || null,
-    notes:            contribution.notes        || null,
-    createdAt:        contribution.createdAt    || null,
-  };
-}
-
-export function transactionFromDividend(dividend: Dividend): DividendTransaction {
-  return {
-    id:               dividend.id          ?? '',
-    date:             dividend.date         || null,
-    amount:           toNum(dividend.netAmount),
-    direction:        TX_DIRECTION.INFLOW,
-    type:             TX_TYPE.DIVIDEND,
-    domain:           TX_DOMAIN.INVESTMENT,
-    sourceEntityType: 'holding',
-    sourceEntityId:   dividend.holdingId    || null,
-    targetEntityType: 'portfolio',
-    targetEntityId:   dividend.portfolioId  || null,
-    category:         'dividend',
-    notes:            dividend.notes        || null,
-    createdAt:        dividend.createdAt    || null,
-    // Dividend-specific supplemental fields (tax reporting).
-    grossAmount:      toNum(dividend.grossAmount),
-    taxAmount:        toNum(dividend.taxAmount),
   };
 }
 

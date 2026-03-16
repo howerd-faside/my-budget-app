@@ -13,6 +13,7 @@ import { useInvestment, usePortfolioAnalytics } from '../../store/hooks';
 import { useNavigate } from '../../contexts/NavigationContext';
 import { today } from '../../utils/finance/dates';
 import { fmtCurrency as fmt } from '../../utils/format';
+import { validate, portfolioSchema } from '../../utils/validation';
 import Icon from '../Icon';
 
 export default function PortfolioStrip({ onManage }) {
@@ -66,7 +67,8 @@ export default function PortfolioStrip({ onManage }) {
 
   const confirmCreate = () => {
     const name = newName.trim();
-    if (!name) { setCreating(false); return; }
+    const { ok } = validate(portfolioSchema, { name });
+    if (!ok) { if (!name) setCreating(false); return; }
     const id = crypto.randomUUID();
     const allPortfolios = investmentPortfolios || [];
     setInvestment('investmentPortfolios', [

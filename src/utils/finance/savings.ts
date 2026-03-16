@@ -1,17 +1,10 @@
 import { monthsBetween, getFortnight } from './dates';
 import { calcNetPay } from './tax';
 import { toFortnightly } from './frequency';
-import {
-  transactionFromContribution,
-  transactionFromDividend,
-} from '../../models/Transaction';
 
 import type { Account }               from '../../models/Account';
 import type { Person, AssetIncome }    from '../../models/Person';
 import type { Expense }                from '../../models/Expense';
-import type { Holding }                from '../../models/Holding';
-import type { InvestmentContribution } from '../../models/InvestmentContribution';
-import type { Dividend }               from '../../models/Dividend';
 import type { FortnightlyData }        from '../../models/FortnightlyData';
 import type { Goal }                   from '../../models/Goal';
 
@@ -208,67 +201,3 @@ export function findGoalHit(trajectory: TrajectoryPoint[], goal: Goal): string |
   return hit?.date.slice(0, 7) || null;
 }
 
-// ── Investment portfolio calculations ─────────────────────────────────────────
-
-export interface AllocationEntry {
-  cat: string;
-  val: number;
-  pct: number;
-}
-
-export interface PortfolioStats {
-  totalValue: number;
-  totalCost: number;
-  totalContrib: number;
-  totalDivNet: number;
-  unrealised: number;
-  returnPct: number;
-  allocation: AllocationEntry[];
-}
-
-/**
- * Compute aggregate portfolio stats from holdings, contributions, and dividends.
- */
-export function calcPortfolioStats(holdings: Holding[], contributions: InvestmentContribution[], dividends: Dividend[]): PortfolioStats {
-  const totalValue   = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.currentPrice || 0), 0);
-  const totalCost    = holdings.reduce((s, h) => s + (+h.units || 0) * (+h.avgCost || 0), 0);
-  const totalContrib = (contributions || [])
-    .map(transactionFromContribution)
-    .reduce((s, tx) => s + tx.amount, 0);
-  const totalDivNet  = (dividends || [])
-    .map(transactionFromDividend)
-    .reduce((s, tx) => s + tx.amount, 0);
-  const unrealised   = totalValue - totalCost;
-  const returnPct    = totalCost > 0 ? (unrealised / totalCost * 100) : 0;
-
-  const byCat: Record<string, number> = {};
-  for (const h of holdings) {
-    const val = (+h.units || 0) * (+h.currentPrice || 0);
-    byCat[h.category] = (byCat[h.category] || 0) + val;
-  }
-  const allocation: AllocationEntry[] = Object.entries(byCat)
-    .map(([cat, val]) => ({ cat, val, pct: totalValue > 0 ? val / totalValue : 0 }))
-    .sort((a, b) => b.val - a.val);
-
-  return { totalValue, totalCost, totalContrib, totalDivNet, unrealised, returnPct, allocation };
-}
-
-export interface EnrichedHolding extends Holding {
-  value: number;
-  cost: number;
-  gl: number;
-  glPct: number;
-}
-
-/**
- * Enrich each holding with derived fields: value, cost, gl (gain/loss), glPct.
- */
-export function enrichHoldings(holdings: Holding[]): EnrichedHolding[] {
-  return (holdings || []).map(h => {
-    const value = (+h.units || 0) * (+h.currentPrice || 0);
-    const cost  = (+h.units || 0) * (+h.avgCost      || 0);
-    const gl    = value - cost;
-    const glPct = cost > 0 ? (gl / cost * 100) : 0;
-    return { ...h, value, cost, gl, glPct };
-  });
-}

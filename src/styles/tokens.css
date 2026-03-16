@@ -1,0 +1,114 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — colours, typography, spacing, shadows, motion
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Colours ──────────────────────────────────────────────────────────── */
+  --bg:        #F5F5F7;
+  --bg2:       #FFFFFF;
+  --card:      #FFFFFF;
+  --card2:     #F5F5F7;
+  --card3:     #EBEBED;
+  --sep:       rgba(0,0,0,0.08);
+  --sep2:      rgba(0,0,0,0.14);
+
+  /* Semantic palette */
+  --teal:      #0071E3;   /* primary / brand blue */
+  --teal-dim:  rgba(0,113,227,0.08);
+  --green:     #34C759;   /* success */
+  --green-dim: rgba(52,199,89,0.1);
+  --red:        #FF3B30;   /* danger */
+  --red-dim:    rgba(255,59,48,0.08);
+  --orange:     #FF6B00;   /* poor condition */
+  --orange-dim: rgba(255,107,0,0.08);
+  --amber:      #FF9F0A;   /* warning */
+  --amber-dim:  rgba(255,159,10,0.08);
+  --purple:    #AF52DE;   /* AI / accent */
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --text:      #1D1D1F;
+  --text2:     #6E6E73;
+  --text3:     #86868B;
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+  --font:         -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', sans-serif;
+  --mono:         -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+
+  /* ── Spacing ──────────────────────────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* ── Border radius ────────────────────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius:    12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* ── Shadows ──────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 24px 64px rgba(0,0,0,0.14), 0 4px 16px rgba(0,0,0,0.07);
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --ease:      cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  /* ── Type scale ───────────────────────────────────────────────────────── */
+  --fs-page-title:    28px;
+  --fs-section-title: 18px;
+  --fs-stat:          22px;
+  --fs-card-heading:  16px;
+  --fs-body:          14px;
+  --fs-meta:          12px;
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --sidebar-w: 260px;
+}
+
+/* ── DARK THEME ───────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:        #1C1C1E;
+  --bg2:       #2C2C2E;
+  --card:      #2C2C2E;
+  --card2:     #3A3A3C;
+  --card3:     #48484A;
+  --sep:       rgba(255,255,255,0.10);
+  --sep2:      rgba(255,255,255,0.16);
+
+  --text:      #F5F5F7;
+  --text2:     #A1A1A6;
+  --text3:     #8E8E93;
+
+  --teal-dim:  rgba(0,113,227,0.18);
+  --green-dim: rgba(52,199,89,0.18);
+  --red-dim:   rgba(255,59,48,0.15);
+  --orange-dim:rgba(255,107,0,0.15);
+  --amber-dim: rgba(255,159,10,0.15);
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.20), 0 1px 2px rgba(0,0,0,0.16);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.16);
+  --shadow-lg: 0 24px 64px rgba(0,0,0,0.40), 0 4px 16px rgba(0,0,0,0.24);
+
+  /* Override subtle rgba(0,0,0,...) patterns used across the app */
+  --subtle-hover:  rgba(255,255,255,0.05);
+  --subtle-bg:     rgba(255,255,255,0.04);
+  --subtle-border: rgba(255,255,255,0.10);
+  --subtle-fill:   rgba(255,255,255,0.08);
+}
+
+/* Light theme defaults for subtle vars */
+:root {
+  --subtle-hover:  rgba(0,0,0,0.04);
+  --subtle-bg:     rgba(0,0,0,0.03);
+  --subtle-border: rgba(0,0,0,0.08);
+  --subtle-fill:   rgba(0,0,0,0.06);
+}

@@ -51,11 +51,8 @@ export function getAssetDependents(state: Pick<PropertyState, 'propertyMaintenan
   };
 }
 
-export function getPortfolioDependents(state: InvestmentState, portfolioId: string) {
+export function getPortfolioDependents(state: Pick<InvestmentState, 'investmentAssets' | 'investmentTransactions'>, portfolioId: string) {
   return {
-    holdings:      arr(state.investments).filter(h => h.portfolioId === portfolioId).length,
-    contributions: arr(state.investmentContributions).filter(c => c.portfolioId === portfolioId).length,
-    dividends:     arr(state.investmentDividends).filter(d => d.portfolioId === portfolioId).length,
     assets:        arr(state.investmentAssets).filter(a => a.portfolioId === portfolioId).length,
     transactions:  arr(state.investmentTransactions).filter(t => t.portfolioId === portfolioId).length,
   };
@@ -171,13 +168,13 @@ export function portfolioDeleteMessage(name: string, deps: { assets: number; tra
   return `Delete portfolio "${name}"?${suffix}`;
 }
 
-export function cascadeDeletePortfolio(state: InvestmentState, portfolioId: string) {
+export function cascadeDeletePortfolio(
+  state: Pick<InvestmentState, 'investmentPortfolios' | 'selectedPortfolioId' | 'investmentAssets' | 'investmentTransactions' | 'priceCache'>,
+  portfolioId: string,
+) {
   const remaining = arr(state.investmentPortfolios).filter(p => p.id !== portfolioId);
   return {
     investmentPortfolios: remaining,
-    investments:             arr(state.investments).filter(h => h.portfolioId !== portfolioId),
-    investmentContributions: arr(state.investmentContributions).filter(c => c.portfolioId !== portfolioId),
-    investmentDividends:     arr(state.investmentDividends).filter(d => d.portfolioId !== portfolioId),
     investmentAssets:        arr(state.investmentAssets).filter(a => a.portfolioId !== portfolioId),
     investmentTransactions:  arr(state.investmentTransactions).filter(t => t.portfolioId !== portfolioId),
     priceCache:              arr(state.priceCache).filter(p => {

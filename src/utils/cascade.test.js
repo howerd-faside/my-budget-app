@@ -179,19 +179,17 @@ describe('getAssetDependents', () => {
 describe('getPortfolioDependents', () => {
   it('returns zeros for an empty state', () => {
     const deps = getPortfolioDependents(makeState(), 'port1');
-    expect(deps).toEqual({ holdings: 0, contributions: 0, dividends: 0, assets: 0, transactions: 0 });
+    expect(deps).toEqual({ assets: 0, transactions: 0 });
   });
 
-  it('counts holdings, contributions, dividends belonging to the portfolio', () => {
+  it('counts assets and transactions belonging to the portfolio', () => {
     const state = makeState({
-      investments:             [{ portfolioId: 'port1' }, { portfolioId: 'port1' }, { portfolioId: 'port2' }],
-      investmentContributions: [{ portfolioId: 'port1' }],
-      investmentDividends:     [{ portfolioId: 'port1' }, { portfolioId: 'port2' }],
+      investmentAssets:       [{ portfolioId: 'port1' }, { portfolioId: 'port1' }, { portfolioId: 'port2' }],
+      investmentTransactions: [{ portfolioId: 'port1' }, { portfolioId: 'port2' }],
     });
     const deps = getPortfolioDependents(state, 'port1');
-    expect(deps.holdings).toBe(2);
-    expect(deps.contributions).toBe(1);
-    expect(deps.dividends).toBe(1);
+    expect(deps.assets).toBe(2);
+    expect(deps.transactions).toBe(1);
   });
 });
 
@@ -458,34 +456,35 @@ describe('cascadeDeletePortfolio', () => {
     expect(result.investmentPortfolios[0].id).toBe('port2');
   });
 
-  it('removes all holdings belonging to the portfolio', () => {
+  it('removes all assets belonging to the portfolio', () => {
     const state = makeState({
       investmentPortfolios: [{ id: 'port1' }],
-      investments: [{ id: 'h1', portfolioId: 'port1' }, { id: 'h2', portfolioId: 'port2' }],
+      investmentAssets: [{ id: 'a1', portfolioId: 'port1' }, { id: 'a2', portfolioId: 'port2' }],
     });
     const result = cascadeDeletePortfolio(state, 'port1');
-    expect(result.investments).toHaveLength(1);
-    expect(result.investments[0].id).toBe('h2');
+    expect(result.investmentAssets).toHaveLength(1);
+    expect(result.investmentAssets[0].id).toBe('a2');
   });
 
-  it('removes all contributions belonging to the portfolio', () => {
+  it('removes all transactions belonging to the portfolio', () => {
     const state = makeState({
       investmentPortfolios:    [{ id: 'port1' }],
-      investmentContributions: [{ portfolioId: 'port1' }, { portfolioId: 'port2' }],
+      investmentTransactions: [{ portfolioId: 'port1' }, { portfolioId: 'port2' }],
     });
     const result = cascadeDeletePortfolio(state, 'port1');
-    expect(result.investmentContributions).toHaveLength(1);
-    expect(result.investmentContributions[0].portfolioId).toBe('port2');
+    expect(result.investmentTransactions).toHaveLength(1);
+    expect(result.investmentTransactions[0].portfolioId).toBe('port2');
   });
 
-  it('removes all dividends belonging to the portfolio', () => {
+  it('removes price cache entries for assets belonging to the portfolio', () => {
     const state = makeState({
       investmentPortfolios: [{ id: 'port1' }],
-      investmentDividends:  [{ portfolioId: 'port1' }, { portfolioId: 'port2' }],
+      investmentAssets:     [{ id: 'a1', portfolioId: 'port1' }, { id: 'a2', portfolioId: 'port2' }],
+      priceCache:           [{ assetId: 'a1', price: 100 }, { assetId: 'a2', price: 200 }],
     });
     const result = cascadeDeletePortfolio(state, 'port1');
-    expect(result.investmentDividends).toHaveLength(1);
-    expect(result.investmentDividends[0].portfolioId).toBe('port2');
+    expect(result.priceCache).toHaveLength(1);
+    expect(result.priceCache[0].assetId).toBe('a2');
   });
 
   it('sets selectedPortfolioId to another portfolio when the selected one is deleted', () => {

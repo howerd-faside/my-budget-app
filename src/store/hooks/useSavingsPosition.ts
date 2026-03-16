@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useFinance } from './useFinance';
 import { usePeople }  from './usePeople';
+import { useTrajectory } from './useTrajectory';
 import {
-  totalBalance, buildSavingsTrajectory,
   calcFortnightlyIncomeAt, calcFortnightlyAssetIncome, calcFortnightlyExpensesAt,
 } from '../../utils/finance/savings';
 import { today } from '../../utils/finance/dates';
@@ -22,20 +22,15 @@ export interface SavingsPosition {
 /**
  * Derived hook — current and near-term savings position.
  *
- * Uses buildSavingsTrajectory as the canonical source so all balances are
- * consistent with the existing trajectory chart on Dashboard.
+ * Uses the shared useTrajectory hook as the canonical source so all balances
+ * are consistent with the existing trajectory chart on Dashboard.
  */
 export function useSavingsPosition(): SavingsPosition {
-  const { accounts, fortnightlyData, assetIncomes } = useFinance();
-  const { people, expenses }                        = usePeople();
+  const { assetIncomes }   = useFinance();
+  const { people, expenses } = usePeople();
+  const { trajectory, currentBalance } = useTrajectory();
 
   return useMemo(() => {
-    const currentBalance = totalBalance(accounts);
-
-    const trajectory = buildSavingsTrajectory({
-      people, expenses, fortnightlyData, accounts, assetIncomes,
-    });
-
     // ── Year-end projected balance ───────────────────────────────────────────
     const thisYear    = new Date().getFullYear().toString();
     const yearPoints  = trajectory.filter(p => p.date.startsWith(thisYear));
@@ -64,5 +59,5 @@ export function useSavingsPosition(): SavingsPosition {
     const fortnightlyCashflow = Math.round(fnNet * 100) / 100;
 
     return { currentBalance, yearEndBalance, fortnightlyCashflow, sparkline };
-  }, [accounts, people, expenses, fortnightlyData, assetIncomes]);
+  }, [trajectory, currentBalance, people, expenses, assetIncomes]);
 }

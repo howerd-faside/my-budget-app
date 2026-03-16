@@ -256,11 +256,14 @@ describe('investment store hydration', () => {
     expect(useInvestmentStore.getState().investmentPortfolios[0].name).toBe('Main');
   });
 
-  it('migrates v0 holding: applies default category on hydration', async () => {
+  it('migrates v0 holding: converts to canonical asset with default category on hydration', async () => {
     writeStorage({ investments: [{ id: 'h1', portfolioId: 'port1', name: 'Apple' }] }); // no category, no version
     const { useInvestmentStore } = await import('../investmentStore');
-    const { investments } = useInvestmentStore.getState();
-    expect(investments[0].category).toBe('Shares');
+    const state = useInvestmentStore.getState();
+    // v5 converts holdings → investmentAssets; v7 empties legacy investments
+    expect(state.investments).toEqual([]);
+    expect(state.investmentAssets[0].category).toBe('Shares');
+    expect(state.investmentAssets[0].name).toBe('Apple');
   });
 });
 

@@ -1,19 +1,12 @@
 import { useMemo } from 'react';
 import { usePeople } from './usePeople';
-import { toFortnightly } from '../../utils/finance/frequency';
+import { getLoanFacilities } from '../../utils/finance/loanFacilities';
 
-import type { Expense, Facility } from '../../models/Expense';
-
-export interface NormalisedFacility extends Facility {
-  loanId:     string;
-  loanName:   string;
-  loanLender: string;
-  amountFn:   number;
-}
+export type { NormalisedFacility, LoanFacilitiesResult } from '../../utils/finance/loanFacilities';
 
 export interface MortgageFacilitiesReturn {
-  loanExpenses: Expense[];
-  facilities:   NormalisedFacility[];
+  loanExpenses: import('../../models/Expense').Expense[];
+  facilities:   import('../../utils/finance/loanFacilities').NormalisedFacility[];
   hasLoans:     boolean;
 }
 
@@ -25,25 +18,5 @@ export interface MortgageFacilitiesReturn {
 export function useMortgageFacilities(): MortgageFacilitiesReturn {
   const { expenses } = usePeople();
 
-  return useMemo(() => {
-    const loanExpenses = (expenses || []).filter(e => e.type === 'loan');
-
-    const facilities: NormalisedFacility[] = loanExpenses.flatMap(loan =>
-      (loan.facilities || [])
-        .filter(f => (+f.balance || 0) > 0 && (+f.rate || 0) > 0 && (+f.amount || 0) > 0)
-        .map(f => ({
-          ...f,
-          loanId:     loan.id,
-          loanName:   loan.name,
-          loanLender: loan.lender,
-          amountFn:   toFortnightly(f.amount, f.frequency || 'fortnightly'),
-        }))
-    );
-
-    return {
-      loanExpenses,
-      facilities,
-      hasLoans: facilities.length > 0,
-    };
-  }, [expenses]);
+  return useMemo(() => getLoanFacilities(expenses), [expenses]);
 }

@@ -123,7 +123,7 @@ describe('People — creating a person', () => {
     expect(screen.getByText('Carol')).toBeInTheDocument();
   });
 
-  it('does not save when name is empty (Save button disabled)', async () => {
+  it('does not save when name is empty (validation blocks)', async () => {
     const user = userEvent.setup();
     renderPeople();
 
@@ -134,7 +134,7 @@ describe('People — creating a person', () => {
     await user.type(grossInput, '60000');
 
     const saveBtn = screen.getByRole('button', { name: 'Save' });
-    expect(saveBtn).toBeDisabled();
+    await user.click(saveBtn);
     expect(usePeopleStore.getState().people).toHaveLength(0);
   });
 });

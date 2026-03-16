@@ -21,9 +21,6 @@ import type { PropertyMaintenance }     from '../models/PropertyMaintenance';
 import type { PropertyProject }         from '../models/PropertyProject';
 import type { PropertyAsset }           from '../models/PropertyAsset';
 import type { Portfolio }               from '../models/Portfolio';
-import type { Holding }                 from '../models/Holding';
-import type { InvestmentContribution }  from '../models/InvestmentContribution';
-import type { Dividend }                from '../models/Dividend';
 import type { Asset }                   from '../models/Asset';
 import type { InvestmentTransaction }   from '../models/InvestmentTransaction';
 import type { PriceEntry }              from '../models/PriceEntry';
@@ -58,9 +55,6 @@ export interface PropertyState {
 export interface InvestmentState {
   investmentPortfolios: Portfolio[];
   selectedPortfolioId: string | null;
-  investments: Holding[];
-  investmentContributions: InvestmentContribution[];
-  investmentDividends: Dividend[];
   investmentAssets: Asset[];
   investmentTransactions: InvestmentTransaction[];
   priceCache: PriceEntry[];

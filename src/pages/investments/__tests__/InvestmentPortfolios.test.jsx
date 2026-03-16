@@ -88,9 +88,6 @@ beforeEach(() => {
   useInvestmentStore.setState({
     investmentPortfolios: [],
     selectedPortfolioId: null,
-    investments: [],
-    investmentContributions: [],
-    investmentDividends: [],
     investmentAssets: [],
     investmentTransactions: [],
     priceCache: [],

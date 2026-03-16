@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
-import { useFinance } from './useFinance';
 import { usePeople }  from './usePeople';
-import {
-  totalBalance, buildSavingsTrajectory, affordabilityDate,
-} from '../../utils/finance/savings';
+import { useTrajectory } from './useTrajectory';
+import { affordabilityDate } from '../../utils/finance/savings';
 
 export interface WishlistSummary {
   pendingCount:     number;
@@ -16,14 +14,12 @@ export interface WishlistSummary {
 /**
  * Derived hook — compact wishlist summary for dashboard display.
  *
- * Reuses the same affordability helpers as Wishlist.jsx:
- *   - currentBalance via totalBalance(accounts)
- *   - trajectory via buildSavingsTrajectory
- *   - affordabilityDate for human-readable next-affordable label
+ * Uses the shared useTrajectory hook so the trajectory is computed at most
+ * once per render cycle, shared with useSavingsPosition and useGoalsSummary.
  */
 export function useWishlistSummary(): WishlistSummary {
-  const { accounts, fortnightlyData, assetIncomes } = useFinance();
-  const { people, expenses, wishlist }               = usePeople();
+  const { wishlist } = usePeople();
+  const { trajectory, currentBalance } = useTrajectory();
 
   return useMemo(() => {
     const items   = wishlist || [];
@@ -32,29 +28,24 @@ export function useWishlistSummary(): WishlistSummary {
     if (items.length === 0) {
       return {
         pendingCount: 0, totalPendingCost: 0, affordableNow: 0,
-        nextAffordable: null, hasWishlist: false,
+        nextAffordable: null as string | null, hasWishlist: false,
       };
     }
 
-    const currentBal     = totalBalance(accounts);
     const totalPendingCost = pending.reduce((s, i) => s + (+i.estimatedCost || 0), 0);
     const affordableNow    = pending.filter(i => {
       const cost = +i.estimatedCost || 0;
-      return cost > 0 && currentBal >= cost;
+      return cost > 0 && currentBalance >= cost;
     }).length;
 
     // Find the next soonest affordable item (not currently affordable)
     let nextAffordable: string | null = null;
     const notYet = pending.filter(i => {
       const cost = +i.estimatedCost || 0;
-      return cost > 0 && currentBal < cost;
+      return cost > 0 && currentBalance < cost;
     });
 
     if (notYet.length > 0) {
-      const trajectory = buildSavingsTrajectory({
-        people, expenses, fortnightlyData, accounts, assetIncomes,
-      });
-
       const soonest = notYet
         .map(i => ({
           item: i,
@@ -66,7 +57,7 @@ export function useWishlistSummary(): WishlistSummary {
       if (soonest) {
         nextAffordable = affordabilityDate(
           +soonest.item.estimatedCost || 0,
-          currentBal,
+          currentBalance,
           trajectory,
         );
       }
@@ -79,5 +70,5 @@ export function useWishlistSummary(): WishlistSummary {
       nextAffordable,
       hasWishlist: true,
     };
-  }, [accounts, people, expenses, wishlist, fortnightlyData, assetIncomes]);
+  }, [wishlist, trajectory, currentBalance]);
 }

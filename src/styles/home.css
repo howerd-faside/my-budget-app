@@ -1,0 +1,357 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   HOME — compact dashboard, alerts, quick actions, dashboard grid
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── HOME COMPACT DASHBOARD ───────────────────────────────────────────── */
+.home-compact { gap: 16px; }
+.home-compact .dash-section { padding: 12px 14px; border-radius: 12px; }
+.home-compact .dash-section .section-header { margin-bottom: 6px; }
+.home-compact .dash-section .section-header h3 { font-size: 14px; }
+.home-compact .dash-section .fn-summary { margin-bottom: 4px; }
+.home-compact .dash-section .fn-summary:last-child { margin-bottom: 0; }
+.home-compact .fn-summary { gap: 6px; }
+.home-compact .fns-item { padding: 8px 10px; gap: 2px; border-radius: 10px; }
+.home-compact .fns-item .mono { font-size: 18px; }
+.home-compact .section-subheader { margin: 8px 0 4px; }
+.home-compact .empty-state { padding: 20px 14px; }
+.home-compact .dash-goal-row { padding: 10px 14px; gap: 10px; }
+.home-compact .dash-goals { border-radius: 12px; }
+.home-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+/* ── SHARED PANEL HEADER ICON (QA + HA cards) ────────────────────────── */
+.panel-hdr-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--subtle-fill);
+  color: var(--text2);
+  flex-shrink: 0;
+}
+
+/* ── HOME ALERTS LIST ──────────────────────────────────────────────── */
+.home-alerts {
+  background: var(--card);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.home-alerts--clear {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text3);
+  font-size: 12px;
+}
+.ha-clear-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--green-dim);
+  color: var(--green);
+  flex-shrink: 0;
+}
+.ha-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--text2);
+}
+.ha-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+.ha-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  background: var(--subtle-fill);
+  border-radius: 8px;
+  padding: 1px 6px;
+  min-width: 16px;
+  text-align: center;
+}
+.ha-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Alert row — severity-tinted indicator + content */
+.ha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s var(--ease);
+}
+.ha-row:hover {
+  background: var(--card2);
+}
+.ha-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.ha-urgent .ha-indicator { background: var(--red-dim);   color: var(--red); }
+.ha-warn   .ha-indicator { background: var(--amber-dim); color: var(--amber); }
+.ha-info   .ha-indicator { background: var(--subtle-fill); color: var(--text3); }
+.ha-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+}
+.ha-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+}
+.ha-detail {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.ha-more {
+  font-size: 11px;
+  color: var(--text3);
+  padding: 2px 0 0 38px;
+}
+
+/* ── HOME QUICK ACTIONS PANEL ──────────────────────────────────────── */
+.home-qa {
+  background: var(--card);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.qa-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--text2);
+}
+.qa-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Primary — icon-first action tiles in a responsive grid */
+.qa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.qa-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--card2);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.qa-tile:hover {
+  background: var(--card3);
+  box-shadow: var(--shadow-sm);
+}
+.qa-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--teal-dim);
+  color: var(--teal);
+  flex-shrink: 0;
+}
+.qa-tile-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+/* Secondary — compact icon+label row */
+.qa-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sep);
+}
+.qa-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  font-family: inherit;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.qa-link:hover {
+  color: var(--teal);
+  background: var(--teal-dim);
+}
+
+/* ── DASHBOARD SECTION WRAPPER ────────────────────────────────────────── */
+.dash-section {
+  background: var(--card); border: 1px solid var(--sep); border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.dash-section .section-header { margin-bottom: 14px; }
+/* Inner elements need card2 so they stand out against the section's card background */
+.dash-section .account-card          { background: var(--card2); border-color: transparent; box-shadow: none; }
+.dash-section .transfer-history-card { background: var(--card2); border-color: transparent; }
+.dash-section .dash-goals            { background: var(--card2); border-color: transparent; }
+/* Tiles inside a section: card2, centered text, grid handles even distribution */
+.dash-section .fn-summary {
+  margin-bottom: 14px;
+}
+.dash-section .fns-item {
+  background: var(--card2); border-color: transparent; box-shadow: none;
+  text-align: center; align-items: center;
+}
+.dash-section .fns-item:hover { box-shadow: none; border-color: var(--sep); }
+/* Inner cards/lists become card2 so they stand out against the section's white background */
+.dash-section .person-card     { background: var(--card2); border-color: transparent; box-shadow: none; }
+.dash-section .person-card:hover { border-color: var(--sep2); box-shadow: none; }
+.dash-section .asset-card      { background: var(--card2); border-color: transparent; box-shadow: none; }
+.dash-section .asset-card:hover  { border-color: var(--sep2); box-shadow: none; }
+.dash-section .cat-proportion-wrap { background: var(--card2); border-color: transparent; box-shadow: none; padding: 0; }
+.dash-section .fn-list         { background: var(--card); border-color: var(--sep); box-shadow: none; }
+
+/* ── DASHBOARD GRID ──────────────────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.dash-col-4  { grid-column: span 4; }
+.dash-col-8  { grid-column: span 8; }
+.dash-col-12 { grid-column: span 12; }
+@media (max-width: 800px) {
+  .dash-grid > [class*="dash-col-"] { grid-column: span 12; }
+}
+
+/* ── DASHBOARD ACCOUNTS ──────────────────────────────────────────────── */
+.account-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px;
+}
+.account-card {
+  background: var(--card); border: 1px solid var(--sep); border-radius: var(--radius-xl); padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; align-items: center;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.account-card:hover { border-color: var(--sep2); box-shadow: var(--shadow-md); }
+.ac-name {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.ac-balance-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; padding: 0; width: 100%; margin: 8px 0 0;
+}
+.ac-balance-btn .bw-edit-hint { position: absolute; right: 0; }
+.ac-balance-btn:hover .bw-edit-hint { opacity: 1; }
+.ac-balance {
+  font-family: var(--mono); font-size: 24px; font-weight: 400;
+  letter-spacing: 0px; display: block;
+}
+.ac-bar-wrap {
+  height: 4px; background: var(--subtle-fill); border-radius: 2px;
+  margin: 12px 0 6px; overflow: hidden; width: 100%;
+}
+.ac-bar { height: 100%; border-radius: 2px; transition: width 0.5s var(--ease); }
+.ac-pct { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+/* ── TRANSFER HISTORY CARD ───────────────────────────────────────────── */
+.transfer-history-card {
+  background: var(--card); border: 1px solid var(--sep);
+  border-radius: var(--radius-xl); overflow: hidden;
+}
+.th-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 18px;
+  border-bottom: 1px solid var(--sep); font-size: 12px;
+}
+.th-row:last-child { border-bottom: none; }
+.th-date  { font-family: var(--mono); font-size: 10px; color: var(--text3); flex-shrink: 0; }
+.th-accounts { color: var(--text2); flex: 1; }
+.th-note  { color: var(--text3); }
+.th-amount { font-family: var(--mono); font-weight: 600; color: var(--red); flex-shrink: 0; }
+
+/* ── DASHBOARD GOALS ─────────────────────────────────────────────────── */
+.dash-goals {
+  background: var(--card); border: 1px solid var(--sep);
+  border-radius: var(--radius-xl); overflow: hidden;
+}
+.dash-goal-row {
+  display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+  border-bottom: 1px solid var(--sep);
+}
+.dash-goal-row:last-child { border-bottom: none; }
+.dg-info  { width: 130px; flex-shrink: 0; }
+.dg-name  { font-size: 13px; font-weight: 600; color: var(--text); display: block; letter-spacing: -0.1px; }
+.dg-target { font-family: var(--mono); font-size: 11px; display: block; margin-top: 2px; }
+.dg-bar-wrap { flex: 1; display: flex; align-items: center; gap: 8px; }
+.dg-bar  { flex: 1; height: 5px; background: var(--subtle-fill); border-radius: 3px; overflow: hidden; }
+.dg-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--green)); border-radius: 3px; transition: width 0.7s var(--ease); }
+.dg-pct  { font-family: var(--mono); font-size: 11px; color: var(--text3); width: 32px; text-align: right; flex-shrink: 0; }
+.dg-date { font-family: var(--mono); font-size: 11px; flex-shrink: 0; }
+
+/* ── NEXT GOAL HIGHLIGHT ─────────────────────────────────────────────── */
+.dash-goal-row.next-goal { border-left: 3px solid var(--teal); padding-left: 12px; }
+.dg-next-tag {
+  display: inline-block; font-size: 9px; font-weight: 700; color: var(--teal);
+  background: var(--teal-dim); border-radius: var(--radius-xs); padding: 1px 5px;
+  text-transform: uppercase; letter-spacing: 0.06em; margin-right: 6px;
+}
+
+/* ── TRAJECTORY EMPTY ────────────────────────────────────────────────── */
+.traj-empty {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 0 4px; color: var(--text3); font-size: 13px;
+}

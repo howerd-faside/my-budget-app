@@ -317,11 +317,13 @@ describe('investment migration (v0 → v1 via adapter)', () => {
     expect(result.state.selectedPortfolioId).toBeNull();
   });
 
-  it('applies default category to holding with missing fields', () => {
+  it('applies default category to holding with missing fields (migrated to canonical asset)', () => {
     writeStorage({ investments: [{ id: 'h1', portfolioId: 'port1', name: 'Tesla' }] }); // minimal
     const result = makeInvestment().getItem('_');
-    expect(result.state.investments[0].category).toBe('Shares');
-    expect(result.state.investments[0].ticker).toBe('');
+    // v5 converts holdings → investmentAssets; v7 empties legacy investments
+    expect(result.state.investments).toEqual([]);
+    expect(result.state.investmentAssets[0].category).toBe('Shares');
+    expect(result.state.investmentAssets[0].name).toBe('Tesla');
   });
 
   it('initialises all missing investment slice arrays', () => {

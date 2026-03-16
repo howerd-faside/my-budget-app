@@ -12,6 +12,7 @@ import {
   getPropertyDependents, cascadeDeleteProperty, propertyDeleteMessage,
   getAreaDependents, cascadeDeleteArea, areaDeleteMessage,
 } from '../../utils/cascade';
+import { validate, propertySchema } from '../../utils/validation';
 import { today } from '../../utils/finance/dates';
 import { useNavigate } from '../../contexts/NavigationContext';
 
@@ -36,6 +37,7 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
   const [showModal,      setShowModal]      = useState(false);
   const [form,           setForm]           = useState(EMPTY_PROP);
   const [editingId,      setEditingId]      = useState(null);
+  const [errors,         setErrors]         = useState({});
   const [modalTab,       setModalTab]       = useState('profile');
   const [areaForm,       setAreaForm]       = useState(EMPTY_AREA);   // modal areas tab
   const [addingArea,     setAddingArea]     = useState(false);         // inline add area
@@ -54,20 +56,21 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
 
   const openNew = () => {
     setForm({ ...EMPTY_PROP, id: crypto.randomUUID(), areas: [] });
-    setEditingId('new'); setModalTab('profile');
+    setErrors({}); setEditingId('new'); setModalTab('profile');
     setShowModal(true);
   };
 
   const openEdit = (prop) => {
     setForm({ ...EMPTY_PROP, ...prop, insulation: { ...EMPTY_PROP.insulation, ...prop.insulation }, areas: prop.areas || [] });
-    setEditingId(prop.id); setModalTab('profile');
+    setErrors({}); setEditingId(prop.id); setModalTab('profile');
     setShowModal(true);
   };
 
-  const close = () => { setShowModal(false); setForm(EMPTY_PROP); setEditingId(null); };
+  const close = () => { setShowModal(false); setForm(EMPTY_PROP); setEditingId(null); setErrors({}); };
 
   const save = () => {
-    if (!form.name.trim()) return;
+    const { ok, errors: errs } = validate(propertySchema, form);
+    if (!ok) { setErrors(errs); setModalTab('profile'); return; }
     if (editingId === 'new') {
       setProperty('properties', [...properties, form]);
       if (!selectedPropertyId) setProperty('selectedPropertyId', form.id);
@@ -178,7 +181,8 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
                 <div className="form-grid">
                   <div className="form-group full">
                     <label>Property Name *</label>
-                    <input className="input" placeholder='e.g. "Our Place", "Taupo Bach"' value={form.name} onChange={e => setField('name', e.target.value)} autoFocus />
+                    <input className={`input${errors.name ? ' input-error' : ''}`} placeholder='e.g. "Our Place", "Taupo Bach"' value={form.name} onChange={e => setField('name', e.target.value)} autoFocus />
+                    {errors.name && <span className="field-error">{errors.name}</span>}
                   </div>
                   <div className="form-group">
                     <label>Type</label>
@@ -320,7 +324,7 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
 
             <div className="modal-footer">
               <button className="btn-ghost" onClick={close}>Cancel</button>
-              <button className="btn-primary" onClick={save} disabled={!form.name.trim()}>
+              <button className="btn-primary" onClick={save}>
                 {editingId === 'new' ? 'Add Property' : 'Save Changes'}
               </button>
             </div>

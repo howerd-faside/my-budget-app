@@ -5,6 +5,7 @@ import { usePeople }  from '../store/hooks';
 import { calcNetPay, fmtMoneyRound } from '../utils/finance/tax';
 import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymentRole, createAssetIncome } from '../models/Person';
 import { getPersonDependents, cascadeDeletePerson, personDeleteMessage } from '../utils/cascade';
+import { validate, personSchema } from '../utils/validation';
 import Icon from '../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card, ConfirmDialog } from '../components/ui';
 import PersonCard from './people/PersonCard';
@@ -23,16 +24,18 @@ export default function People() {
   const { assetIncomes, setFinance } = useFinance();
   const [editing, setEditing]           = useState(null);
   const [form, setForm]                 = useState(EMPTY_PERSON);
+  const [errors, setErrors]             = useState({});
   const [openCards, setOpenCards]       = useState(new Set());
   const [incomeArchiveOpen, setIncomeArchiveOpen] = useState(false);
   const [confirmTarget, setConfirmTarget] = useState(null);
 
-  const openNew = () => { setForm({ ...EMPTY_PERSON, id: crypto.randomUUID() }); setEditing('new'); };
+  const openNew = () => { setForm({ ...EMPTY_PERSON, id: crypto.randomUUID() }); setErrors({}); setEditing('new'); };
   const openEdit = (p) => {
     setForm({ ...p, incomeEvents: p.incomeEvents || [], employmentHistory: p.employmentHistory || [] });
+    setErrors({});
     setEditing(p.id);
   };
-  const close = () => { setEditing(null); setForm(EMPTY_PERSON); };
+  const close = () => { setEditing(null); setForm(EMPTY_PERSON); setErrors({}); };
 
   const toggleCard = (id) => {
     setOpenCards(prev => {
@@ -45,6 +48,8 @@ export default function People() {
   const save = () => {
     const currentRole = (form.employmentHistory || []).find(r => !r.endDate);
     const grossAnnual = currentRole ? +currentRole.grossAnnual : +form.grossAnnual;
+    const { ok, errors: errs } = validate(personSchema, { ...form, grossAnnual });
+    if (!ok) { setErrors(errs); return; }
     const pay = calcNetPay({ ...form, grossAnnual });
     const person = { ...form, grossAnnual, netFortnightly: pay.netFortnightly };
     if (editing === 'new') {
@@ -197,7 +202,7 @@ export default function People() {
       />
 
       <PersonModal
-        editing={editing} form={form} setForm={setForm}
+        editing={editing} form={form} setForm={setForm} errors={errors}
         onClose={close} onSave={save}
         addRole={addRole} updateRole={updateRole} removeRole={removeRole}
         addEvent={addEvent} updateEvent={updateEvent} removeEvent={removeEvent}

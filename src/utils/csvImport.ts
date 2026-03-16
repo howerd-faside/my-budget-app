@@ -415,37 +415,66 @@ export function markDuplicates(
 
 // ── Build Final Transactions ────────────────────────────────────────────────
 
+export interface BuildResult {
+  transactions: InvestmentTransaction[];
+  rejected: Array<{ rowIndex: number; reason: string }>;
+}
+
 /**
  * Convert validated rows into InvestmentTransaction objects ready for store commit.
  * Only processes valid + warning rows (skips errors).
+ *
+ * Post-build validation: each constructed transaction is checked for required
+ * fields (date, type) and valid amount. Any that fail are moved to `rejected`.
  */
 export function buildTransactions(
   rows: CsvRowResult[],
   portfolioId: string,
-): InvestmentTransaction[] {
+): BuildResult {
   const now = new Date().toISOString();
-  return rows
-    .filter(r => r.status !== 'error')
-    .map(r => {
-      const d = r.resolved;
-      return {
-        id:          crypto.randomUUID(),
-        portfolioId,
-        assetId:     d.assetId || '',
-        date:        d.date || '',
-        type:        d.type || 'buy',
-        units:       toNumOrNull(d.units),
-        price:       toNumOrNull(d.price),
-        amount:      toNum(d.amount),
-        fee:         toNum(d.fee),
-        grossAmount: toNumOrNull(d.grossAmount),
-        taxAmount:   toNumOrNull(d.taxAmount),
-        label:       d.label || '',
-        linkedTxId:  null,
-        notes:       d.notes || 'CSV import',
-        createdAt:   now,
-      };
-    });
+  const transactions: InvestmentTransaction[] = [];
+  const rejected: Array<{ rowIndex: number; reason: string }> = [];
+
+  for (const r of rows) {
+    if (r.status === 'error') continue;
+
+    const d = r.resolved;
+    const tx: InvestmentTransaction = {
+      id:          crypto.randomUUID(),
+      portfolioId,
+      assetId:     d.assetId || '',
+      date:        d.date || '',
+      type:        d.type || 'buy',
+      units:       toNumOrNull(d.units),
+      price:       toNumOrNull(d.price),
+      amount:      toNum(d.amount),
+      fee:         toNum(d.fee),
+      grossAmount: toNumOrNull(d.grossAmount),
+      taxAmount:   toNumOrNull(d.taxAmount),
+      label:       d.label || '',
+      linkedTxId:  null as string | null,
+      notes:       d.notes || 'CSV import',
+      createdAt:   now,
+    };
+
+    // Post-build validation: reject transactions missing critical fields
+    const reason = validateBuiltTransaction(tx);
+    if (reason) {
+      rejected.push({ rowIndex: r.rowIndex, reason });
+    } else {
+      transactions.push(tx);
+    }
+  }
+
+  return { transactions, rejected };
+}
+
+/** Returns a rejection reason, or null if the transaction is valid. */
+function validateBuiltTransaction(tx: InvestmentTransaction): string | null {
+  if (!tx.date || !/^\d{4}-\d{2}-\d{2}$/.test(tx.date)) return 'Invalid date after build';
+  if (!tx.type || !VALID_TYPES.has(tx.type)) return 'Invalid type after build';
+  if (!tx.portfolioId) return 'Missing portfolioId';
+  return null;
 }
 
 function toNum(val: any): number {

@@ -24,6 +24,7 @@ export { useMortgageSummary }       from './useMortgageSummary';
 export { useMortgageAmortisation }  from './useMortgageAmortisation';
 export { usePortfolioAnalytics }   from './usePortfolioAnalytics';
 export { useFortnightSettlement } from './useFortnightSettlement';
+export { useTrajectory }        from './useTrajectory';
 export { useWishlistSummary }    from './useWishlistSummary';
 export { useGoalsSummary }       from './useGoalsSummary';
 export { usePropertyAlerts }       from './usePropertyAlerts';

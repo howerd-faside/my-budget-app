@@ -1,14 +1,15 @@
 /**
  * Investment domain store.
  *
- * Owns: investmentPortfolios, selectedPortfolioId, investments,
- *       investmentContributions, investmentDividends,
- *       investmentAssets, investmentTransactions, priceCache
+ * Canonical keys: investmentPortfolios, selectedPortfolioId,
+ *   investmentAssets, investmentTransactions, priceCache,
+ *   watchlist, watchlistPrices
  *
- * Old keys (investments, investmentContributions, investmentDividends) are
- * retained alongside new keys during the transition period. UI pages still
- * read/write old keys; new keys are populated by the v4 migration and will
- * become the primary data source once UI is migrated.
+ * Deprecated tombstones (always empty after v7 migration):
+ *   investments, investmentContributions, investmentDividends
+ *   Retained in INVESTMENT_KEYS so that pre-v5 backups can still be
+ *   restored — the storage adapter reads them, migrations convert them
+ *   to canonical form, then v7 empties them.
  */
 import { create } from 'zustand';
 import { persist }  from 'zustand/middleware';
@@ -31,14 +32,9 @@ import type { WatchlistItem, WatchlistPrice } from '../models/WatchlistItem';
 // ── State + Action interfaces ────────────────────────────────────────────────
 
 export interface InvestmentStoreState {
-  // Existing keys (retained for backward compatibility)
+  // Canonical keys
   investmentPortfolios:    Portfolio[];
   selectedPortfolioId:     string | null;
-  investments:             Holding[];
-  investmentContributions: InvestmentContribution[];
-  investmentDividends:     Dividend[];
-
-  // New keys (v4+)
   investmentAssets:        Asset[];
   investmentTransactions:  InvestmentTransaction[];
   priceCache:              PriceEntry[];
@@ -46,6 +42,11 @@ export interface InvestmentStoreState {
   // Discovery (v6+)
   watchlist:               WatchlistItem[];
   watchlistPrices:         WatchlistPrice[];
+
+  // Deprecated tombstones — always [] after v7; kept for backup restore compat
+  investments:             Holding[];
+  investmentContributions: InvestmentContribution[];
+  investmentDividends:     Dividend[];
 }
 
 export interface InvestmentStoreActions {

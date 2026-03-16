@@ -6,8 +6,6 @@ import {
   calcFortnightlyAssetIncome,
   totalBalance,
   getPersonIncomeAt,
-  calcPortfolioStats,
-  enrichHoldings,
 } from './savings';
 
 // ── calcFortnightlyExpensesAt — boundary equality ────────────────────────────
@@ -138,71 +136,6 @@ describe('calcFortnightlyIncome — complex scenarios', () => {
     // Verify it's more than just primary incomes
     const primaryOnly = calcFortnightlyIncome(people.map(p => ({ ...p, secondaryIncomes: [] })));
     expect(result).toBeGreaterThan(primaryOnly);
-  });
-});
-
-// ── calcPortfolioStats — edge cases ──────────────────────────────────────────
-
-describe('calcPortfolioStats — additional edge cases', () => {
-  it('handles holdings with zero units', () => {
-    const holdings = [{ units: 0, avgCost: 100, currentPrice: 120, category: 'ETF' }];
-    const stats = calcPortfolioStats(holdings, [], []);
-    expect(stats.totalValue).toBe(0);
-    expect(stats.totalCost).toBe(0);
-    expect(stats.unrealised).toBe(0);
-    expect(stats.returnPct).toBe(0);
-  });
-
-  it('handles holdings at a loss (currentPrice < avgCost)', () => {
-    const holdings = [{ units: 10, avgCost: 100, currentPrice: 80, category: 'Shares' }];
-    const stats = calcPortfolioStats(holdings, [], []);
-    expect(stats.unrealised).toBe(-200); // 800 - 1000
-    expect(stats.returnPct).toBeCloseTo(-20, 4); // -200/1000 * 100
-  });
-
-  it('allocation handles single holding (100%)', () => {
-    const holdings = [{ units: 10, avgCost: 50, currentPrice: 60, category: 'Bonds' }];
-    const stats = calcPortfolioStats(holdings, [], []);
-    expect(stats.allocation).toHaveLength(1);
-    expect(stats.allocation[0].pct).toBeCloseTo(1, 4);
-    expect(stats.allocation[0].cat).toBe('Bonds');
-  });
-
-  it('allocation groups multiple holdings in same category', () => {
-    const holdings = [
-      { units: 10, avgCost: 50, currentPrice: 60, category: 'Shares' },
-      { units: 5, avgCost: 100, currentPrice: 120, category: 'Shares' },
-      { units: 20, avgCost: 10, currentPrice: 15, category: 'Bonds' },
-    ];
-    const stats = calcPortfolioStats(holdings, [], []);
-    expect(stats.allocation).toHaveLength(2);
-    const sharesCat = stats.allocation.find(a => a.cat === 'Shares');
-    expect(sharesCat.val).toBe(600 + 600); // 10*60 + 5*120
-  });
-});
-
-// ── enrichHoldings — additional edge cases ───────────────────────────────────
-
-describe('enrichHoldings — missing numeric fields', () => {
-  it('handles undefined units (treated as 0)', () => {
-    const result = enrichHoldings([{ currentPrice: 10, avgCost: 5 }]);
-    expect(result[0].value).toBe(0);
-    expect(result[0].cost).toBe(0);
-    expect(result[0].gl).toBe(0);
-  });
-
-  it('handles undefined currentPrice (treated as 0)', () => {
-    const result = enrichHoldings([{ units: 10, avgCost: 5 }]);
-    expect(result[0].value).toBe(0);
-    expect(result[0].gl).toBe(-50); // 0 - 50
-  });
-
-  it('handles all fields missing', () => {
-    const result = enrichHoldings([{}]);
-    expect(result[0].value).toBe(0);
-    expect(result[0].cost).toBe(0);
-    expect(result[0].gl).toBe(0);
-    expect(result[0].glPct).toBe(0);
   });
 });
 

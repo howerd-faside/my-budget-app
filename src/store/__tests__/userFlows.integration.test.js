@@ -225,19 +225,19 @@ describe('Flow: person lifecycle with cascade delete', () => {
 // ── Flow 5: Investment portfolio lifecycle ────────────────────────────────────
 
 describe('Flow: investment portfolio lifecycle', () => {
-  it('cascade-deletes portfolio, holdings, contributions, and dividends atomically', () => {
+  it('cascade-deletes portfolio, assets, transactions, and price cache atomically', () => {
     const portfolio  = { id: 'port-1', name: 'Growth', createdAt: '' };
     const portfolio2 = { id: 'port-2', name: 'Income', createdAt: '' };
-    const holding    = { id: 'h1', portfolioId: 'port-1', name: 'VGS', ticker: 'VGS', platform: 'Sharesies', category: 'ETF', units: '50', avgCost: '80', currentPrice: '95', notes: '', tranches: [], createdAt: '' };
-    const contrib    = { id: 'c1', portfolioId: 'port-1', holdingId: 'h1', date: '2025-06-01', amount: 4000, type: 'buy', platform: '', notes: '', createdAt: '' };
-    const dividend   = { id: 'd1', portfolioId: 'port-1', holdingId: 'h1', date: '2025-09-01', grossAmount: 100, taxAmount: 17, netAmount: 83, platform: '', notes: '', createdAt: '' };
+    const asset      = { id: 'a1', portfolioId: 'port-1', name: 'VGS', ticker: 'VGS', platform: 'Sharesies', category: 'ETF', currency: 'NZD', notes: '', createdAt: '' };
+    const tx         = { id: 'tx1', portfolioId: 'port-1', assetId: 'a1', date: '2025-06-01', type: 'buy', units: 50, price: 80, amount: 4000, fee: 0, label: 'Regular', notes: '', createdAt: '' };
+    const price      = { assetId: 'a1', price: 95, currency: 'NZD', updatedAt: '2025-09-01' };
 
     useInvestmentStore.setState({
       investmentPortfolios: [portfolio, portfolio2],
       selectedPortfolioId: 'port-1',
-      investments: [holding],
-      investmentContributions: [contrib],
-      investmentDividends: [dividend],
+      investmentAssets: [asset],
+      investmentTransactions: [tx],
+      priceCache: [price],
     });
 
     const newSlice = cascadeDeletePortfolio(useInvestmentStore.getState(), 'port-1');
@@ -246,9 +246,9 @@ describe('Flow: investment portfolio lifecycle', () => {
     const final = useInvestmentStore.getState();
     expect(final.investmentPortfolios).toHaveLength(1);
     expect(final.investmentPortfolios[0].id).toBe('port-2');
-    expect(final.investments).toHaveLength(0);
-    expect(final.investmentContributions).toHaveLength(0);
-    expect(final.investmentDividends).toHaveLength(0);
+    expect(final.investmentAssets).toHaveLength(0);
+    expect(final.investmentTransactions).toHaveLength(0);
+    expect(final.priceCache).toHaveLength(0);
     expect(final.selectedPortfolioId).not.toBe('port-1');
   });
 });

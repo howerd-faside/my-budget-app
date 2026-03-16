@@ -536,3 +536,40 @@ describe('overwrite confirmation', () => {
     spy.mockRestore();
   });
 });
+
+// ── Content validation (warnings) ────────────────────────────────────────────
+
+describe('validateBackup — content warnings', () => {
+  it('returns empty warnings array for a clean backup', () => {
+    const result = validateBackup(makeValidBackup());
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('returns warnings when an array slice has wrong type', () => {
+    const b = makeValidBackup();
+    b.domains.finance.data.accounts = 'not-an-array';
+    const result = validateBackup(b);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0].domain).toBe('finance');
+    expect(result.warnings[0].slice).toBe('accounts');
+  });
+
+  it('returns warnings when array contains non-objects', () => {
+    const b = makeValidBackup();
+    b.domains.people.data.people = ['not', 'objects'];
+    const result = validateBackup(b);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0].domain).toBe('people');
+  });
+
+  it('returns no warnings for valid rich data', () => {
+    writeStorage(makeRichStorage());
+    const { backup } = exportBackup();
+    const result = validateBackup(backup);
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toEqual([]);
+  });
+});

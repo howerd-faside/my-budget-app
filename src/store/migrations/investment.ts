@@ -10,6 +10,9 @@
  *   4 → 5  Convert holdings → assets + opening transactions + price cache.
  *          Convert contributions → buy transactions.
  *          Convert dividends → dividend transactions.
+ *   5 → 6  Add watchlist and watchlistPrices arrays.
+ *   6 → 7  Empty legacy keys (investments, investmentContributions,
+ *          investmentDividends). All UI now reads canonical model.
  */
 import { normalizePortfolio }              from '../../models/Portfolio';
 import { normalizeHolding }                from '../../models/Holding';
@@ -20,7 +23,7 @@ import { normalizeInvestmentTransaction }  from '../../models/InvestmentTransact
 import { normalizePriceEntry }             from '../../models/PriceEntry';
 import type { MigrationStep } from '../budgetStorage';
 
-export const INVESTMENT_VERSION     = 6;
+export const INVESTMENT_VERSION     = 7;
 export const INVESTMENT_VERSION_KEY = '_investmentVersion';
 
 // ── v5 conversion helpers (exported for testing) ────────────────────────────
@@ -252,8 +255,7 @@ export const INVESTMENT_MIGRATIONS: MigrationStep[] = [
       slice.investmentTransactions = transactions;
       slice.priceCache             = prices;
 
-      // Old keys (investments, investmentContributions, investmentDividends)
-      // intentionally left in place — current UI still reads them.
+      // Old keys left in place — v7 empties them once UI is fully migrated.
 
       return slice;
     },
@@ -264,6 +266,16 @@ export const INVESTMENT_MIGRATIONS: MigrationStep[] = [
     migrate(slice: any) {
       if (!Array.isArray(slice.watchlist))       slice.watchlist       = [];
       if (!Array.isArray(slice.watchlistPrices)) slice.watchlistPrices = [];
+      return slice;
+    },
+  },
+  {
+    toVersion:   7,
+    description: 'empty legacy keys — all UI now reads canonical model (investmentAssets, investmentTransactions, priceCache)',
+    migrate(slice: any) {
+      slice.investments             = [];
+      slice.investmentContributions = [];
+      slice.investmentDividends     = [];
       return slice;
     },
   },

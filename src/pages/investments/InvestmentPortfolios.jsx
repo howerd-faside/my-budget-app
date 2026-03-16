@@ -9,6 +9,7 @@ import {
 import { today } from '../../utils/finance/dates';
 import { fmtCurrency as fmt, fmtPct } from '../../utils/format';
 import { COST_BASIS_METHODS } from '../../models/Portfolio';
+import { validate, portfolioSchema } from '../../utils/validation';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card, ConfirmDialog } from '../../components/ui';
 
@@ -127,7 +128,6 @@ export default function InvestmentPortfolios() {
   const {
     investmentPortfolios, selectedPortfolioId,
     investmentAssets, investmentTransactions, priceCache,
-    investments, investmentContributions, investmentDividends,
     setInvestment, mergeInvestment,
   } = useInvestment();
 
@@ -206,7 +206,8 @@ export default function InvestmentPortfolios() {
 
   const confirmCreate = () => {
     const name = newName.trim();
-    if (!name) { setCreating(false); return; }
+    const { ok } = validate(portfolioSchema, { name });
+    if (!ok) { if (!name) setCreating(false); return; }
     const id = crypto.randomUUID();
     setInvestment('investmentPortfolios', [...portfolios, { id, name, currency: 'NZD', costBasisMethod: 'average', archived: false, createdAt: today() }]);
     setInvestment('selectedPortfolioId', id);
@@ -237,7 +238,6 @@ export default function InvestmentPortfolios() {
     if (!portfolio) return;
     const invState = {
       investmentPortfolios, selectedPortfolioId,
-      investments, investmentContributions, investmentDividends,
       investmentAssets, investmentTransactions, priceCache,
     };
     const deps = getPortfolioDependents(invState, id);

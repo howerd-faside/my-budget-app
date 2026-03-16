@@ -24,6 +24,7 @@ import {
 } from './csvImport';
 import type { Asset } from '../models/Asset';
 import type { InvestmentTransaction } from '../models/InvestmentTransaction';
+import type { CsvRowResult } from './csvImport';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -311,10 +312,10 @@ describe('markDuplicates', () => {
       label: '', linkedTxId: null, notes: '', createdAt: '2026-01-15',
     }];
 
-    const rows = [{
+    const rows: CsvRowResult[] = [{
       rowIndex: 0, raw: {}, mapped: {},
-      status: 'valid' as const, errors: {}, warnings: [],
-      assetMatch: { asset: null, method: 'none' as const, query: '' },
+      status: 'valid', errors: {}, warnings: [],
+      assetMatch: { asset: null, method: 'none', query: '' },
       resolved: { date: '2026-01-15', type: 'buy', assetId: 'a1', amount: '1000' },
     }];
 
@@ -324,10 +325,10 @@ describe('markDuplicates', () => {
   });
 
   it('does not mark error rows', () => {
-    const rows = [{
+    const rows: CsvRowResult[] = [{
       rowIndex: 0, raw: {}, mapped: {},
-      status: 'error' as const, errors: { date: 'Missing' }, warnings: [],
-      assetMatch: { asset: null, method: 'none' as const, query: '' },
+      status: 'error', errors: { date: 'Missing' }, warnings: [],
+      assetMatch: { asset: null, method: 'none', query: '' },
       resolved: {},
     }];
 
@@ -340,36 +341,53 @@ describe('markDuplicates', () => {
 
 describe('buildTransactions', () => {
   it('builds transactions from valid rows, skipping errors', () => {
-    const rows = [
+    const rows: CsvRowResult[] = [
       {
         rowIndex: 0, raw: {}, mapped: {},
-        status: 'valid' as const, errors: {}, warnings: [],
-        assetMatch: { asset: null, method: 'none' as const, query: '' },
+        status: 'valid', errors: {}, warnings: [],
+        assetMatch: { asset: null, method: 'none', query: '' },
         resolved: { date: '2026-01-15', type: 'buy', assetId: 'a1', units: '10', price: '100', amount: '1000', fee: '2' },
       },
       {
         rowIndex: 1, raw: {}, mapped: {},
-        status: 'error' as const, errors: { date: 'bad' }, warnings: [],
-        assetMatch: { asset: null, method: 'none' as const, query: '' },
+        status: 'error', errors: { date: 'bad' }, warnings: [],
+        assetMatch: { asset: null, method: 'none', query: '' },
         resolved: {},
       },
       {
         rowIndex: 2, raw: {}, mapped: {},
-        status: 'warning' as const, errors: {}, warnings: ['Possible duplicate'],
-        assetMatch: { asset: null, method: 'none' as const, query: '' },
+        status: 'warning', errors: {}, warnings: ['Possible duplicate'],
+        assetMatch: { asset: null, method: 'none', query: '' },
         resolved: { date: '2026-02-01', type: 'deposit', amount: '5000' },
       },
     ];
 
-    const txs = buildTransactions(rows, 'p1');
-    expect(txs).toHaveLength(2); // valid + warning, not error
-    expect(txs[0].portfolioId).toBe('p1');
-    expect(txs[0].date).toBe('2026-01-15');
-    expect(txs[0].amount).toBe(1000);
-    expect(txs[0].fee).toBe(2);
-    expect(txs[0].id).toBeTruthy();
-    expect(txs[1].type).toBe('deposit');
-    expect(txs[1].amount).toBe(5000);
+    const result = buildTransactions(rows, 'p1');
+    expect(result.transactions).toHaveLength(2); // valid + warning, not error
+    expect(result.rejected).toHaveLength(0);
+    expect(result.transactions[0].portfolioId).toBe('p1');
+    expect(result.transactions[0].date).toBe('2026-01-15');
+    expect(result.transactions[0].amount).toBe(1000);
+    expect(result.transactions[0].fee).toBe(2);
+    expect(result.transactions[0].id).toBeTruthy();
+    expect(result.transactions[1].type).toBe('deposit');
+    expect(result.transactions[1].amount).toBe(5000);
+  });
+
+  it('rejects transactions that fail post-build validation', () => {
+    const rows: CsvRowResult[] = [
+      {
+        rowIndex: 0, raw: {}, mapped: {},
+        status: 'valid', errors: {}, warnings: [],
+        assetMatch: { asset: null, method: 'none', query: '' },
+        // Missing date — should be rejected post-build
+        resolved: { type: 'buy', amount: '100' },
+      },
+    ];
+    const result = buildTransactions(rows, 'p1');
+    expect(result.transactions).toHaveLength(0);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0].reason).toMatch(/date/i);
   });
 });
 

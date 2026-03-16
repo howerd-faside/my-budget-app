@@ -2,6 +2,7 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import Icon from '../../components/Icon';
 import { Modal, ConfirmDialog } from '../../components/ui';
+import { validate, goalSchema } from '../../utils/validation';
 
 const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
 
@@ -18,11 +19,14 @@ const EMPTY_GOAL = { name: '', amount: '', targetDate: '', notes: '' };
 export default function GoalsSection({ goals, goalsWithDates, currentBal, nextGoalIdx, setFinance }) {
   const [editing, setEditing]   = useState(null);
   const [goalForm, setGoalForm] = useState(EMPTY_GOAL);
+  const [errors, setErrors]     = useState({});
   const [confirmTarget, setConfirmTarget] = useState(null);
 
-  const openGoal  = () => { setGoalForm({ ...EMPTY_GOAL, id: crypto.randomUUID() }); setEditing('new'); };
-  const closeGoal = () => { setEditing(null); setGoalForm(EMPTY_GOAL); };
+  const openGoal  = () => { setGoalForm({ ...EMPTY_GOAL, id: crypto.randomUUID() }); setErrors({}); setEditing('new'); };
+  const closeGoal = () => { setEditing(null); setGoalForm(EMPTY_GOAL); setErrors({}); };
   const saveGoal  = () => {
+    const { ok, errors: errs } = validate(goalSchema, goalForm);
+    if (!ok) { setErrors(errs); return; }
     const goal = { ...goalForm, amount: +goalForm.amount };
     if (editing === 'new') setFinance('goals', [...(goals || []), goal]);
     else setFinance('goals', (goals || []).map(g => g.id === goalForm.id ? goal : g));
@@ -92,20 +96,22 @@ export default function GoalsSection({ goals, goalsWithDates, currentBal, nextGo
         footer={
           <>
             <button className="btn-ghost" onClick={closeGoal}>Cancel</button>
-            <button className="btn-primary" onClick={saveGoal} disabled={!goalForm.name || !goalForm.amount}>Save</button>
+            <button className="btn-primary" onClick={saveGoal}>Save</button>
           </>
         }
       >
         <div className="form-grid">
           <div className="form-group full">
             <label>Goal Name</label>
-            <input className="input" placeholder="e.g. New Car" value={goalForm.name}
+            <input className={`input${errors.name ? ' input-error' : ''}`} placeholder="e.g. New Car" value={goalForm.name}
               onChange={e => setGoalForm(f => ({ ...f, name: e.target.value }))} />
+            {errors.name && <span className="field-error">{errors.name}</span>}
           </div>
           <div className="form-group">
             <label>Target Amount ($)</label>
-            <input className="input mono" type="number" placeholder="0" value={goalForm.amount}
+            <input className={`input mono${errors.amount ? ' input-error' : ''}`} type="number" placeholder="0" value={goalForm.amount}
               onChange={e => setGoalForm(f => ({ ...f, amount: e.target.value }))} />
+            {errors.amount && <span className="field-error">{errors.amount}</span>}
           </div>
           <div className="form-group">
             <label>Target Date (optional)</label>

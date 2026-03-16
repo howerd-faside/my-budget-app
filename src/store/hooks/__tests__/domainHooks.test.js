@@ -110,9 +110,9 @@ describe('useInvestment store contract', () => {
     const s = useInvestmentStore.getState();
     expect(s).toHaveProperty('investmentPortfolios');
     expect(s).toHaveProperty('selectedPortfolioId');
-    expect(s).toHaveProperty('investments');
-    expect(s).toHaveProperty('investmentContributions');
-    expect(s).toHaveProperty('investmentDividends');
+    expect(s).toHaveProperty('investmentAssets');
+    expect(s).toHaveProperty('investmentTransactions');
+    expect(s).toHaveProperty('priceCache');
   });
 
   it('investment store has action methods that useInvestment exposes', () => {
@@ -258,28 +258,26 @@ describe('mergeInvestment (via investmentStore.mergeSlices)', () => {
   it('cascade-deletes a portfolio atomically', () => {
     const portfolio  = { id: 'port-1', name: 'Main' };
     const portfolio2 = { id: 'port-2', name: 'KiwiSaver' };
-    const holding    = { id: 'h1', name: 'VGS', portfolioId: 'port-1' };
-    const contrib    = { id: 'c1', amount: 1000, portfolioId: 'port-1' };
+    const asset      = { id: 'a1', name: 'VGS', portfolioId: 'port-1' };
+    const tx         = { id: 'tx1', assetId: 'a1', portfolioId: 'port-1', type: 'buy', amount: 1000 };
     useInvestmentStore.setState({
       investmentPortfolios:    [portfolio, portfolio2],
       selectedPortfolioId:     'port-1',
-      investments:             [holding],
-      investmentContributions: [contrib],
-      investmentDividends:     [],
+      investmentAssets:        [asset],
+      investmentTransactions:  [tx],
     });
 
     // Simulate cascadeDeletePortfolio for port-1
     useInvestmentStore.getState().mergeSlices({
       investmentPortfolios:    [portfolio2],
-      investments:             [],
-      investmentContributions: [],
-      investmentDividends:     [],
+      investmentAssets:        [],
+      investmentTransactions:  [],
       selectedPortfolioId:     'port-2',
     });
 
     expect(useInvestmentStore.getState().investmentPortfolios).toHaveLength(1);
-    expect(useInvestmentStore.getState().investments).toHaveLength(0);
-    expect(useInvestmentStore.getState().investmentContributions).toHaveLength(0);
+    expect(useInvestmentStore.getState().investmentAssets).toHaveLength(0);
+    expect(useInvestmentStore.getState().investmentTransactions).toHaveLength(0);
     expect(useInvestmentStore.getState().selectedPortfolioId).toBe('port-2');
   });
 });
