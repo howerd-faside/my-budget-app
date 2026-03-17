@@ -10,12 +10,7 @@ import { buildUnitsTimeline, getUnitsAtDate, calcPeriodReturns } from '../../uti
 import { useToast } from '../../components/Toast';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
 import { CATEGORY_COLORS as CAT_COLOR } from '../../utils/colors';
-import { fmtCurrency as fmt, fmtPct } from '../../utils/format';
-
-const fmtK = (n) => {
-  const abs = Math.abs(+n || 0);
-  return abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs.toFixed(0)}`;
-};
+import { fmtCurrency as fmt, fmtPct, fmtK } from '../../utils/format';
 
 function formatAxisDate(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
@@ -365,7 +360,7 @@ export default function InvestmentPerformance() {
                       />
                     </div>
                     <div className="perf-cat2-right">
-                      <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text1)' }}>
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>
                         {fmtK(c.value)}
                       </span>
                       <span className="perf-return-pill" style={{

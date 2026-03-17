@@ -236,6 +236,13 @@ describe('FinancialTracking — remove transaction', () => {
     const deleteBtns = document.querySelectorAll('.fn-tx-row .btn-icon.danger');
     await user.click(deleteBtns[0]);
 
+    // Confirm dialog should appear
+    expect(screen.getByText('Remove Transaction')).toBeInTheDocument();
+    expect(screen.getByText(/Remove "Petrol"/)).toBeInTheDocument();
+
+    // Confirm the removal
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+
     const { fortnightlyData } = useFinanceStore.getState();
     expect(fortnightlyData[year].fortnights[0].adhocTransactions).toHaveLength(0);
   });

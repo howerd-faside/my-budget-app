@@ -113,7 +113,11 @@ export const useFinanceStore = create<FinanceStore>()(
       addTransfer({ fromId, toId, amount, note = '' }) {
         const amt = +amount;
         if (!amt || amt <= 0) return;
+        if (fromId === toId) return;
         set(s => {
+          const hasFrom = s.accounts.some(a => a.id === fromId);
+          const hasTo   = s.accounts.some(a => a.id === toId);
+          if (!hasFrom || !hasTo) return s;
           const tx: Transfer = {
             id:     crypto.randomUUID(),
             date:   today(),

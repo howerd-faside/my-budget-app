@@ -1,4 +1,5 @@
 import { fmtMoneyRound } from '../../utils/finance/tax';
+import { fnToAnnual, fnToMonthly } from '../../utils/finance/frequency';
 import { EXPENSE_GROUPS } from '../../utils/categories';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, Card } from '../../components/ui';
@@ -8,13 +9,13 @@ export default function ExpensesSection({ fnExpenses, groupTotals }) {
     <Card variant="section">
       <SectionHeader
         title={<><Icon name="tag" size={15} /> Expenses</>}
-        actions={<span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(fnExpenses * 26)}/yr</span>}
+        actions={<span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(fnToAnnual(fnExpenses))}/yr</span>}
       />
 
       <div className="fn-summary">
         <StatTile label="Fortnightly" value={fmtMoneyRound(fnExpenses)} valueClassName="red" />
-        <StatTile label="Monthly"     value={fmtMoneyRound(fnExpenses * 26 / 12)} valueClassName="red" />
-        <StatTile label="Annual"      value={fmtMoneyRound(fnExpenses * 26)} valueClassName="red" />
+        <StatTile label="Monthly"     value={fmtMoneyRound(fnToMonthly(fnExpenses))} valueClassName="red" />
+        <StatTile label="Annual"      value={fmtMoneyRound(fnToAnnual(fnExpenses))} valueClassName="red" />
       </div>
 
       <div className="cat-proportion-wrap">

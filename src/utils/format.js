@@ -7,8 +7,11 @@
 export const fmtCurrency = (n) =>
   `$${Math.abs(+n || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/** Format number as $Xk (rounded, for chart axes / compact display). */
-export const fmtK = (v) => `$${(v / 1000).toFixed(0)}k`;
+/** Format number as $Xk or $X for compact display (chart axes, sidebar, etc.). */
+export const fmtK = (v) => {
+  const abs = Math.abs(+v || 0);
+  return abs >= 1000 ? `$${(abs / 1000).toFixed(1)}k` : `$${abs.toFixed(0)}`;
+};
 
 /** Format percentage with sign: "+12.34%" or "-5.67%". */
 export const fmtPct = (n) => `${n >= 0 ? '+' : ''}${(+n || 0).toFixed(2)}%`;
@@ -26,11 +29,21 @@ export function timeAgo(isoStr) {
   return `${Math.floor(secs / 86400)}d ago`;
 }
 
-/** Shared chart tooltip style object — Apple-style frosted panel. */
+/**
+ * Format an ISO YYYY-MM-DD date string as "15 Mar" style for chart axes.
+ * Used by cashflow trend charts across FinancesOverview and Home.
+ */
+const DATE_FMT = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short' });
+export function fmtChartDate(yyyyMmDd) {
+  const [y, m, d] = yyyyMmDd.split('-').map(Number);
+  return DATE_FMT.format(new Date(y, m - 1, d));
+}
+
+/** Shared chart tooltip style object — uses CSS tokens for dark-mode compat. */
 export const TOOLTIP_STYLE = {
-  background: 'rgba(255,255,255,0.97)',
-  border: '1px solid rgba(0,0,0,0.1)',
+  background: 'var(--card)',
+  border: '1px solid var(--sep2)',
   borderRadius: 12,
   fontSize: 11,
-  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+  boxShadow: 'var(--shadow-md)',
 };

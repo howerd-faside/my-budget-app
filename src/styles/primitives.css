@@ -33,7 +33,7 @@
 .ebf-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text1);
+  color: var(--text);
 }
 .ebf-msg {
   font-size: 12px;
@@ -105,7 +105,7 @@
 .toast-undo {
   background: var(--card);
   color: var(--text);
-  border: 1px solid var(--border, #d2d2d7);
+  border: 1px solid var(--sep2);
   position: relative;
   overflow: hidden;
 }

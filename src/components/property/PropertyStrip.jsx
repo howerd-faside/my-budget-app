@@ -28,6 +28,13 @@ export default function PropertyStrip({ currentTab, onAddProperty }) {
 
   const selected = props.find(p => p.id === selectedPropertyId);
 
+  // Auto-reset stale selectedPropertyId when the referenced property no longer exists
+  useEffect(() => {
+    if (selectedPropertyId && props.length > 0 && !selected) {
+      setProperty('selectedPropertyId', props[0].id);
+    }
+  }, [selectedPropertyId, props, selected, setProperty]);
+
   // Open task count (scoped to selected property, or all)
   const openTasks = tasks.filter(
     t => t.status !== 'Done' && t.status !== 'Cancelled'

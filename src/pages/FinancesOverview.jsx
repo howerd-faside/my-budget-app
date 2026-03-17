@@ -4,26 +4,20 @@ import {
   AreaChart, Area,
 } from 'recharts';
 import Icon from '../components/Icon';
-import { SectionHeader, StatTile, Card } from '../components/ui';
+import { SectionHeader, StatTile, Card, EmptyState } from '../components/ui';
 import { useNavigate } from '../contexts/NavigationContext';
 import {
   useHouseholdSnapshot, useMoneyFlow, useCashflowTrend,
   useObligationsSnapshot, useSavingsPosition,
 } from '../store/hooks';
 import { fmtMoney } from '../utils/finance/tax';
-
-// ── Cashflow Trend helpers ────────────────────────────────────────────────────
-const DATE_FMT = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short' });
-function fmtDate(yyyyMmDd) {
-  const [y, m, d] = yyyyMmDd.split('-').map(Number);
-  return DATE_FMT.format(new Date(y, m - 1, d));
-}
+import { fmtChartDate } from '../utils/format';
 
 const TREND_TOOLTIP_STYLE = {
-  background: 'rgba(255,255,255,0.97)',
-  border: '1px solid rgba(0,0,0,0.1)',
+  background: 'var(--card)',
+  border: '1px solid var(--sep2)',
   borderRadius: 12,
-  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+  boxShadow: 'var(--shadow-md)',
   padding: 0,
 };
 
@@ -33,7 +27,7 @@ function TrendTooltip({ active, payload, label }) {
   const color = val >= 0 ? 'var(--green)' : 'var(--red)';
   return (
     <div className="chart-tt">
-      <div className="tt-date">{fmtDate(label)}</div>
+      <div className="tt-date">{fmtChartDate(label)}</div>
       <div className="tt-bal" style={{ color }}>{val < 0 ? '−' : ''}{fmtMoney(Math.abs(val))}</div>
     </div>
   );
@@ -51,22 +45,14 @@ function CashflowTrendSection() {
       />
 
       {!hasData ? (
-        <div style={{
-          height: 140,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'var(--text3)', fontSize: 13,
-          background: 'var(--bg)', borderRadius: 10,
-          border: '1px dashed var(--border)',
-        }}>
-          Add income or expenses to see your cashflow trend
-        </div>
+        <EmptyState title="Add income or expenses to see your cashflow trend" />
       ) : (
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={points} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="20%">
             <CartesianGrid strokeDasharray="2 2" stroke="rgba(0,0,0,0.06)" vertical={false} />
             <XAxis
               dataKey="date"
-              tickFormatter={fmtDate}
+              tickFormatter={fmtChartDate}
               tick={{ fill: '#86868B', fontSize: 9, fontFamily: 'var(--mono)' }}
               tickLine={false}
               axisLine={false}
@@ -172,9 +158,7 @@ function ObligationsSnapshotSection() {
       />
 
       {!hasLoans ? (
-        <div style={{ color: 'var(--text3)', fontSize: 13, padding: '8px 0' }}>
-          No loans configured. Add a loan in the Mortgage tab.
-        </div>
+        <EmptyState title="No loans configured. Add a loan in the Mortgage tab." />
       ) : (
         <div className="fn-summary">
           <StatTile label="Total Outstanding"  value={fmtMoney(totalBalance)} valueClassName="red" />

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { calcFortnightlyExpensesAt } from '../utils/finance/savings';
 import { usePeople, useUndoDelete } from '../store/hooks';
 import { fmtMoneyRound } from '../utils/finance/tax';
-import { toFortnightly } from '../utils/finance/frequency';
+import { toFortnightly, fnToAnnual, fnToMonthly } from '../utils/finance/frequency';
 import { createExpense, createFacility } from '../models/Expense';
 import { EXPENSE_GROUPS, CATEGORIES } from '../utils/categories';
 import Icon from '../components/Icon';
@@ -157,7 +157,7 @@ export default function Expenses() {
             title={<><Icon name="tag" size={15} /> Spending Breakdown</>}
             actions={
               <>
-                <span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(totalFn * 26)}/yr</span>
+                <span className="text3" style={{ fontSize: 11 }}>{fmtMoneyRound(fnToAnnual(totalFn))}/yr</span>
                 <button className="btn-ghost small" onClick={openNew}>+ Add Expense</button>
               </>
             }
@@ -165,8 +165,8 @@ export default function Expenses() {
 
           <div className="fn-summary">
             <StatTile label="Fortnightly" value={fmtMoneyRound(totalFn)} valueClassName="red" />
-            <StatTile label="Monthly"     value={fmtMoneyRound(totalFn * 26 / 12)} />
-            <StatTile label="Annual"      value={fmtMoneyRound(totalFn * 26)} />
+            <StatTile label="Monthly"     value={fmtMoneyRound(fnToMonthly(totalFn))} />
+            <StatTile label="Annual"      value={fmtMoneyRound(fnToAnnual(totalFn))} />
           </div>
 
           <div className="cat-proportion-wrap">

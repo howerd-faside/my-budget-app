@@ -163,6 +163,31 @@ describe('addTransfer', () => {
     const ids = state().transfers.map(t => t.id);
     expect(new Set(ids).size).toBe(2);
   });
+
+  it('is a no-op when fromId equals toId (self-transfer)', () => {
+    state().addTransfer({ fromId: 'main', toId: 'main', amount: 100 });
+    expect(state().transfers).toHaveLength(0);
+    expect(state().accounts.find(a => a.id === 'main').balance).toBe(1000);
+  });
+
+  it('is a no-op when fromId does not match any account', () => {
+    state().addTransfer({ fromId: 'nonexistent', toId: 'main', amount: 100 });
+    expect(state().transfers).toHaveLength(0);
+    expect(state().accounts.find(a => a.id === 'main').balance).toBe(1000);
+  });
+
+  it('is a no-op when toId does not match any account', () => {
+    state().addTransfer({ fromId: 'main', toId: 'nonexistent', amount: 100 });
+    expect(state().transfers).toHaveLength(0);
+    expect(state().accounts.find(a => a.id === 'main').balance).toBe(1000);
+  });
+
+  it('is a no-op when both fromId and toId are invalid', () => {
+    state().addTransfer({ fromId: 'fake1', toId: 'fake2', amount: 500 });
+    expect(state().transfers).toHaveLength(0);
+    // All balances unchanged
+    expect(state().accounts.map(a => a.balance)).toEqual([1000, 500, 200]);
+  });
 });
 
 // ── removeTransfer ─────────────────────────────────────────────────────────────

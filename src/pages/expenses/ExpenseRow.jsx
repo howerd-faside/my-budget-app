@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { fmtMoney, fmtMoneyRound } from '../../utils/finance/tax';
-import { toFortnightly, annualInterestToFortnightly } from '../../utils/finance/frequency';
+import { toFortnightly, annualInterestToFortnightly, fnToAnnual, fnToMonthly } from '../../utils/finance/frequency';
 import Icon from '../../components/Icon';
 import { getCatColor } from '../../utils/categories';
 
@@ -100,11 +100,11 @@ function ExpenseRow({ expense: e, expanded, onToggle, onEdit, onRemove, archived
                 )}
                 <div className="edg-item">
                   <span className="edg-label">Monthly</span>
-                  <span className="edg-val mono">{fmtMoneyRound(fn * 26 / 12)}</span>
+                  <span className="edg-val mono">{fmtMoneyRound(fnToMonthly(fn))}</span>
                 </div>
                 <div className="edg-item">
                   <span className="edg-label">Annual</span>
-                  <span className="edg-val mono">{fmtMoneyRound(fn * 26)}</span>
+                  <span className="edg-val mono">{fmtMoneyRound(fnToAnnual(fn))}</span>
                 </div>
               </div>
             )}

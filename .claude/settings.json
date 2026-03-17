@@ -16,7 +16,9 @@
       "Bash(grep -c \"describe\\\\|it\\(\" /c/Users/Billy/my-budget-app/src/store/__tests__/*.js /c/Users/Billy/my-budget-app/src/pages/__tests__/*.jsx /c/Users/Billy/my-budget-app/src/utils/*.test.js)",
       "Read(//c/Users/Billy/my-budget-app/**)",
       "Bash(bc)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(grep -n \"overflow:\" /c/Users/Billy/my-budget-app/src/styles/*.css)",
+      "Bash(grep -n \"!important\" /c/Users/Billy/my-budget-app/src/styles/*.css)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Billy\\my-budget-app\\src\\pages",

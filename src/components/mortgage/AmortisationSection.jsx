@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { useMortgageAmortisation } from '../../store/hooks';
 import Icon from '../Icon';
-import { SectionHeader, Card } from '../ui';
+import { SectionHeader, Card, EmptyState } from '../ui';
 import { fmtMoney } from '../../utils/finance/tax';
 import { RATE_COLORS } from '../../utils/colors';
 import { TOOLTIP_STYLE, fmtK } from '../../utils/format';
@@ -39,9 +39,7 @@ export default function AmortisationSection() {
       />
 
       {!hasData ? (
-        <div style={{ color: 'var(--text3)', fontSize: 13, padding: '4px 0' }}>
-          No amortisation data — add loan facilities with balance, rate, and repayment amount.
-        </div>
+        <EmptyState title="No amortisation data — add loan facilities with balance, rate, and repayment amount." />
       ) : (
         <div className="loan-chart-card">
           {mode === 'balance' ? (

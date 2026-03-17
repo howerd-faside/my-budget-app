@@ -31,6 +31,13 @@ export default function PortfolioStrip({ onManage }) {
   const portfolios = (investmentPortfolios || []).filter(p => !p.archived);
   const selected = portfolios.find(p => p.id === selectedPortfolioId);
 
+  // Auto-reset stale selectedPortfolioId when the referenced portfolio no longer exists
+  useEffect(() => {
+    if (selectedPortfolioId && portfolios.length > 0 && !selected) {
+      setInvestment('selectedPortfolioId', portfolios[0].id);
+    }
+  }, [selectedPortfolioId, portfolios, selected, setInvestment]);
+
   // ── Dropdown state ──────────────────────────────────────────────────────
 
   const [open, setOpen] = useState(false);

@@ -1,6 +1,6 @@
 import { useMortgageSummary, useMortgageFacilities } from '../../store/hooks';
 import Icon from '../Icon';
-import { SectionHeader, StatTile, Card } from '../ui';
+import { SectionHeader, StatTile, Card, EmptyState } from '../ui';
 import { fmtMoney } from '../../utils/finance/tax';
 
 export default function CurrentPositionSection() {
@@ -15,11 +15,11 @@ export default function CurrentPositionSection() {
     return (
       <Card variant="section">
         <SectionHeader title={<><Icon name="mortgage" size={15} /> Current Position</>} />
-        <div style={{ color: 'var(--text3)', fontSize: 13, padding: '4px 0' }}>
-          {loanExpenses.length === 0
+        <EmptyState
+          title={loanExpenses.length === 0
             ? 'No loans set up yet — add a loan expense with facilities in the Expenses tab.'
             : 'Loan found but no qualifying facilities (balance, rate, and repayment amount all required).'}
-        </div>
+        />
       </Card>
     );
   }

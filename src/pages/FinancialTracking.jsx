@@ -6,7 +6,7 @@ import { usePeople }  from '../store/hooks';
 import { fmtMoney, fmtMoneyRound } from '../utils/finance/tax';
 import { ADHOC_EXPENSE_CATS } from '../utils/categories';
 import Icon from '../components/Icon';
-import { SectionHeader, StatTile, Card, Modal } from '../components/ui';
+import { SectionHeader, StatTile, Card, Modal, ConfirmDialog } from '../components/ui';
 import { today } from '../utils/finance/dates';
 
 import BalanceTrendChart from './tracking/BalanceTrendChart';
@@ -28,6 +28,7 @@ export default function FinancialTracking() {
   const [txModal, setTxModal] = useState(null);
   const [txType, setTxType]   = useState('expense');
   const [txForm, setTxForm]   = useState({ description: '', amount: '', category: 'Other', note: '' });
+  const [confirmRemove, setConfirmRemove] = useState(null); // { fnIdx, txId, desc }
 
   const fnAssetIncome = calcFortnightlyAssetIncome(assetIncomes || []);
   const fnExpenses    = calcFortnightlyExpenses(expenses);
@@ -200,7 +201,15 @@ export default function FinancialTracking() {
     setTxModal(null);
   };
 
-  const removeTx = (fnIdx, txId) => {
+  const requestRemoveTx = (fnIdx, txId) => {
+    const existing = (yd.fortnights || {})[fnIdx] || { adhocTransactions: [] };
+    const tx = (existing.adhocTransactions || []).find(t => t.id === txId);
+    setConfirmRemove({ fnIdx, txId, desc: tx?.description || 'transaction' });
+  };
+
+  const executeRemoveTx = () => {
+    if (!confirmRemove) return;
+    const { fnIdx, txId } = confirmRemove;
     const existing = (yd.fortnights || {})[fnIdx] || { adhocTransactions: [] };
     const tx = (existing.adhocTransactions || []).find(t => t.id === txId);
     updFn(year, fnIdx, { adhocTransactions: (existing.adhocTransactions || []).filter(t => t.id !== txId) });
@@ -211,6 +220,7 @@ export default function FinancialTracking() {
       const target = accounts.find(a => a.id === 'main') || accounts[0];
       if (target) updateAccount(target.id, (target.balance || 0) - tx.amount);
     }
+    setConfirmRemove(null);
   };
 
   const cats = txType === 'income' ? INCOME_CATS : EXPENSE_CATS;
@@ -341,9 +351,18 @@ export default function FinancialTracking() {
         currentFnIdx={currentFnIdx}
         fnIncome={fnIncome}
         onOpenTxModal={openTxModal}
-        onRemoveTx={removeTx}
+        onRemoveTx={requestRemoveTx}
       />
       </div>
+
+      <ConfirmDialog
+        open={!!confirmRemove}
+        title="Remove Transaction"
+        message={`Remove "${confirmRemove?.desc}"? This will also adjust your account balance.`}
+        confirmLabel="Remove"
+        onConfirm={executeRemoveTx}
+        onCancel={() => setConfirmRemove(null)}
+      />
 
       {/* Add transaction modal */}
       <Modal

@@ -14,9 +14,10 @@ import {
 } from '../../utils/cascade';
 import { validate, propertySchema } from '../../utils/validation';
 import { today } from '../../utils/finance/dates';
+import { fmtMoneyRound } from '../../utils/finance/tax';
 import { useNavigate } from '../../contexts/NavigationContext';
 
-function fmtMoney(n) { return n ? `$${Number(n).toLocaleString('en-NZ')}` : null; }
+function fmtMoney(n) { return n ? fmtMoneyRound(Number(n)) : null; }
 
 const WATER_SUPPLY    = WATER_SUPPLY_OPTIONS;
 const WASTEWATER      = WASTEWATER_OPTIONS;

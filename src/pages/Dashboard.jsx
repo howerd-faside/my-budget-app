@@ -5,7 +5,7 @@ import {
 import { useFinance, useUndoDelete } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
 import { fmtMoneyRound, calcNetPay } from '../utils/finance/tax';
-import { toFortnightly } from '../utils/finance/frequency';
+import { toFortnightly, fnToAnnual } from '../utils/finance/frequency';
 import { EXPENSE_GROUPS } from '../utils/categories';
 import Icon from '../components/Icon';
 import { SectionHeader, StatTile, EmptyState, Card } from '../components/ui';
@@ -50,7 +50,7 @@ export default function Dashboard() {
     });
   }, [people]);
   const totalGrossAnnual = incomeRows.reduce((s, p) => s + (p._effectivePay?.grossAnnual || p.grossAnnual || 0), 0);
-  const totalNetAnnual   = fnIncomeNow * 26;
+  const totalNetAnnual   = fnToAnnual(fnIncomeNow);
   const avgTaxRate       = totalGrossAnnual > 0
     ? incomeRows.reduce((s, p) => s + (p._effectivePay?.taxAnnual || 0), 0) / totalGrossAnnual * 100
     : 0;

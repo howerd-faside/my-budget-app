@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { fmtMoneyRound } from '../../utils/finance/tax';
-import { toFortnightly } from '../../utils/finance/frequency';
+import { toFortnightly, fnToAnnual } from '../../utils/finance/frequency';
 import Icon from '../../components/Icon';
 import Portal from '../../components/Portal';
 import { SectionHeader, StatTile, EmptyState, Card } from '../../components/ui';
@@ -31,7 +31,7 @@ function AssetIncomeSection({
         {(assetIncomes || []).length > 0 && (
           <div className="fn-summary">
             <StatTile label="Asset Income /fn" value={fmtMoneyRound(totalAssetFn)} valueClassName="teal" />
-            <StatTile label="Annual"           value={fmtMoneyRound(totalAssetFn * 26)} />
+            <StatTile label="Annual"           value={fmtMoneyRound(fnToAnnual(totalAssetFn))} />
             <StatTile label="Sources"          value={(assetIncomes || []).length} />
           </div>
         )}
@@ -55,7 +55,7 @@ function AssetIncomeSection({
               </div>
               <div className="asset-detail">
                 <span className="text3">{fmtMoneyRound(+a.amount || 0)} {a.frequency}</span>
-                <span className="mono text3">{fmtMoneyRound(toFortnightly(a.amount, a.frequency) * 26)}/yr</span>
+                <span className="mono text3">{fmtMoneyRound(fnToAnnual(toFortnightly(a.amount, a.frequency)))}/yr</span>
               </div>
               {a.notes && <div className="asset-notes">{a.notes}</div>}
             </div>
@@ -117,7 +117,7 @@ function AssetIncomeSection({
               {assetForm.amount > 0 && (
                 <div className="calc-preview">
                   <span>Fortnightly: <strong className="teal">{fmtMoneyRound(toFortnightly(assetForm.amount, assetForm.frequency))}</strong></span>
-                  <span>Annual: <strong>{fmtMoneyRound(toFortnightly(assetForm.amount, assetForm.frequency) * 26)}</strong></span>
+                  <span>Annual: <strong>{fmtMoneyRound(fnToAnnual(toFortnightly(assetForm.amount, assetForm.frequency)))}</strong></span>
                 </div>
               )}
             </div>

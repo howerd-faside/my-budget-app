@@ -169,6 +169,8 @@ export function buildSavingsTrajectory(state: TrajectoryInput): TrajectoryPoint[
     }
   }
 
+  if (rows.length === 0) return [];
+
   let anchorIdx = rows.findIndex(r => now >= r.start && now <= r.end);
   if (anchorIdx < 0) {
     anchorIdx = rows.findIndex(r => r.start > now);

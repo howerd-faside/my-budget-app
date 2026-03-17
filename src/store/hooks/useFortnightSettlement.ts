@@ -56,7 +56,9 @@ function fnKey(fn: FortnightRef): number {
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export function useFortnightSettlement() {
-  const ran = useRef(false);
+  // Track the lastSettled key that was used for the most recent settlement,
+  // so we re-run if data is imported/reset (which changes lastSettled externally).
+  const settledKey = useRef<string | null>(null);
 
   // Pull state selectors individually to avoid unnecessary re-renders
   const lastSettled     = useFinanceStore(s => s.lastSettledFortnight);
@@ -68,18 +70,22 @@ export function useFortnightSettlement() {
   const expenses = usePeopleStore(s => s.expenses);
 
   useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
-
     const current = getCurrentFortnight();
     if (!current) return;
 
+    // Build a key from lastSettled to detect external changes (import/reset)
+    const lsKey = lastSettled ? `${lastSettled.year}:${lastSettled.idx}` : 'null';
+
+    // Skip if we already settled for this exact lastSettled value
+    if (settledKey.current === lsKey) return;
+
     // First time after upgrade: assume the user's balance was anchored at the
     // previous fortnight, so the first settlement covers one transition.
-    let anchor: FortnightRef = lastSettled ?? prevFn(current);
+    const anchor: FortnightRef = lastSettled ?? prevFn(current);
 
     // Nothing to settle — same or future fortnight
     if (fnKey(current) <= fnKey(anchor)) {
+      settledKey.current = lsKey;
       if (!lastSettled) settle(0, current);
       return;
     }
@@ -107,7 +113,7 @@ export function useFortnightSettlement() {
       fn = nextFn(fn);
     }
 
+    settledKey.current = lsKey;
     settle(settlement, current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [lastSettled, fortnightlyData, assetIncomes, people, expenses, settle]);
 }

@@ -3,6 +3,7 @@ import { calcFortnightlyIncomeAt, calcFortnightlyAssetIncome } from '../utils/fi
 import { useFinance, useUndoDelete } from '../store/hooks';
 import { usePeople }  from '../store/hooks';
 import { calcNetPay, fmtMoneyRound } from '../utils/finance/tax';
+import { fnToAnnual } from '../utils/finance/frequency';
 import { createPerson, createSecondaryIncome, createIncomeEvent, createEmploymentRole, createAssetIncome } from '../models/Person';
 import { getPersonDependents, cascadeDeletePerson, personDeleteMessage } from '../utils/cascade';
 import { validate, personSchema } from '../utils/validation';
@@ -169,7 +170,7 @@ export default function People() {
           />
           <div className="fn-summary">
             <StatTile label="Combined Net /fn" value={fmtMoneyRound(totalFortnightly)} valueClassName="teal" />
-            <StatTile label="Combined Annual"  value={fmtMoneyRound(totalFortnightly * 26)} />
+            <StatTile label="Combined Annual"  value={fmtMoneyRound(fnToAnnual(totalFortnightly))} />
             <StatTile label="Earners"          value={people.length} />
           </div>
         </Card>

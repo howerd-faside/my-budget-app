@@ -13,6 +13,16 @@ export function toFortnightly(amount: number | string, frequency: string): numbe
   return a;
 }
 
+/** Convert a fortnightly amount to its annual equivalent. */
+export function fnToAnnual(fortnightlyAmount: number): number {
+  return (+fortnightlyAmount || 0) * 26;
+}
+
+/** Convert a fortnightly amount to its monthly equivalent. */
+export function fnToMonthly(fortnightlyAmount: number): number {
+  return (+fortnightlyAmount || 0) * 26 / 12;
+}
+
 /**
  * Simple fortnightly interest charge on a loan facility.
  * Uses annual rate / 26 (not compound) — suitable for display/estimation.

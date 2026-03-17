@@ -6,13 +6,7 @@ import {
 import Icon from '../../components/Icon';
 import { SectionHeader, Card } from '../../components/ui';
 import { fmtMoney } from '../../utils/finance/tax';
-
-// ── Chart helpers (same formatting as FinancesOverview) ─────────────────────
-const DATE_FMT = new Intl.DateTimeFormat('en-NZ', { day: 'numeric', month: 'short' });
-function fmtDate(yyyyMmDd) {
-  const [y, m, d] = yyyyMmDd.split('-').map(Number);
-  return DATE_FMT.format(new Date(y, m - 1, d));
-}
+import { fmtChartDate } from '../../utils/format';
 
 function TrendTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -20,7 +14,7 @@ function TrendTooltip({ active, payload, label }) {
   const color = val >= 0 ? 'var(--green)' : 'var(--red)';
   return (
     <div className="chart-tt">
-      <div className="tt-date">{fmtDate(label)}</div>
+      <div className="tt-date">{fmtChartDate(label)}</div>
       <div className="tt-bal" style={{ color }}>{val < 0 ? '\u2212' : ''}{fmtMoney(Math.abs(val))}</div>
     </div>
   );
@@ -46,7 +40,7 @@ export default function HomeCashflowTrend({ points, hasData }) {
           <CartesianGrid strokeDasharray="2 2" stroke="rgba(0,0,0,0.06)" vertical={false} />
           <XAxis
             dataKey="date"
-            tickFormatter={fmtDate}
+            tickFormatter={fmtChartDate}
             tick={{ fill: '#86868B', fontSize: 9, fontFamily: 'var(--mono)' }}
             tickLine={false}
             axisLine={false}

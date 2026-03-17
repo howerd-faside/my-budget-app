@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import './utils/theme'; // init theme before first render
 import { totalBalance } from './utils/finance/savings';
 import { useFinance, useFortnightSettlement } from './store/hooks';
+import { fmtK } from './utils/format';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import FinancesOverview from './pages/FinancesOverview';
@@ -86,8 +87,7 @@ function Shell() {
   const accounts  = rawAccounts || [];
   const netWorth  = totalBalance(accounts);
 
-  const fmtShort = (n) =>
-    Math.abs(n) >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n).toLocaleString('en-NZ')}`;
+
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const goSection = (newSection) => {
@@ -195,7 +195,7 @@ function Shell() {
                     flex: Math.max(0.02, (a.balance || 0) / netWorth),
                     background: ACCOUNT_COLORS[a.id] || '#0071E3',
                   }}
-                  title={`${a.name}: ${fmtShort(a.balance)}`}
+                  title={`${a.name}: ${fmtK(a.balance)}`}
                 />
               ))}
             </div>
@@ -210,7 +210,7 @@ function Shell() {
                   <div className="sa-dot" style={{ background: color }} />
                   <span className="sa-name">{a.name}</span>
                   <div className="sa-right">
-                    <span className="sa-bal" style={{ color }}>{fmtShort(a.balance)}</span>
+                    <span className="sa-bal" style={{ color }}>{fmtK(a.balance)}</span>
                     <span className="sa-pct">{pct}%</span>
                   </div>
                 </div>

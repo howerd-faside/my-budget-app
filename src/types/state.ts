@@ -25,6 +25,8 @@ import type { Asset }                   from '../models/Asset';
 import type { InvestmentTransaction }   from '../models/InvestmentTransaction';
 import type { PriceEntry }              from '../models/PriceEntry';
 import type { FortnightlyData }         from '../models/FortnightlyData';
+import type { WatchlistItem as WLItem, WatchlistPrice } from '../models/WatchlistItem';
+import type { FortnightRef }            from '../store/financeStore';
 
 // ── Per-domain state slices ──────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ export interface FinanceState {
   goals: Goal[];
   assetIncomes: AssetIncome[];
   settings: { currentBalance: number };
+  lastSettledFortnight: FortnightRef | null;
 }
 
 export interface PeopleState {
@@ -58,6 +61,8 @@ export interface InvestmentState {
   investmentAssets: Asset[];
   investmentTransactions: InvestmentTransaction[];
   priceCache: PriceEntry[];
+  watchlist: WLItem[];
+  watchlistPrices: WatchlistPrice[];
 }
 
 // ── Composite state ──────────────────────────────────────────────────────────

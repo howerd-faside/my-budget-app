@@ -1,5 +1,5 @@
 import { fmtMoneyRound } from '../../utils/finance/tax';
-import { toFortnightly, annualInterestToFortnightly } from '../../utils/finance/frequency';
+import { toFortnightly, annualInterestToFortnightly, fnToAnnual, fnToMonthly } from '../../utils/finance/frequency';
 import { FREQUENCIES, PAYMENT_METHODS } from '../../models/Expense';
 import { EXPENSE_GROUPS } from '../../utils/categories';
 import Icon from '../../components/Icon';
@@ -304,8 +304,8 @@ export default function ExpenseModal({
           {previewFn > 0 && (
             <div className="calc-preview">
               <span>Fortnightly: <strong className="red">{fmtMoneyRound(previewFn)}</strong></span>
-              <span>Monthly: <strong>{fmtMoneyRound(previewFn * 26 / 12)}</strong></span>
-              <span>Annual: <strong>{fmtMoneyRound(previewFn * 26)}</strong></span>
+              <span>Monthly: <strong>{fmtMoneyRound(fnToMonthly(previewFn))}</strong></span>
+              <span>Annual: <strong>{fmtMoneyRound(fnToAnnual(previewFn))}</strong></span>
             </div>
           )}
         </div>
