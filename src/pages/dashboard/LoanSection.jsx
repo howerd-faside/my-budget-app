@@ -3,54 +3,28 @@ import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer,
 } from 'recharts';
-import { buildAmortSchedule, calcTotalInterest, calcRemainingTerm } from '../../utils/finance/mortgage';
+import { useMortgageFacilities, useAllLoanFacilities, useMortgageSummary, useMortgageAmortisation } from '../../store/hooks';
+import { calcTotalInterest, calcRemainingTerm, calcSimpleRemainingTerm } from '../../utils/finance/mortgage';
+import { toFortnightly } from '../../utils/finance/frequency';
 import { fmtMoneyRound } from '../../utils/finance/tax';
 import Icon from '../../components/Icon';
 import { SectionHeader, StatTile, Card } from '../../components/ui';
 import { RATE_COLORS } from '../../utils/colors';
 import { TOOLTIP_STYLE, fmtK } from '../../utils/format';
 
-export default function LoanSection({ loanExpenses, allFacilities }) {
-  const totalLoanBalance  = allFacilities.reduce((s, f) => s + (+f.balance || 0), 0);
-  const totalLoanPayment  = allFacilities.reduce((s, f) => s + (+f.amount || 0), 0);
-  const totalLoanInterest = useMemo(() =>
-    allFacilities.reduce((s, f) => s + calcTotalInterest(+f.balance, +f.rate, +f.amount), 0),
-    [allFacilities]);
+export default function LoanSection() {
+  // All facilities (including zero-rate/deferred) for totals display
+  const { loanExpenses, facilities: allFacilities, hasLoans } = useAllLoanFacilities();
+  // Rate > 0 facilities for amort charts
+  const { facilities: amortFacilities } = useMortgageFacilities();
+  const { totalBalance, repaymentFn, totalInterest, intPct, crossoverYear } = useMortgageSummary();
+  const { balanceData: balanceDeclineData, piData: piSplitData } = useMortgageAmortisation();
 
-  const facilitySchedules = useMemo(() =>
-    allFacilities.map(f => ({
-      fac: f,
-      color: RATE_COLORS[f.rateType] || RATE_COLORS.default,
-      data: buildAmortSchedule(+f.balance, +f.rate, +f.amount),
-    })), [allFacilities]);
+  // Total outstanding across ALL facilities (projected)
+  const allOutstanding = allFacilities.reduce((s, f) => s + ((f.currentBalance ?? +f.balance) || 0), 0);
+  const allRepayment   = allFacilities.reduce((s, f) => s + f.amountFn, 0);
 
-  const balanceDeclineData = useMemo(() => {
-    if (facilitySchedules.length === 0) return [];
-    const maxLen = Math.max(...facilitySchedules.map(s => s.data.length));
-    return Array.from({ length: maxLen }, (_, i) => {
-      const row = { year: i };
-      facilitySchedules.forEach((s, fi) => {
-        row[`f${fi}`] = i < s.data.length ? Math.round(s.data[i].balance) : 0;
-      });
-      row.total = facilitySchedules.reduce((sum, s, fi) => sum + (row[`f${fi}`] || 0), 0);
-      return row;
-    });
-  }, [facilitySchedules]);
-
-  const piSplitData = useMemo(() => {
-    if (facilitySchedules.length === 0) return [];
-    const maxLen = Math.max(...facilitySchedules.map(s => s.data.length));
-    return Array.from({ length: maxLen }, (_, i) => ({
-      year: i,
-      interest:  Math.round(facilitySchedules.reduce((sum, s) => sum + (i < s.data.length ? (s.data[i].annualInterest  || 0) : 0), 0)),
-      principal: Math.round(facilitySchedules.reduce((sum, s) => sum + (i < s.data.length ? (s.data[i].annualPrincipal || 0) : 0), 0)),
-    })).filter(d => d.year > 0);
-  }, [facilitySchedules]);
-
-  const crossoverYear = useMemo(() => {
-    const found = piSplitData.find(d => d.principal > d.interest);
-    return found?.year ?? null;
-  }, [piSplitData]);
+  if (!hasLoans) return null;
 
   return (
     <Card variant="section">
@@ -64,23 +38,21 @@ export default function LoanSection({ loanExpenses, allFacilities }) {
       />
 
       <div className="fn-summary">
-        <StatTile label="Total Outstanding" value={fmtMoneyRound(totalLoanBalance)} valueClassName="red" />
-        <StatTile label="Repayment /fn"     value={fmtMoneyRound(totalLoanPayment)} valueClassName="red" />
-        <StatTile label="Total Interest Left" value={fmtMoneyRound(totalLoanInterest)} valueClassName="amber" />
-        {totalLoanBalance > 0 && totalLoanInterest > 0 && (
-          <StatTile
-            label="Interest % of Repayments"
-            value={`${Math.round(totalLoanInterest / (totalLoanInterest + totalLoanBalance) * 100)}%`}
-            valueClassName="amber"
-          />
+        <StatTile label="Total Outstanding" value={fmtMoneyRound(allOutstanding)} valueClassName="red" />
+        <StatTile label="Repayment /fn"     value={fmtMoneyRound(allRepayment)} valueClassName="red" />
+        {totalInterest > 0 && (
+          <StatTile label="Total Interest Left" value={fmtMoneyRound(totalInterest)} valueClassName="amber" />
+        )}
+        {intPct > 0 && (
+          <StatTile label="Interest % of Repayments" value={`${intPct}%`} valueClassName="amber" />
         )}
         {crossoverYear !== null && (
           <StatTile label="Principal > Interest" value={`Year ${crossoverYear}`} valueClassName="green" />
         )}
       </div>
 
-      {/* Two-chart grid */}
-      {facilitySchedules.length > 0 && balanceDeclineData.length > 1 && (
+      {/* Two-chart grid — rate > 0 facilities only */}
+      {amortFacilities.length > 0 && balanceDeclineData.length > 1 && (
         <div className="loan-charts-grid">
 
           {/* Chart A: Balance Decline by Facility */}
@@ -98,39 +70,39 @@ export default function LoanSection({ loanExpenses, allFacilities }) {
                 <Tooltip
                   formatter={(val, name) => {
                     const fi = parseInt(name.replace('f', ''));
-                    const label = isNaN(fi) ? 'Total' : (facilitySchedules[fi]?.fac.label || facilitySchedules[fi]?.fac.rateType || `Facility ${fi + 1}`);
+                    const label = isNaN(fi) ? 'Total' : (amortFacilities[fi]?.label || amortFacilities[fi]?.rateType || `Facility ${fi + 1}`);
                     return [fmtMoneyRound(val), label];
                   }}
                   labelFormatter={v => `Year ${v}`}
                   contentStyle={TOOLTIP_STYLE}
                 />
                 <ReferenceLine
-                  y={Math.round(totalLoanBalance / 2)}
+                  y={Math.round(totalBalance / 2)}
                   stroke="rgba(0,113,227,0.25)"
                   strokeDasharray="4 2"
                   label={{ value: '50%', fill: 'rgba(0,113,227,0.5)', fontSize: 9, position: 'insideTopRight' }}
                 />
-                {facilitySchedules.length > 1 ? (
-                  facilitySchedules.map((s, fi) => (
+                {amortFacilities.length > 1 ? (
+                  amortFacilities.map((f, fi) => (
                     <Line key={fi} type="monotone" dataKey={`f${fi}`}
-                      stroke={s.color} strokeWidth={2} dot={false}
-                      name={s.fac.label || s.fac.rateType || `Facility ${fi + 1}`}
+                      stroke={RATE_COLORS[f.rateType] || RATE_COLORS.default} strokeWidth={2} dot={false}
+                      name={`f${fi}`}
                     />
                   ))
                 ) : (
                   <Line type="monotone" dataKey="f0"
-                    stroke={facilitySchedules[0].color} strokeWidth={2.5} dot={false}
-                    name={facilitySchedules[0].fac.label || 'Balance'}
+                    stroke={RATE_COLORS[amortFacilities[0]?.rateType] || RATE_COLORS.default} strokeWidth={2.5} dot={false}
+                    name="f0"
                   />
                 )}
               </LineChart>
             </ResponsiveContainer>
-            {facilitySchedules.length > 1 && (
+            {amortFacilities.length > 1 && (
               <div className="loan-legend">
-                {facilitySchedules.map((s, fi) => (
+                {amortFacilities.map((f, fi) => (
                   <div key={fi} className="loan-legend-item">
-                    <div className="loan-legend-dot" style={{ background: s.color }} />
-                    <span>{s.fac.label || s.fac.rateType || `Facility ${fi + 1}`} · {s.fac.rate}%</span>
+                    <div className="loan-legend-dot" style={{ background: RATE_COLORS[f.rateType] || RATE_COLORS.default }} />
+                    <span>{f.label || f.rateType || `Facility ${fi + 1}`} · {f.rate}%</span>
                   </div>
                 ))}
               </div>
@@ -189,13 +161,23 @@ export default function LoanSection({ loanExpenses, allFacilities }) {
       {/* Per-loan summary cards */}
       <div className="loan-summary-grid">
         {loanExpenses.map(loan => {
-          const facs = (loan.facilities || []).filter(f => (+f.balance || 0) > 0 || (+f.rate || 0) > 0);
-          const loanBal  = facs.reduce((s, f) => s + (+f.balance || 0), 0);
-          const loanPmt  = facs.reduce((s, f) => s + (+f.amount  || 0), 0);
-          const loanInt  = facs.reduce((s, f) => s + calcTotalInterest(+f.balance, +f.rate, +f.amount), 0);
-          const terms    = facs.map(f => calcRemainingTerm(+f.balance, +f.rate, +f.amount)).filter(Boolean);
+          const facs = allFacilities.filter(f => f.loanId === loan.id);
+          if (facs.length === 0) return null;
+          const loanBal  = facs.reduce((s, f) => s + ((f.currentBalance ?? +f.balance) || 0), 0);
+          const loanPmt  = facs.reduce((s, f) => s + f.amountFn, 0);
+          const loanInt  = facs.reduce((s, f) => {
+            const b = (f.currentBalance ?? +f.balance) || 0;
+            return s + ((+f.rate || 0) > 0 ? calcTotalInterest(b, +f.rate, f.amountFn) : 0);
+          }, 0);
+          const terms = facs.map(f => {
+            const b = (f.currentBalance ?? +f.balance) || 0;
+            const r = +f.rate || 0;
+            return r > 0
+              ? calcRemainingTerm(b, r, f.amountFn)
+              : calcSimpleRemainingTerm(b, f.amountFn);
+          }).filter(Boolean);
           const maxTerm  = terms.reduce((mx, t) => !mx || t.fortnights > mx.fortnights ? t : mx, null);
-          const intPct   = loanBal > 0 ? Math.round(loanInt / (loanInt + loanBal) * 100) : 0;
+          const loanIntPct = loanBal > 0 && loanInt > 0 ? Math.round(loanInt / (loanInt + loanBal) * 100) : 0;
 
           return (
             <div key={loan.id} className="loan-summary-card">
@@ -209,14 +191,18 @@ export default function LoanSection({ loanExpenses, allFacilities }) {
                   <span className="lsc-label">Outstanding</span>
                   <span className="mono red lsc-val">{fmtMoneyRound(loanBal)}</span>
                 </div>
-                <div className="lsc-stat">
-                  <span className="lsc-label">Repayment /fn</span>
-                  <span className="mono lsc-val">{fmtMoneyRound(loanPmt)}</span>
-                </div>
-                <div className="lsc-stat">
-                  <span className="lsc-label">Interest Left</span>
-                  <span className="mono amber lsc-val">{fmtMoneyRound(loanInt)}</span>
-                </div>
+                {loanPmt > 0 && (
+                  <div className="lsc-stat">
+                    <span className="lsc-label">Repayment /fn</span>
+                    <span className="mono lsc-val">{fmtMoneyRound(loanPmt)}</span>
+                  </div>
+                )}
+                {loanInt > 0 && (
+                  <div className="lsc-stat">
+                    <span className="lsc-label">Interest Left</span>
+                    <span className="mono amber lsc-val">{fmtMoneyRound(loanInt)}</span>
+                  </div>
+                )}
                 {maxTerm && (
                   <div className="lsc-stat">
                     <span className="lsc-label">Remaining Term</span>
@@ -225,10 +211,10 @@ export default function LoanSection({ loanExpenses, allFacilities }) {
                     </span>
                   </div>
                 )}
-                {intPct > 0 && (
+                {loanIntPct > 0 && (
                   <div className="lsc-stat">
                     <span className="lsc-label">Interest % of Total</span>
-                    <span className="mono amber lsc-val">{intPct}%</span>
+                    <span className="mono amber lsc-val">{loanIntPct}%</span>
                   </div>
                 )}
                 {maxTerm && (
@@ -242,14 +228,19 @@ export default function LoanSection({ loanExpenses, allFacilities }) {
               </div>
               {facs.length > 0 && (
                 <div className="lsc-facilities">
-                  {facs.map((f, fi) => (
-                    <div key={f.id || fi} className="lsc-fac">
-                      <span className={`fac-type-dot ${f.rateType}`} />
-                      <span className="lsc-fac-label">{f.label || f.rateType}</span>
-                      {f.rate > 0 && <span className="tag amber">{f.rate}%</span>}
-                      {f.balance > 0 && <span className="mono lsc-fac-bal">{fmtMoneyRound(+f.balance)}</span>}
-                    </div>
-                  ))}
+                  {facs.map((f, fi) => {
+                    const bal = (f.currentBalance ?? +f.balance) || 0;
+                    const isZeroRate = (+f.rate || 0) <= 0;
+                    return (
+                      <div key={f.id || fi} className="lsc-fac">
+                        <span className={`fac-type-dot ${isZeroRate ? 'interest-free' : f.rateType}`} />
+                        <span className="lsc-fac-label">{f.label || f.rateType}</span>
+                        {!isZeroRate && f.rate > 0 && <span className="tag amber">{f.rate}%</span>}
+                        {isZeroRate && <span className="tag green">Interest-free</span>}
+                        {bal > 0 && <span className="mono lsc-fac-bal">{fmtMoneyRound(bal)}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

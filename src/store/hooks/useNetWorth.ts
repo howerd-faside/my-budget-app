@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useFinance } from './useFinance';
 import { useInvestment } from './useInvestment';
 import { useProperty } from './useProperty';
-import { useMortgageFacilities } from './useMortgageFacilities';
+import { useAllLoanFacilities } from './useMortgageFacilities';
 import { totalBalance } from '../../utils/finance/savings';
 import { calcPortfolioOverview } from '../../utils/finance/portfolio';
 
@@ -32,7 +32,7 @@ export function useNetWorth(): NetWorth {
   const { accounts }                                            = useFinance();
   const { investmentAssets, investmentTransactions, priceCache } = useInvestment();
   const { properties }                                          = useProperty();
-  const { facilities }                                          = useMortgageFacilities();
+  const { facilities }                                          = useAllLoanFacilities();
 
   return useMemo(() => {
     const cash = totalBalance(accounts);
@@ -57,8 +57,8 @@ export function useNetWorth(): NetWorth {
       return sum + (typeof v === 'number' && v > 0 ? v : 0);
     }, 0);
 
-    // Outstanding loan balances
-    const liabilities = facilities.reduce((sum, f) => sum + (+f.balance || 0), 0);
+    // Outstanding loan balances (projected to today)
+    const liabilities = facilities.reduce((sum, f) => sum + ((f.currentBalance ?? +f.balance) || 0), 0);
 
     const netWorth = cash + investments + property - liabilities;
     const hasData  = cash > 0 || investments > 0 || property > 0 || liabilities > 0;

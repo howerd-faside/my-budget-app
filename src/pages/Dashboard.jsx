@@ -94,15 +94,7 @@ export default function Dashboard() {
 
   const currentBal = trajectory[todayIdx]?.balance ?? netWorth;
 
-  // ── Loans ─────────────────────────────────────────────────────────────────
-  const loanExpenses = useMemo(() => (expenses || []).filter(e => e.type === 'loan'), [expenses]);
-
-  const allFacilities = useMemo(() =>
-    loanExpenses.flatMap(loan =>
-      (loan.facilities || [])
-        .filter(f => (+f.balance || 0) > 0 && (+f.rate || 0) > 0 && (+f.amount || 0) > 0)
-        .map(f => ({ ...f, loanName: loan.name }))
-    ), [loanExpenses]);
+  // ── Loans (hook-driven — see LoanSection) ────────────────────────────────
 
   // ── Transfers ─────────────────────────────────────────────────────────────
   const recentTransfers = useMemo(() =>
@@ -207,8 +199,8 @@ export default function Dashboard() {
       )}
 
       {/* ── HOME LOANS ──────────────────────────────────────────────────── */}
-      {loanExpenses.length > 0 && (
-        <LoanSection loanExpenses={loanExpenses} allFacilities={allFacilities} />
+      {expenses.some(e => e.type === 'loan') && (
+        <LoanSection />
       )}
 
       {/* Empty state */}

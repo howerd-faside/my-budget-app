@@ -241,7 +241,7 @@ describe('useObligationsSnapshot', () => {
     expect(result.current.hasLoans).toBe(false);
   });
 
-  it('excludes facilities with rate=0', () => {
+  it('includes zero-rate (interest-free) facilities in total obligations', () => {
     const loanExpense = {
       id: 'loan1', type: 'loan',
       facilities: [{ id: 'f1', balance: 400000, rate: 0, amount: 1200, frequency: 'fortnightly' }],
@@ -249,7 +249,9 @@ describe('useObligationsSnapshot', () => {
     seedStores({ expenses: [loanExpense] });
 
     const { result } = renderHook(() => useObligationsSnapshot());
-    expect(result.current.hasLoans).toBe(false);
+    expect(result.current.hasLoans).toBe(true);
+    expect(result.current.totalBalance).toBe(400000);
+    expect(result.current.totalInterest).toBe(0);
   });
 
   it('totalBalance sums all facility balances', () => {
