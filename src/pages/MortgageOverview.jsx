@@ -8,8 +8,8 @@ export default function MortgageOverview() {
   return (
     <div className="content-wrap">
       <div className="page-content">
-        <PurchaseSummarySection />
         <CurrentPositionSection />
+        <PurchaseSummarySection />
         <AmortisationSection />
         <FacilitiesSection />
         <EarlyRepaymentSection />
