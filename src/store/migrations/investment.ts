@@ -23,7 +23,7 @@ import { normalizeInvestmentTransaction }  from '../../models/InvestmentTransact
 import { normalizePriceEntry }             from '../../models/PriceEntry';
 import type { MigrationStep } from '../budgetStorage';
 
-export const INVESTMENT_VERSION     = 7;
+export const INVESTMENT_VERSION     = 8;
 export const INVESTMENT_VERSION_KEY = '_investmentVersion';
 
 // ── v5 conversion helpers (exported for testing) ────────────────────────────
@@ -276,6 +276,41 @@ export const INVESTMENT_MIGRATIONS: MigrationStep[] = [
       slice.investments             = [];
       slice.investmentContributions = [];
       slice.investmentDividends     = [];
+      return slice;
+    },
+  },
+  {
+    toVersion:   8,
+    description: 'purge orphaned assets, transactions, and price cache entries',
+    migrate(slice: any) {
+      const portfolios = Array.isArray(slice.investmentPortfolios) ? slice.investmentPortfolios : [];
+      const portfolioIds = new Set(portfolios.map((p: any) => p.id));
+
+      // Remove assets not belonging to any existing portfolio
+      if (Array.isArray(slice.investmentAssets)) {
+        slice.investmentAssets = slice.investmentAssets.filter(
+          (a: any) => a.portfolioId && portfolioIds.has(a.portfolioId),
+        );
+      }
+
+      const assetIds = new Set(
+        (slice.investmentAssets || []).map((a: any) => a.id),
+      );
+
+      // Remove transactions pointing to non-existent assets
+      if (Array.isArray(slice.investmentTransactions)) {
+        slice.investmentTransactions = slice.investmentTransactions.filter(
+          (t: any) => t.assetId && assetIds.has(t.assetId),
+        );
+      }
+
+      // Remove price cache entries for non-existent assets
+      if (Array.isArray(slice.priceCache)) {
+        slice.priceCache = slice.priceCache.filter(
+          (p: any) => p.assetId && assetIds.has(p.assetId),
+        );
+      }
+
       return slice;
     },
   },

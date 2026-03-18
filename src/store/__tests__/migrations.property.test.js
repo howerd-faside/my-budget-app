@@ -43,12 +43,12 @@ describe('property migration v0 → v1', () => {
       expect(result.properties[0].insulation.ceiling).toBe('yes');
     });
 
-    it('sets valuation to null when missing', () => {
+    it('sets valuations to empty array when missing', () => {
       const slice = {
         properties: [{ id: 'p1', name: 'Home', type: 'Primary Home' }],
       };
       const result = migrateV1(slice);
-      expect(result.properties[0].valuation).toBeNull();
+      expect(result.properties[0].valuations).toEqual([]);
     });
 
     it('ensures areas is an array', () => {
@@ -217,7 +217,7 @@ describe('property migration v2 → v3', () => {
   });
 
   describe('valuation sub-object coercion', () => {
-    it('coerces string valuation numerics to numbers', () => {
+    it('converts legacy valuation to valuations array with coerced numerics', () => {
       const slice = {
         properties: [{
           id: 'p1', name: 'Home',
@@ -228,29 +228,31 @@ describe('property migration v2 → v3', () => {
         }],
       };
       const result = migrateV3(slice);
-      const val = result.properties[0].valuation;
-      expect(val.rv).toBe(850000);
-      expect(val.landValue).toBe(500000);
-      expect(val.improvementsValue).toBe(350000);
-      expect(val.estimatedValue).toBe(900000);
-      expect(val.valuationDate).toBe('2024-09-01');
-      expect(val.fetchedAt).toBe('2026-01-15T10:00:00Z');
+      const vals = result.properties[0].valuations;
+      expect(vals).toHaveLength(1);
+      expect(vals[0].rv).toBe(850000);
+      expect(vals[0].landValue).toBe(500000);
+      expect(vals[0].improvementsValue).toBe(350000);
+      expect(vals[0].estimatedValue).toBe(900000);
+      expect(vals[0].valuationDate).toBe('2024-09-01');
+      expect(vals[0].createdAt).toBe('2026-01-15T10:00:00Z');
+      expect(vals[0].id).toBeTruthy();
     });
 
-    it('preserves null valuation', () => {
+    it('preserves empty valuations when valuation is null', () => {
       const slice = {
         properties: [{ id: 'p1', name: 'Home', valuation: null }],
       };
       const result = migrateV3(slice);
-      expect(result.properties[0].valuation).toBeNull();
+      expect(result.properties[0].valuations).toEqual([]);
     });
 
-    it('normalizes missing valuation to null', () => {
+    it('normalizes missing valuation to empty valuations array', () => {
       const slice = {
         properties: [{ id: 'p1', name: 'Home' }],
       };
       const result = migrateV3(slice);
-      expect(result.properties[0].valuation).toBeNull();
+      expect(result.properties[0].valuations).toEqual([]);
     });
   });
 

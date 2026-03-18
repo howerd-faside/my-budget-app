@@ -42,12 +42,13 @@ export interface PropertyArea {
 }
 
 export interface PropertyValuation {
+  id: string;
   rv: number | null;
   landValue: number | null;
   improvementsValue: number | null;
   valuationDate: string;
   estimatedValue: number | null;
-  fetchedAt: string;
+  createdAt: string;
 }
 
 export interface Insulation {
@@ -75,7 +76,7 @@ export interface Property {
   wastewater: string;
   notes: string;
   areas: PropertyArea[];
-  valuation: PropertyValuation | null;
+  valuations: PropertyValuation[];
 }
 
 export function createPropertyArea(overrides: any = {}): PropertyArea {
@@ -102,14 +103,34 @@ export function createProperty(overrides: any = {}) {
     wastewater:       '',
     notes:            '',
     areas:            [],
-    valuation:        null,
+    valuations:       [],
     ...overrides,
+  };
+}
+
+function normalizeValuation(v: any): PropertyValuation {
+  return {
+    id:                v.id                ?? crypto.randomUUID(),
+    rv:                toNumOrNull(v.rv),
+    landValue:         toNumOrNull(v.landValue),
+    improvementsValue: toNumOrNull(v.improvementsValue),
+    valuationDate:     v.valuationDate     ?? '',
+    estimatedValue:    toNumOrNull(v.estimatedValue),
+    createdAt:         v.createdAt || v.fetchedAt || '',
   };
 }
 
 export function normalizeProperty(raw: any = {}): Property {
   const ins = raw.insulation ?? {};
-  const val = raw.valuation ?? null;
+
+  // Support both old `valuation` (single) and new `valuations` (array)
+  let valuations: PropertyValuation[] = [];
+  if (Array.isArray(raw.valuations)) {
+    valuations = raw.valuations.map(normalizeValuation);
+  } else if (raw.valuation) {
+    valuations = [normalizeValuation(raw.valuation)];
+  }
+
   return createProperty({
     id:               raw.id               ?? '',
     name:             raw.name             ?? '',
@@ -133,13 +154,6 @@ export function normalizeProperty(raw: any = {}): Property {
     wastewater:  raw.wastewater  ?? '',
     notes:       raw.notes       ?? '',
     areas:       (raw.areas ?? []).map((a: any) => createPropertyArea(a)),
-    valuation:   val ? {
-      rv:                toNumOrNull(val.rv),
-      landValue:         toNumOrNull(val.landValue),
-      improvementsValue: toNumOrNull(val.improvementsValue),
-      valuationDate:     val.valuationDate ?? '',
-      estimatedValue:    toNumOrNull(val.estimatedValue),
-      fetchedAt:         val.fetchedAt     ?? '',
-    } : null,
+    valuations,
   });
 }

@@ -13,7 +13,7 @@ import { normalizePropertyAsset }       from '../../models/PropertyAsset';
 import { normalizePropertyProject }     from '../../models/PropertyProject';
 import type { MigrationStep } from '../budgetStorage';
 
-export const PROPERTY_VERSION     = 3;
+export const PROPERTY_VERSION     = 4;
 export const PROPERTY_VERSION_KEY = '_propertyVersion';
 
 export const PROPERTY_MIGRATIONS: MigrationStep[] = [
@@ -71,6 +71,16 @@ export const PROPERTY_MIGRATIONS: MigrationStep[] = [
   {
     toVersion:   3,
     description: 'coerce property numeric fields and valuation sub-object to number | null',
+    migrate(slice: any) {
+      if (Array.isArray(slice.properties)) {
+        slice.properties = slice.properties.map(normalizeProperty);
+      }
+      return slice;
+    },
+  },
+  {
+    toVersion:   4,
+    description: 'convert single valuation to valuations array for historical tracking',
     migrate(slice: any) {
       if (Array.isArray(slice.properties)) {
         slice.properties = slice.properties.map(normalizeProperty);

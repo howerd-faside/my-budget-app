@@ -434,8 +434,8 @@ describe('useNetWorth', () => {
     });
     usePropertyStore.setState({
       properties: [
-        { id: 'p1', name: 'Home', valuation: { estimatedValue: 800000 } },
-        { id: 'p2', name: 'Bach', valuation: { estimatedValue: 350000 } },
+        { id: 'p1', name: 'Home', valuations: [{ id: 'v1', estimatedValue: 800000, valuationDate: '2025-01-01', createdAt: '' }] },
+        { id: 'p2', name: 'Bach', valuations: [{ id: 'v2', estimatedValue: 350000, valuationDate: '2025-01-01', createdAt: '' }] },
       ],
     });
 
@@ -444,13 +444,27 @@ describe('useNetWorth', () => {
     expect(result.current.netWorth).toBe(1155000);
   });
 
-  it('ignores properties without valuation', () => {
+  it('uses latest valuation by date', () => {
     usePropertyStore.setState({
       properties: [
-        { id: 'p1', name: 'Home' },   // no valuation
-        { id: 'p2', name: 'Bach', valuation: {} },  // empty valuation
-        { id: 'p3', name: 'Lot', valuation: { estimatedValue: 0 } },  // zero
-        { id: 'p4', name: 'Neg', valuation: { estimatedValue: -100 } },  // negative
+        { id: 'p1', name: 'Home', valuations: [
+          { id: 'v1', estimatedValue: 700000, valuationDate: '2024-01-01', createdAt: '' },
+          { id: 'v2', estimatedValue: 850000, valuationDate: '2025-06-01', createdAt: '' },
+        ] },
+      ],
+    });
+
+    const { result } = renderHook(() => useNetWorth());
+    expect(result.current.property).toBe(850000);
+  });
+
+  it('ignores properties without valuations', () => {
+    usePropertyStore.setState({
+      properties: [
+        { id: 'p1', name: 'Home' },   // no valuations
+        { id: 'p2', name: 'Bach', valuations: [] },  // empty array
+        { id: 'p3', name: 'Lot', valuations: [{ id: 'v1', estimatedValue: 0, valuationDate: '', createdAt: '' }] },  // zero
+        { id: 'p4', name: 'Neg', valuations: [{ id: 'v2', estimatedValue: -100, valuationDate: '', createdAt: '' }] },  // negative
       ],
     });
 

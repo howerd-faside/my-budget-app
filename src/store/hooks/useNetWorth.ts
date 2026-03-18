@@ -46,9 +46,14 @@ export function useNetWorth(): NetWorth {
       investments = calcPortfolioOverview(allAssets, allTxns, allPrices).totalValue;
     }
 
-    // Property valuations (only where web lookup has provided one)
+    // Property valuations — use the latest entry from each property's valuations array
     const property = (properties || []).reduce((sum, p) => {
-      const v = p.valuation?.estimatedValue;
+      const vals = p.valuations || [];
+      if (vals.length === 0) return sum;
+      const latest = vals.reduce((a, b) =>
+        (a.valuationDate || a.createdAt || '') >= (b.valuationDate || b.createdAt || '') ? a : b
+      );
+      const v = latest.estimatedValue;
       return sum + (typeof v === 'number' && v > 0 ? v : 0);
     }, 0);
 

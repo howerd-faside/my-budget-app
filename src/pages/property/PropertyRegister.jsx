@@ -56,6 +56,10 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setInsul = (k, v) => setForm(f => ({ ...f, insulation: { ...f.insulation, [k]: v } }));
 
+  const EMPTY_VALUATION = { rv: null, landValue: null, improvementsValue: null, estimatedValue: null, valuationDate: '', createdAt: '' };
+  const [valForm, setValForm] = useState(EMPTY_VALUATION);
+  const setValField = (k, v) => setValForm(f => ({ ...f, [k]: v }));
+
   const openNew = () => {
     setForm({ ...EMPTY_PROP, id: crypto.randomUUID(), areas: [] });
     setErrors({}); setEditingId('new'); setModalTab('profile');
@@ -192,7 +196,7 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
             </div>
 
             <div className="prop-modal-tabs">
-              {[['profile', 'Profile'], ['details', 'Building Details'], ['areas', 'Areas']].map(([id, label]) => (
+              {[['profile', 'Profile'], ['details', 'Building Details'], ['valuation', 'Valuation'], ['areas', 'Areas']].map(([id, label]) => (
                 <button key={id} className={`pmt-btn ${modalTab === id ? 'active' : ''}`} onClick={() => setModalTab(id)}>{label}</button>
               ))}
             </div>
@@ -295,6 +299,76 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
                       ))}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {modalTab === 'valuation' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>RV / CV ($)</label>
+                      <input className="input" type="number" min="0" placeholder="e.g. 850000" value={valForm.rv ?? ''} onChange={e => setValField('rv', e.target.value === '' ? null : Number(e.target.value))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Estimated Value ($)</label>
+                      <input className="input" type="number" min="0" placeholder="e.g. 920000" value={valForm.estimatedValue ?? ''} onChange={e => setValField('estimatedValue', e.target.value === '' ? null : Number(e.target.value))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Land Value ($)</label>
+                      <input className="input" type="number" min="0" placeholder="e.g. 500000" value={valForm.landValue ?? ''} onChange={e => setValField('landValue', e.target.value === '' ? null : Number(e.target.value))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Improvements Value ($)</label>
+                      <input className="input" type="number" min="0" placeholder="e.g. 350000" value={valForm.improvementsValue ?? ''} onChange={e => setValField('improvementsValue', e.target.value === '' ? null : Number(e.target.value))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Valuation Date</label>
+                      <input className="input" type="date" value={valForm.valuationDate} onChange={e => setValField('valuationDate', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <button className="btn-primary small" onClick={() => {
+                        const hasValues = valForm.rv || valForm.estimatedValue || valForm.landValue || valForm.improvementsValue;
+                        if (!hasValues) return;
+                        const entry = { ...valForm, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+                        setForm(f => ({ ...f, valuations: [...(f.valuations || []), entry] }));
+                        setValForm(EMPTY_VALUATION);
+                      }}>Add Valuation</button>
+                    </div>
+                    <div className="form-group full">
+                      <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, margin: 0 }}>
+                        The most recent Estimated Value is used in the Net Worth calculation. You can find your RV/CV on your council's rating information page. Add a new entry each time your valuation changes to build a history.
+                      </p>
+                    </div>
+                  </div>
+                  {(form.valuations || []).length > 0 && (
+                    <>
+                      <div className="section-subheader"><span>Valuation History</span></div>
+                      <div className="fn-list">
+                        {[...(form.valuations || [])].sort((a, b) => (b.valuationDate || b.createdAt || '').localeCompare(a.valuationDate || a.createdAt || '')).map(v => (
+                          <div key={v.id} className="fn-row">
+                            <div className="fn-main" style={{ cursor: 'default' }}>
+                              <div className="fn-left">
+                                <div className="fn-label">{v.valuationDate || 'No date'}</div>
+                                <div className="fn-sub">
+                                  {[
+                                    v.rv && `RV ${fmtMoney(v.rv)}`,
+                                    v.landValue && `Land ${fmtMoney(v.landValue)}`,
+                                    v.improvementsValue && `Impr. ${fmtMoney(v.improvementsValue)}`,
+                                  ].filter(Boolean).join(' · ') || '—'}
+                                </div>
+                              </div>
+                              <div className="fn-right">
+                                <span className="mono" style={{ fontSize: 14 }}>{fmtMoney(v.estimatedValue) || '—'}</span>
+                                <button className="btn-icon small danger" onClick={() => setForm(f => ({ ...f, valuations: f.valuations.filter(x => x.id !== v.id) }))} aria-label="Remove valuation">
+                                  <Icon name="close" size={10} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -430,6 +504,48 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
             </div>
           </Card>
 
+          {/* ── Valuation strip ──────────────────────────────────────────── */}
+          <Card variant="section">
+            <SectionHeader
+              title={<><Icon name="bank" size={15} /> Valuation</>}
+              subtitle={(() => {
+                const vals = selProp.valuations || [];
+                if (vals.length === 0) return undefined;
+                const latest = vals.reduce((a, b) => (a.valuationDate || a.createdAt || '') >= (b.valuationDate || b.createdAt || '') ? a : b);
+                return latest.valuationDate ? `As at ${latest.valuationDate}` : undefined;
+              })()}
+              actions={
+                <button className="btn-ghost small" onClick={() => { openEdit(selProp); setModalTab('valuation'); }}>
+                  <Icon name="pencil" size={12} /> {(selProp.valuations || []).length > 0 ? 'Edit' : 'Add Valuation'}
+                </button>
+              }
+            />
+            {(selProp.valuations || []).length > 0 ? (
+              (() => {
+                const vals = selProp.valuations;
+                const latest = vals.reduce((a, b) => (a.valuationDate || a.createdAt || '') >= (b.valuationDate || b.createdAt || '') ? a : b);
+                const tiles = [
+                  ['RV / CV',      latest.rv],
+                  ['Estimate',     latest.estimatedValue],
+                  ['Land Value',   latest.landValue],
+                  ['Improvements', latest.improvementsValue],
+                ].filter(([, v]) => v);
+                return (
+                  <div className="fn-summary">
+                    {tiles.map(([label, value]) => (
+                      <StatTile key={label} label={label} value={fmtMoney(value)} />
+                    ))}
+                    {vals.length > 1 && (
+                      <StatTile label="History" value={`${vals.length} records`} valueClassName="text3" />
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--text3)', margin: 0 }}>No valuation recorded. Add your council RV or estimated market value.</p>
+            )}
+          </Card>
+
           {/* ── Tier 3: Two-column detail grid ──────────────────────────── */}
           <div className="dash-grid">
 
@@ -557,7 +673,7 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
               </Card>
             </div>
 
-            {/* Right — Status + Quick Actions + Valuation */}
+            {/* Right — Status + Quick Actions */}
             <div className="dash-col-4" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
               <Card variant="section">
@@ -601,31 +717,6 @@ export default function PropertyRegister({ openNewTrigger = 0, onOpenNewHandled 
                   </button>
                 </div>
               </Card>
-
-              {selProp.valuation && (
-                <Card variant="section">
-                  <SectionHeader
-                    title="Valuation"
-                    subtitle={selProp.valuation.fetchedAt ? `Updated ${selProp.valuation.fetchedAt}` : undefined}
-                  />
-                  <div className="exp-detail-grid">
-                    {[
-                      ['RV / CV',      selProp.valuation.rv],
-                      ['Estimate',     selProp.valuation.estimatedValue],
-                      ['Land Value',   selProp.valuation.landValue],
-                      ['Improvements', selProp.valuation.improvementsValue],
-                    ].filter(([, v]) => v).map(([label, value]) => (
-                      <div key={label} className="edg-item">
-                        <span className="edg-label">{label}</span>
-                        <span className="edg-val mono">{fmtMoney(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {selProp.valuation.valuationDate && (
-                    <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>Valuation date: {selProp.valuation.valuationDate}</div>
-                  )}
-                </Card>
-              )}
             </div>
           </div>
         </>
