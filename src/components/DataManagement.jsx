@@ -43,6 +43,9 @@ export default function DataManagement() {
     setFileError(null);
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      setFileError('Failed to read file. Please try again.');
+    };
     reader.onload = (ev) => {
       let parsed;
       try {

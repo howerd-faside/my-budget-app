@@ -9,6 +9,7 @@ export interface ObligationItem {
   label:     string;
   detail?:   string;
   severity:  'info' | 'warn' | 'urgent';
+  target?:   { section: string; tab: string };
 }
 
 export interface UpcomingObligations {
@@ -46,6 +47,7 @@ export function useUpcomingObligations(): UpcomingObligations {
         label:    `${f.loanName} — ${f.label} fixed rate expires`,
         detail:   d <= 30 ? `${d}d` : `~${Math.round(d / 30)}mo`,
         severity: d <= 30 ? 'urgent' : d <= 90 ? 'warn' : 'info',
+        target:   { section: 'finances', tab: 'mortgage' },
       });
     }
 
@@ -61,6 +63,7 @@ export function useUpcomingObligations(): UpcomingObligations {
               label:    `${person.name} — ${ev.label} starts`,
               detail:   `${d}d`,
               severity: d <= 14 ? 'warn' : 'info',
+              target:   { section: 'finances', tab: 'income' },
             });
           }
         }
@@ -73,6 +76,7 @@ export function useUpcomingObligations(): UpcomingObligations {
               label:    `${person.name} — ${ev.label} ends`,
               detail:   `${d}d`,
               severity: d <= 14 ? 'warn' : 'info',
+              target:   { section: 'finances', tab: 'income' },
             });
           }
         }
@@ -90,6 +94,7 @@ export function useUpcomingObligations(): UpcomingObligations {
           label:    `${exp.name} expires`,
           detail:   `${d}d`,
           severity: d <= 14 ? 'warn' : 'info',
+          target:   { section: 'finances', tab: 'expenses' },
         });
       }
     }

@@ -8,6 +8,7 @@ export interface PropertyAlertItem {
   label:    string;
   detail?:  string;
   severity: 'info' | 'warn' | 'urgent';
+  target?:  { section: string; tab: string };
 }
 
 export interface PropertyAlerts {
@@ -43,6 +44,7 @@ export function usePropertyAlerts(): PropertyAlerts {
         icon:     'clipboard',
         label:    `${overdue.length} overdue property task${overdue.length !== 1 ? 's' : ''}`,
         severity: 'urgent',
+        target:   { section: 'property', tab: 'prop-tasks' },
       });
     }
 
@@ -56,6 +58,7 @@ export function usePropertyAlerts(): PropertyAlerts {
         icon:     'clipboard',
         label:    `${urgentNotOverdue.length} urgent property task${urgentNotOverdue.length !== 1 ? 's' : ''}`,
         severity: 'warn',
+        target:   { section: 'property', tab: 'prop-tasks' },
       });
     }
 
@@ -70,6 +73,7 @@ export function usePropertyAlerts(): PropertyAlerts {
         icon:     'wrench',
         label:    `${poorAssets.length} asset${poorAssets.length !== 1 ? 's' : ''} in poor/critical condition`,
         severity: hasCritical ? 'urgent' : 'warn',
+        target:   { section: 'property', tab: 'prop-assets' },
       });
     }
 
@@ -85,6 +89,7 @@ export function usePropertyAlerts(): PropertyAlerts {
         icon:     'shield',
         label:    `${warrantyExpiring.length} warranty${warrantyExpiring.length !== 1 ? ' expiries' : ' expiry'} within 90 days`,
         severity: 'warn',
+        target:   { section: 'property', tab: 'prop-assets' },
       });
     }
 
@@ -98,6 +103,7 @@ export function usePropertyAlerts(): PropertyAlerts {
         icon:     'layers',
         label:    `${activeProjects.length} active property project${activeProjects.length !== 1 ? 's' : ''}`,
         severity: 'info',
+        target:   { section: 'property', tab: 'prop-projects' },
       });
     }
 

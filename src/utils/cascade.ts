@@ -173,18 +173,15 @@ export function cascadeDeletePortfolio(
   portfolioId: string,
 ) {
   const remaining = arr(state.investmentPortfolios).filter(p => p.id !== portfolioId);
+  const deletedAssetIds = new Set(arr(state.investmentAssets).filter(a => a.portfolioId === portfolioId).map(a => a.id));
   return {
     investmentPortfolios: remaining,
     investmentAssets:        arr(state.investmentAssets).filter(a => a.portfolioId !== portfolioId),
     investmentTransactions:  arr(state.investmentTransactions).filter(t => t.portfolioId !== portfolioId),
-    priceCache:              arr(state.priceCache).filter(p => {
-      // Remove price entries for assets that belong to the deleted portfolio
-      const assetIds = new Set(arr(state.investmentAssets).filter(a => a.portfolioId === portfolioId).map(a => a.id));
-      return !assetIds.has(p.assetId);
-    }),
+    priceCache:              arr(state.priceCache).filter(p => !deletedAssetIds.has(p.assetId)),
     selectedPortfolioId:
       state.selectedPortfolioId === portfolioId
-        ? (remaining.length > 0 ? remaining[remaining.length - 1].id : null)
+        ? (remaining[0]?.id ?? null)
         : state.selectedPortfolioId,
   };
 }

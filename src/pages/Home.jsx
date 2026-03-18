@@ -103,7 +103,7 @@ export default function Home({ navigateTo }) {
 
       {/* 1–2. Quick Actions then Alerts (stacked) */}
       <HomeQuickActions navigateTo={navigateTo} hasProperties={propAlerts.hasProperties} />
-      <HomeAlerts items={alertItems} hasAnyData={hasAnyData} />
+      <HomeAlerts items={alertItems} hasAnyData={hasAnyData} navigateTo={navigateTo} />
 
       {/* 3. Net Worth */}
       <HomeNetWorth

@@ -153,6 +153,7 @@ function AssetModal({ asset, onSave, onClose }) {
 export default function InvestmentAssets() {
   const {
     investmentAssets, investmentTransactions, priceCache,
+    selectedPortfolioId,
     setInvestment, mergeInvestment,
   } = useInvestment();
   const { assets, enrichedAssets, prices } = usePortfolioAnalytics();
@@ -227,7 +228,7 @@ export default function InvestmentAssets() {
       const q = search.toLowerCase();
       list = list.filter(ea =>
         ea.asset.name.toLowerCase().includes(q) ||
-        ea.asset.ticker.toLowerCase().includes(q)
+        (ea.asset.ticker || '').toLowerCase().includes(q)
       );
     }
     return list;
@@ -244,11 +245,10 @@ export default function InvestmentAssets() {
       // Update
       setInvestment('investmentAssets', allAssets.map(a => a.id === form.id ? { ...form } : a));
     } else {
-      // Create
-      const pid = assets.length > 0 ? assets[0].portfolioId : '';
+      // Create — assign to the currently-selected portfolio
       setInvestment('investmentAssets', [
         ...allAssets,
-        { ...form, id: crypto.randomUUID(), portfolioId: pid, createdAt: today() },
+        { ...form, id: crypto.randomUUID(), portfolioId: selectedPortfolioId, createdAt: today() },
       ]);
     }
     setShowModal(false);

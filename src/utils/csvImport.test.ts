@@ -124,6 +124,34 @@ describe('normaliseDate', () => {
   it('trims whitespace', () => {
     expect(normaliseDate('  2026-01-01  ')).toBe('2026-01-01');
   });
+
+  it('rejects ISO date with invalid month (month 13)', () => {
+    expect(normaliseDate('2025-13-01')).toBeNull();
+  });
+
+  it('rejects ISO date with invalid day (Feb 30)', () => {
+    expect(normaliseDate('2025-02-30')).toBeNull();
+  });
+
+  it('rejects ISO date with day 32', () => {
+    expect(normaliseDate('2025-01-32')).toBeNull();
+  });
+
+  it('rejects DD/MM/YYYY with invalid day (32/01/2025)', () => {
+    expect(normaliseDate('32/01/2025')).toBeNull();
+  });
+
+  it('rejects DD/MM/YYYY with invalid month (15/13/2025)', () => {
+    expect(normaliseDate('15/13/2025')).toBeNull();
+  });
+
+  it('accepts valid leap day (Feb 29 in leap year)', () => {
+    expect(normaliseDate('2024-02-29')).toBe('2024-02-29');
+  });
+
+  it('rejects Feb 29 in non-leap year', () => {
+    expect(normaliseDate('2025-02-29')).toBeNull();
+  });
 });
 
 // ── cleanNumber ──────────────────────────────────────────────────────────────

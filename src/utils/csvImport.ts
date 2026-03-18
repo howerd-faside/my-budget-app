@@ -179,8 +179,13 @@ export function normaliseDate(raw: string): string | null {
   if (!raw) return null;
   const s = raw.trim();
 
-  // Already ISO
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Already ISO — validate that month/day are in range via round-trip
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-').map(Number);
+    const check = new Date(y, m - 1, d);
+    if (check.getFullYear() !== y || check.getMonth() !== m - 1 || check.getDate() !== d) return null;
+    return s;
+  }
 
   // DD/MM/YYYY or DD-MM-YYYY (NZ convention)
   const slashMatch = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
@@ -188,10 +193,18 @@ export function normaliseDate(raw: string): string | null {
     const [, a, b, y] = slashMatch;
     const day = a.padStart(2, '0');
     const month = b.padStart(2, '0');
-    // NZ convention: DD/MM/YYYY
-    if (+month <= 12) return `${y}-${month}-${day}`;
+    // NZ convention: DD/MM/YYYY — validate via local Date round-trip
+    if (+month <= 12) {
+      const check = new Date(+y, +month - 1, +day);
+      if (check.getFullYear() === +y && check.getMonth() === +month - 1 && check.getDate() === +day)
+        return `${y}-${month}-${day}`;
+    }
     // Fallback: maybe MM/DD/YYYY
-    if (+day <= 12) return `${y}-${day}-${month}`;
+    if (+day <= 12) {
+      const check = new Date(+y, +day - 1, +month);
+      if (check.getFullYear() === +y && check.getMonth() === +day - 1 && check.getDate() === +month)
+        return `${y}-${day.padStart(2, '0')}-${month.padStart(2, '0')}`;
+    }
     return null;
   }
 

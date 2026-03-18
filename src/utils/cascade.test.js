@@ -493,7 +493,15 @@ describe('cascadeDeletePortfolio', () => {
       selectedPortfolioId:  'port1',
     });
     const result = cascadeDeletePortfolio(state, 'port1');
-    // cascadeDeletePortfolio selects the last remaining portfolio
+    expect(result.selectedPortfolioId).toBe('port2');
+  });
+
+  it('selects first remaining portfolio (not last) when deleting the selected one', () => {
+    const state = makeState({
+      investmentPortfolios: [{ id: 'port1' }, { id: 'port2' }, { id: 'port3' }],
+      selectedPortfolioId:  'port1',
+    });
+    const result = cascadeDeletePortfolio(state, 'port1');
     expect(result.selectedPortfolioId).toBe('port2');
   });
 
