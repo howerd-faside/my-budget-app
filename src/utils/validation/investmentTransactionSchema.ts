@@ -35,12 +35,12 @@ export const investmentTransactionSchema = z.object({
   date: z.string().min(1, 'Date is required'),
   type: z.enum(INV_TX_TYPES),
   assetId: z.string(),
-  units: z.union([z.string(), z.number()]).optional(),
-  price: z.union([z.string(), z.number()]).optional(),
-  amount: z.union([z.string(), z.number()]).optional(),
-  fee: nonNegativeNum.optional(),
-  grossAmount: z.union([z.string(), z.number()]).optional(),
-  taxAmount: z.union([z.string(), z.number()]).optional(),
+  units: z.union([z.string(), z.number()]).nullable().optional(),
+  price: z.union([z.string(), z.number()]).nullable().optional(),
+  amount: z.union([z.string(), z.number()]).nullable().optional(),
+  fee: nonNegativeNum.nullable().optional(),
+  grossAmount: z.union([z.string(), z.number()]).nullable().optional(),
+  taxAmount: z.union([z.string(), z.number()]).nullable().optional(),
 }).superRefine((data, ctx) => {
   const type = data.type;
 
