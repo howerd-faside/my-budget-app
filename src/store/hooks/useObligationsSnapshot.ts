@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMortgageFacilities } from './useMortgageFacilities';
+import { useAllLoanFacilities } from './useMortgageFacilities';
 import { calcObligationMetrics } from '../../utils/finance/loanFacilities';
 
 export type { ObligationMetrics } from '../../utils/finance/loanFacilities';
@@ -9,11 +9,11 @@ export type ObligationsSnapshot = import('../../utils/finance/loanFacilities').O
 /**
  * Derived hook — summary of all outstanding mortgage/loan obligations.
  *
- * Delegates facility extraction to useMortgageFacilities (shared memo)
- * and aggregate maths to calcObligationMetrics (shared utility).
+ * Uses ALL facilities (including zero-rate / interest-free) for the
+ * complete debt picture on the home dashboard.
  */
 export function useObligationsSnapshot(): ObligationsSnapshot {
-  const { facilities } = useMortgageFacilities();
+  const { facilities } = useAllLoanFacilities();
 
   return useMemo(() => calcObligationMetrics(facilities), [facilities]);
 }

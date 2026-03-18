@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useMortgageFacilities } from '../../store/hooks';
-import { calcRemainingTerm, calcTotalInterest } from '../../utils/finance/mortgage';
+import { useAllLoanFacilities } from '../../store/hooks';
+import { calcRemainingTerm, calcTotalInterest, calcSimpleRemainingTerm } from '../../utils/finance/mortgage';
 import Icon from '../Icon';
 import { SectionHeader, StatTile, Card } from '../ui';
 import { fmtMoney } from '../../utils/finance/tax';
@@ -8,36 +8,47 @@ import { fmtMoney } from '../../utils/finance/tax';
 // ── Per-facility stat card ───────────────────────────────────────────────────
 
 function FacilityCard({ facility }) {
-  const b  = +facility.balance || 0;
+  const b  = (facility.currentBalance ?? +facility.balance) || 0;
   const r  = +facility.rate    || 0;
   const fn = facility.amountFn || 0;
+  const isZeroRate = r <= 0;
 
-  const term     = useMemo(() => calcRemainingTerm(b, r, fn), [b, r, fn]);
-  const interest = useMemo(() => calcTotalInterest(b, r, fn), [b, r, fn]);
+  const term = useMemo(
+    () => isZeroRate ? calcSimpleRemainingTerm(b, fn) : calcRemainingTerm(b, r, fn),
+    [b, r, fn, isZeroRate],
+  );
+  const interest = useMemo(
+    () => isZeroRate ? 0 : calcTotalInterest(b, r, fn),
+    [b, r, fn, isZeroRate],
+  );
 
   return (
     <div className="mfac-card">
       <div className="mfac-header">
-        <span className={`fac-type-dot ${facility.rateType}`} />
+        <span className={`fac-type-dot ${isZeroRate ? 'interest-free' : facility.rateType}`} />
         <span className="mfac-label">
           {facility.label || facility.rateType || 'Facility'}
         </span>
-        {facility.repaymentType && (
+        {isZeroRate ? (
+          <span className="tag green">Interest-free</span>
+        ) : facility.repaymentType ? (
           <span className="tag">{facility.repaymentType}</span>
-        )}
+        ) : null}
       </div>
 
       <div className="mfac-stats">
         <div className="mfac-stat">
           <span className="mfac-stat-label">Rate Type</span>
           <div className="mfac-stat-val" style={{ textTransform: 'capitalize' }}>
-            {facility.rateType || '—'}
+            {isZeroRate ? 'Interest-free' : (facility.rateType || '—')}
           </div>
         </div>
-        <div className="mfac-stat">
-          <span className="mfac-stat-label">Interest Rate</span>
-          <div className="mfac-stat-val">{r > 0 ? `${r}%` : '—'}</div>
-        </div>
+        {!isZeroRate && (
+          <div className="mfac-stat">
+            <span className="mfac-stat-label">Interest Rate</span>
+            <div className="mfac-stat-val">{r}%</div>
+          </div>
+        )}
         {b > 0 && (
           <div className="mfac-stat">
             <span className="mfac-stat-label">Outstanding</span>
@@ -70,7 +81,7 @@ function FacilityCard({ facility }) {
 // ── Section ──────────────────────────────────────────────────────────────────
 
 export default function FacilitiesSection() {
-  const { loanExpenses, facilities, hasLoans } = useMortgageFacilities();
+  const { loanExpenses, facilities, hasLoans } = useAllLoanFacilities();
 
   if (!hasLoans) return null; // CurrentPositionSection handles the empty state
 
@@ -84,13 +95,19 @@ export default function FacilitiesSection() {
       <SectionHeader title={<><Icon name="building" size={15} /> Facilities</>} />
 
       {loanGroups.map(({ loan, facilities: loanFacilities }) => {
-        const loanBal = loanFacilities.reduce((s, f) => s + (+f.balance || 0), 0);
+        const loanBal = loanFacilities.reduce((s, f) => s + ((f.currentBalance ?? +f.balance) || 0), 0);
         const loanPmt = loanFacilities.reduce((s, f) => s + f.amountFn, 0);
         const loanInt = loanFacilities.reduce(
-          (s, f) => s + calcTotalInterest(+f.balance, +f.rate, f.amountFn), 0
+          (s, f) => s + calcTotalInterest((f.currentBalance ?? +f.balance) || 0, +f.rate, f.amountFn), 0
         );
         const terms   = loanFacilities
-          .map(f => calcRemainingTerm(+f.balance, +f.rate, f.amountFn))
+          .map(f => {
+            const bal = (f.currentBalance ?? +f.balance) || 0;
+            const r = +f.rate || 0;
+            return r > 0
+              ? calcRemainingTerm(bal, r, f.amountFn)
+              : calcSimpleRemainingTerm(bal, f.amountFn);
+          })
           .filter(Boolean);
         const maxTerm = terms.reduce(
           (mx, t) => !mx || t.fortnights > mx.fortnights ? t : mx, null

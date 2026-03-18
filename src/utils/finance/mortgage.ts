@@ -6,10 +6,78 @@ function effectiveFnRate(annualRatePct: number): number {
   return Math.pow(1 + annualRatePct / 100, 1 / 26) - 1;
 }
 
+/**
+ * Project a facility balance forward from a recorded date to today.
+ *
+ * For rate > 0: simulates fortnightly payments using daily interest accrual
+ * (annual_rate / 365 * days_in_period) — matches NZ bank conventions.
+ * For rate = 0: simple subtraction (balance - payment * fortnights).
+ *
+ * Returns the projected remaining balance (floored at 0).
+ */
+export function projectBalance(
+  balance: number,
+  annualRatePct: number,
+  fnPayment: number,
+  balanceDate: string,
+  asOfDate?: string,
+): number {
+  const b = +balance || 0;
+  const p = +fnPayment || 0;
+  if (b <= 0 || p <= 0 || !balanceDate) return b;
+
+  // Normalise both dates to midnight for clean day arithmetic
+  const from = new Date(balanceDate + 'T00:00:00');
+  const to   = asOfDate
+    ? new Date(asOfDate + 'T00:00:00')
+    : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+
+  const daysDiff = Math.round((to.getTime() - from.getTime()) / 86400000);
+  if (daysDiff <= 0) return b;
+
+  const fnElapsed = Math.floor(daysDiff / 14);
+  if (fnElapsed <= 0) return b;
+
+  const rate = +annualRatePct || 0;
+
+  // Zero-rate: simple subtraction
+  if (rate <= 0) {
+    return Math.max(0, b - p * fnElapsed);
+  }
+
+  // Daily interest accrual (NZ bank convention): rate / 365 * 14 days per fortnight
+  const dailyRate = rate / 100 / 365;
+  let remaining = b;
+  for (let i = 0; i < fnElapsed; i++) {
+    const interest = remaining * dailyRate * 14;
+    const principal = Math.min(p - interest, remaining);
+    if (principal <= 0) break; // payment doesn't cover interest
+    remaining -= principal;
+    if (remaining <= 0.01) return 0;
+  }
+  return Math.max(0, Math.round(remaining * 100) / 100);
+}
+
 export interface RemainingTerm {
   fortnights: number;
   years: number;
   months: number;
+}
+
+/**
+ * Simple remaining term for zero-rate (interest-free) facilities.
+ * Just balance / fortnightly payment.
+ */
+export function calcSimpleRemainingTerm(balance: number, fnPayment: number): RemainingTerm | null {
+  const b = +balance || 0;
+  const p = +fnPayment || 0;
+  if (b <= 0 || p <= 0) return null;
+
+  const fortnights = Math.ceil(b / p);
+  const months = Math.round(fortnights / 26 * 12);
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  return { fortnights, years, months: remMonths };
 }
 
 /**

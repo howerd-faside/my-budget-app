@@ -37,7 +37,7 @@ export const loanExpenseSchema = z.object({
         amount: z
           .union([z.string(), z.number()])
           .transform(v => Number(v))
-          .pipe(z.number().positive('Repayment must be greater than 0')),
+          .pipe(z.number().min(0, 'Repayment cannot be negative')),
       }),
       { error: 'Add at least one loan split' }
     )

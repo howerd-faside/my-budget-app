@@ -212,6 +212,34 @@ export default function ExpenseModal({
                 </div>
               </div>
 
+              {/* Purchase context — Mortgage only */}
+              {form.category === 'Mortgage' && (
+                <div className="form-grid" style={{ marginTop: 8 }}>
+                  <div className="form-group full">
+                    <span className="form-section-label">Purchase Context</span>
+                  </div>
+                  <div className="form-group">
+                    <label>Purchase Price ($)</label>
+                    <input className="input mono" type="number" step="1000" placeholder="e.g. 950000" value={form.purchasePrice}
+                      onChange={e => setForm(f => ({ ...f, purchasePrice: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Deposit ($)</label>
+                    <input className="input mono" type="number" step="1000" placeholder="e.g. 190000" value={form.deposit}
+                      onChange={e => setForm(f => ({ ...f, deposit: e.target.value }))} />
+                  </div>
+                  {+form.purchasePrice > 0 && +form.deposit > 0 && (
+                    <div className="form-group">
+                      <label>Deposit %</label>
+                      <div className="input fac-calc-preview">
+                        <span className="teal">{(+form.deposit / +form.purchasePrice * 100).toFixed(1)}%</span>
+                        <span className="text3"> · borrowed {fmtMoneyRound(+form.purchasePrice - +form.deposit)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Facilities */}
               <div className="facilities-section">
                 <div className="fac-section-header">
@@ -248,6 +276,11 @@ export default function ExpenseModal({
                             onChange={e => updateFacility(fac.id, 'balance', e.target.value)} />
                         </div>
                         <div className="form-group">
+                          <label>Balance As Of</label>
+                          <input className="input" type="date" value={fac.balanceDate || ''}
+                            onChange={e => updateFacility(fac.id, 'balanceDate', e.target.value)} />
+                        </div>
+                        <div className="form-group">
                           <label>Interest Rate (% p.a.)</label>
                           <input className="input mono" type="number" step="0.01" placeholder="6.85" value={fac.rate}
                             onChange={e => updateFacility(fac.id, 'rate', e.target.value)} />
@@ -277,9 +310,16 @@ export default function ExpenseModal({
                           </div>
                         )}
                         <div className="form-group">
-                          <label>Fortnightly Repayment ($)</label>
-                          <input className="input mono" type="number" step="0.01" placeholder="0.00" value={fac.amount}
+                          <label>Repayment Amount ($)</label>
+                          <input className="input mono" type="number" step="0.01" min="0" placeholder="0.00" value={fac.amount}
                             onChange={e => updateFacility(fac.id, 'amount', e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                          <label>Repayment Frequency</label>
+                          <select className="input" value={fac.frequency || 'fortnightly'}
+                            onChange={e => updateFacility(fac.id, 'frequency', e.target.value)}>
+                            {FREQUENCIES.map(fr => <option key={fr}>{fr}</option>)}
+                          </select>
                         </div>
                         {fac.balance && fac.rate && (
                           <div className="form-group">

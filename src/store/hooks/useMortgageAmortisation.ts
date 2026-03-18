@@ -36,7 +36,7 @@ export function useMortgageAmortisation(): MortgageAmortisationReturn {
 
     // ── Build one schedule per facility ────────────────────────────────────
     const schedules = facilities.map(f =>
-      buildAmortSchedule(+f.balance, +f.rate, f.amountFn)
+      buildAmortSchedule((f.currentBalance ?? +f.balance) || 0, +f.rate, f.amountFn)
     );
 
     const maxLen = Math.max(...schedules.map(s => s.length), 0);

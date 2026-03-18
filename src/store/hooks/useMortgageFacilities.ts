@@ -20,3 +20,15 @@ export function useMortgageFacilities(): MortgageFacilitiesReturn {
 
   return useMemo(() => getLoanFacilities(expenses), [expenses]);
 }
+
+/**
+ * Derived hook — ALL loan facilities including zero-rate (interest-free) ones.
+ *
+ * Use this for the full debt picture (CurrentPosition, Facilities display).
+ * Amortisation/early-repayment should still use useMortgageFacilities (rate > 0 only).
+ */
+export function useAllLoanFacilities(): MortgageFacilitiesReturn {
+  const { expenses } = usePeople();
+
+  return useMemo(() => getLoanFacilities(expenses, { requireRate: false, requireAmount: false }), [expenses]);
+}

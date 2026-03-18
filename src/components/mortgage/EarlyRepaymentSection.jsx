@@ -25,7 +25,7 @@ export default function EarlyRepaymentSection() {
   const { payoffYear } = useMortgageSummary();
 
   const extraAmt     = Math.max(0, +extra || 0);
-  const totalBalance = facilities.reduce((s, f) => s + (+f.balance || 0), 0);
+  const totalBalance = facilities.reduce((s, f) => s + ((f.currentBalance ?? +f.balance) || 0), 0);
 
   const result = useMemo(() => {
     if (!hasLoans || extraAmt <= 0 || totalBalance <= 0) return null;
@@ -35,7 +35,7 @@ export default function EarlyRepaymentSection() {
     let newMaxFortnights     = 0;
 
     for (const f of facilities) {
-      const b  = +f.balance  || 0;
+      const b  = (f.currentBalance ?? +f.balance) || 0;
       const r  = +f.rate     || 0;
       const fn = f.amountFn  || 0;
 

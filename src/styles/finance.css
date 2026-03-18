@@ -254,7 +254,8 @@
 }
 .fac-type-dot.fixed     { background: var(--amber); }
 .fac-type-dot.floating  { background: var(--green); }
-.fac-type-dot.revolving { background: var(--purple); }
+.fac-type-dot.revolving     { background: var(--purple); }
+.fac-type-dot.interest-free { background: var(--teal); }
 .fac-info    { flex: 1; min-width: 0; }
 .fac-label   { display: block; font-size: 12px; font-weight: 600; color: var(--text); }
 .fac-meta    { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

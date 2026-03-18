@@ -19,7 +19,7 @@ export { useMoneyFlow }         from './useMoneyFlow';
 export { useCashflowTrend }         from './useCashflowTrend';
 export { useObligationsSnapshot }   from './useObligationsSnapshot';
 export { useSavingsPosition }       from './useSavingsPosition';
-export { useMortgageFacilities }    from './useMortgageFacilities';
+export { useMortgageFacilities, useAllLoanFacilities } from './useMortgageFacilities';
 export { useMortgageSummary }       from './useMortgageSummary';
 export { useMortgageAmortisation }  from './useMortgageAmortisation';
 export { usePortfolioAnalytics }   from './usePortfolioAnalytics';

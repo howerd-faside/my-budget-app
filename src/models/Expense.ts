@@ -49,6 +49,8 @@ export interface Facility {
   id: string;
   label: string;
   balance: number;
+  /** ISO date (YYYY-MM-DD) the balance was recorded — enables auto-projection */
+  balanceDate: string;
   rate: number;
   rateType: RateType;
   repaymentType: RepaymentType;
@@ -74,6 +76,10 @@ export interface Expense {
   startDate: string;
   endDate: string;
   forPerson: string;
+  /** Purchase price — only for type='loan', category='Mortgage' */
+  purchasePrice: number;
+  /** Deposit amount — only for type='loan', category='Mortgage' */
+  deposit: number;
 }
 
 // ── Factories (form defaults — numeric fields intentionally '' for input binding) ──
@@ -83,6 +89,7 @@ export function createFacility(overrides: any = {}) {
     id:              '',
     label:           '',
     balance:         '',
+    balanceDate:     '',
     rate:            '',
     rateType:        'fixed',
     repaymentType:   'P&I',
@@ -111,6 +118,8 @@ export function createExpense(overrides: any = {}) {
     startDate:     '',
     endDate:       '',
     forPerson:     '',
+    purchasePrice: '',
+    deposit:       '',
     ...overrides,
   };
 }
@@ -122,6 +131,7 @@ export function normalizeFacility(raw: any = {}): Facility {
     id:              raw.id              ?? '',
     label:           raw.label           ?? '',
     balance:         toNum(raw.balance),
+    balanceDate:     raw.balanceDate     ?? '',
     rate:            toNum(raw.rate),
     rateType:        raw.rateType        ?? 'fixed',
     repaymentType:   raw.repaymentType   ?? 'P&I',
@@ -157,5 +167,7 @@ export function normalizeExpense(raw: any = {}): Expense {
     startDate:     raw.startDate     ?? '',
     endDate:       raw.endDate       ?? '',
     forPerson:     raw.forPerson     ?? '',
+    purchasePrice: toNum(raw.purchasePrice),
+    deposit:       toNum(raw.deposit),
   });
 }
