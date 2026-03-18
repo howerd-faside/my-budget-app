@@ -9,7 +9,7 @@
 .home-compact .dash-section .fn-summary { margin-bottom: 4px; }
 .home-compact .dash-section .fn-summary:last-child { margin-bottom: 0; }
 .home-compact .fn-summary { gap: 6px; }
-.home-compact .fns-item { padding: 8px 10px; gap: 2px; border-radius: 10px; }
+.home-compact .fns-item { border-radius: 10px; }
 .home-compact .section-subheader { margin: 8px 0 4px; }
 .home-compact .empty-state { padding: 20px 14px; }
 .home-compact .dash-goal-row { padding: 10px 14px; gap: 10px; }
