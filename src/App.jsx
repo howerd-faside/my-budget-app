@@ -29,7 +29,7 @@ import PropertyStrip from './components/property/PropertyStrip';
 import Home from './pages/Home';
 import Settings from './pages/Settings';
 import Icon from './components/Icon';
-import fasideLogo from './assets/faside-logo.png';
+import appLogo from './assets/abacus.png';
 import { NavigationProvider } from './contexts/NavigationContext';
 import './App.css';
 
@@ -158,8 +158,7 @@ function Shell() {
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img src={fasideLogo} alt="Fa'Side" className="sidebar-logo" />
-          <div className="sidebar-brand-name">Fa'Side</div>
+          <img src={appLogo} alt="FaSide" className="sidebar-logo" />
         </div>
 
         <nav className="sidebar-nav">

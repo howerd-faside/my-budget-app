@@ -1,16 +1,60 @@
-# React + Vite
+# FaSide
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal budget and finance management desktop app for NZ households, built with React and Tauri.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Income tracking** -- multi-person household income with NZ tax, ACC, KiwiSaver, and student loan calculations
+- **Expense management** -- recurring expenses grouped by category, normalised to fortnightly
+- **Savings trajectory** -- forward/backward projection anchored to live account balances
+- **Financial tracking** -- ad-hoc income/expense logging per fortnight with balance sparkline
+- **Wishlist** -- purchase planning with AI timing suggestions
+- **Property portfolio** -- property register, tasks, maintenance log, improvement projects, asset register
+- **Investment portfolio** -- multi-portfolio holdings, contributions, dividends, performance charts, tax summary
+- **Live prices** -- stock prices via Yahoo Finance, crypto via CoinGecko/Binance (no API keys needed)
+- **Backup/restore** -- export and import full app state as JSON
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer       | Technology                                  |
+|-------------|---------------------------------------------|
+| Desktop     | Tauri 2                                     |
+| UI          | React 19 + Vite 7                           |
+| State       | Zustand 5 with custom persistence layer     |
+| Persistence | localStorage (`budget_v1`)                  |
+| Charts      | Recharts 3                                  |
+| Validation  | Zod 4                                       |
+| Testing     | Vitest + jsdom + Testing Library            |
+| HTTP        | @tauri-apps/plugin-http (production), Vite proxy (dev) |
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+# Install dependencies
+npm install
+
+# Run in browser (dev mode, with Vite proxy for Yahoo Finance)
+npm run dev
+
+# Run as desktop app (Tauri dev mode)
+npm run tauri:dev
+
+# Build desktop app
+npm run tauri:build
+
+# Run tests
+npm test
+```
+
+## Project Structure
+
+```
+src/              React frontend
+src-tauri/        Tauri (Rust) backend
+src/store/        Zustand domain stores (finance, people, property, investment)
+src/pages/        Feature pages (one per tab)
+src/utils/        Finance calculations, price service, validation
+src/models/       Plain-object shape constructors
+```
+
+All state is stored locally -- no server, no accounts, no telemetry.

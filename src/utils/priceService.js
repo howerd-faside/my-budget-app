@@ -1,19 +1,41 @@
 /**
  * Price service — no API keys required.
- * Stocks / ETFs / etc. → Yahoo Finance (via Vite dev proxy)
- * Crypto               → CoinGecko public API
+ * Stocks / ETFs / etc. → Yahoo Finance
+ * Crypto               → CoinGecko / Binance public APIs
+ *
+ * In Tauri (production): uses @tauri-apps/plugin-http (system-level fetch, no CORS).
+ * In browser (dev):      uses Vite dev proxy (/api/yahoo → query1.finance.yahoo.com).
  */
 import { withRetry } from './retry';
 import { today } from './finance/dates';
+
+const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+let tauriFetch;
+if (IS_TAURI) {
+  import('@tauri-apps/plugin-http').then(m => { tauriFetch = m.fetch; });
+}
+
+/** Use Tauri system fetch when available, otherwise browser fetch. */
+function httpFetch(url, opts) {
+  return (tauriFetch || fetch)(url, opts);
+}
+
+/** Build Yahoo URL — full URL for Tauri, proxied path for dev server. */
+function yahooUrl(path) {
+  return IS_TAURI
+    ? `https://query1.finance.yahoo.com${path}`
+    : `/api/yahoo${path}`;
+}
 
 const CRYPTO_CATEGORIES = new Set(['Crypto']);
 
 // ── Current price ────────────────────────────────────────────────────────────
 
 async function fetchStockPrice(ticker) {
-  const url = `/api/yahoo/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m`;
+  const url = yahooUrl(`/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m`);
   return withRetry(async () => {
-    const res = await fetch(url);
+    const res = await httpFetch(url);
     if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
     const data = await res.json();
     const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
@@ -27,9 +49,9 @@ async function fetchStockPrice(ticker) {
  * or throws on failure. Used by the Discovery quick-quote feature.
  */
 export async function fetchQuote(ticker) {
-  const url = `/api/yahoo/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m`;
+  const url = yahooUrl(`/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m`);
   return withRetry(async () => {
-    const res = await fetch(url);
+    const res = await httpFetch(url);
     if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
     const data = await res.json();
     const meta = data?.chart?.result?.[0]?.meta;
@@ -48,7 +70,7 @@ async function fetchCryptoPricesBatch(tickers) {
   const searches = await Promise.allSettled(
     tickers.map(async (ticker) => {
       const { coins } = await withRetry(async () => {
-        const res = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(ticker)}`);
+        const res = await httpFetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(ticker)}`);
         if (!res.ok) throw new Error(`Search HTTP ${res.status}`);
         return res.json();
       });
@@ -71,7 +93,7 @@ async function fetchCryptoPricesBatch(tickers) {
   let priceData;
   try {
     priceData = await withRetry(async () => {
-      const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+      const priceRes = await httpFetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
       if (!priceRes.ok) throw new Error(`Price HTTP ${priceRes.status}`);
       return priceRes.json();
     });
@@ -122,9 +144,9 @@ export async function refreshAllPrices(holdings) {
 // ── Historical prices ─────────────────────────────────────────────────────────
 
 async function fetchStockHistory(ticker) {
-  const url = `/api/yahoo/v8/finance/chart/${encodeURIComponent(ticker)}?range=2y&interval=1d`;
+  const url = yahooUrl(`/v8/finance/chart/${encodeURIComponent(ticker)}?range=2y&interval=1d`);
   return withRetry(async () => {
-    const res = await fetch(url);
+    const res = await httpFetch(url);
     if (!res.ok) throw new Error(`Yahoo HTTP ${res.status}`);
     const data = await res.json();
     const result = data?.chart?.result?.[0];
@@ -150,7 +172,7 @@ async function fetchCryptoHistory(ticker) {
   const symbol = `${ticker.toUpperCase()}USDT`;
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=730`;
   return withRetry(async () => {
-    const res = await fetch(url);
+    const res = await httpFetch(url);
     if (!res.ok) throw new Error(`Binance HTTP ${res.status} for ${symbol}`);
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) throw new Error(`No Binance data for ${symbol}`);

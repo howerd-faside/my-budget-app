@@ -1,6 +1,6 @@
-# Fa'Side Budget App — Technical Architecture
+# FaSide Budget App — Technical Architecture
 
-> Generated 2026-03-12. Describes the system as it stands at `master`.
+> Updated 2026-03-24. Describes the system as it stands at `master`.
 
 ---
 
@@ -27,25 +27,35 @@
 
 ## 1. System Overview
 
-Fa'Side is a personal finance management SPA for NZ households. It tracks income, expenses, savings trajectory, property portfolio, and investment portfolio. There is no backend — all state is stored in the browser's `localStorage`. The UI is built with React 19 + Vite. State management uses Zustand v5 with a custom persistence layer that supports independent, versioned schema migrations per domain.
+FaSide is a personal finance management desktop app for NZ households, built with Tauri 2. It tracks income, expenses, savings trajectory, property portfolio, and investment portfolio. All state is stored locally in `localStorage` — no server, no accounts, no telemetry. The UI is built with React 19 + Vite 7. State management uses Zustand v5 with a custom persistence layer that supports independent, versioned schema migrations per domain.
 
 **Tech stack**
 
 | Layer | Technology |
 |---|---|
-| UI | React 19.2 + Vite 6 |
+| Desktop | Tauri 2 (Rust backend, WebView frontend) |
+| UI | React 19 + Vite 7 |
 | State | Zustand 5.0 with `persist` middleware |
 | Persistence | localStorage (single key `budget_v1`) |
 | Charts | Recharts 3.7 |
 | Validation | Zod 4.3 |
+| HTTP | @tauri-apps/plugin-http (production), Vite proxy (dev) |
 | Testing | Vitest + jsdom + Testing Library |
-| AI features | Anthropic API (wishlist timing, property web lookup) |
 
 ---
 
 ## 2. Repository Layout
 
 ```
+src-tauri/
+├── src/
+│   ├── main.rs               — Windows subsystem entry point
+│   └── lib.rs                — Tauri builder (plugins: http, log)
+├── capabilities/default.json — Permissions (core, http allow-list)
+├── icons/                    — App icons for all platforms
+├── Cargo.toml                — Rust dependencies
+└── tauri.conf.json           — Tauri config (window, build, bundle)
+
 src/
 ├── App.jsx                   — Root layout: sidebar, tab bar, page mounting
 ├── main.jsx                  — React entry point
@@ -100,7 +110,7 @@ src/
     ├── categories.js         — Shared expense groups/categories (10 groups, 48 cats)
     ├── tax.js                — NZ tax / ACC / KiwiSaver (legacy; use finance/tax.js)
     ├── mortgage.js           — Amortisation math (legacy; use finance/mortgage.js)
-    ├── priceService.js       — Yahoo Finance proxy for live prices
+    ├── priceService.js       — Live prices (Yahoo Finance, CoinGecko, Binance) via Tauri HTTP plugin
     ├── retry.js              — Exponential back-off helper
     ├── finance/
     │   ├── dates.js          — Monday-aligned fortnight helpers
@@ -541,7 +551,7 @@ Schemas are colocated in `utils/validation/` and imported by the relevant page c
 ```
 App.jsx
 ├── Sidebar
-│   ├── Brand (logo + "Fa'Side")
+│   ├── Brand (logo)
 │   ├── Home  (no sub-tabs → Dashboard.jsx)
 │   ├── Finances  [collapsible]
 │   │   └── Tabs: Overview · Tracking · Income · Expenses · Mortgage · Wishlist
@@ -763,7 +773,7 @@ These root-level files were previously described as superseded, but audit confir
 ### Persistence flow (boot)
 
 ```
-Browser loads app
+Tauri launches WebView (or browser loads dev server)
         │
         ▼
 React renders App.jsx

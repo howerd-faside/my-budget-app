@@ -47,9 +47,9 @@ export default function Home({ navigateTo }) {
   const obligations = useObligationsSnapshot();
 
   // ── Investments ───────────────────────────────────────────────────────────
-  const { investmentPortfolios } = useInvestment();
+  const { investmentPortfolios, investmentAssets } = useInvestment();
   const { overview, assets } = usePortfolioAnalytics();
-  const hasInvestments = (investmentPortfolios || []).length > 0 && assets.length > 0;
+  const hasInvestments = (investmentPortfolios || []).length > 0 && (investmentAssets || []).length > 0;
 
   // ── Wishlist ──────────────────────────────────────────────────────────────
   const wl = useWishlistSummary();
